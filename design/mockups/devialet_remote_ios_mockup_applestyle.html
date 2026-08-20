@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Devialet Expert Pro Remote — iOS Mockup (Apple-native variant)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e0e10;
+    --page:#08080a;
+    --surface:#1a1a1d;
+    --surface-2:#222225;
+    --surface-3:#2a2a2e;
+    --copper:#c17f4e;
+    --copper-bright:#e3a06a;
+    --copper-dim:#8a5c39;
+    --text:#f2f0ec;
+    --text-dim:#9a9a9f;
+    --text-faint:#5c5c60;
+    --divider:rgba(255,255,255,0.07);
+    --danger:#b5544a;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+    /* iOS system font stack — this is the one deliberate platform swap.
+       Everything else (copper/graphite palette, Space Grotesk for display,
+       JetBrains Mono for numerics) is carried over unchanged from the
+       Android app so the two feel like the same product. */
+    --font-body:-apple-system,'SF Pro Text',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--page);}
+  body{
+    font-family:var(--font-body);
+    color:var(--text);
+    display:flex;
+    justify-content:center;
+    padding:40px 16px;
+    min-height:100vh;
+  }
+  .phone{
+    width:390px;
+    max-width:100%;
+    background:linear-gradient(180deg,var(--bg) 0%, #101012 100%);
+    border-radius:54px;
+    border:1px solid rgba(255,255,255,0.06);
+    box-shadow:0 40px 80px -20px rgba(0,0,0,0.7), 0 0 0 8px #050506;
+    overflow:hidden;
+    position:relative;
+    min-height:800px;
+  }
+  /* Dynamic Island, not an Android-style notch cutout */
+  .island{
+    width:112px;height:34px;background:#000;border-radius:20px;
+    margin:14px auto 0; position:relative; z-index:5;
+  }
+  .status-bar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:6px 30px 0; font-family:var(--font-body); font-size:13px;
+    font-weight:600; color:var(--copper-bright); letter-spacing:0.01em;
+  }
+  .content{
+    padding:4px 20px 26px;
+  }
+
+  /* Nav header — iOS large-title convention instead of the Android
+     wordmark-over-title stack */
+  .nav-header{padding:14px 2px 18px;}
+  .nav-eyebrow{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:12px;
+    letter-spacing:0.2em;
+    color:var(--copper-bright);
+    text-transform:uppercase;
+    margin:0 0 2px;
+  }
+  .nav-title{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:30px;
+    margin:0;
+    letter-spacing:-0.015em;
+  }
+
+  /* Device selector */
+  .device-card{
+    background:var(--surface);
+    border:1px solid var(--divider);
+    border-radius:18px;
+    padding:14px 16px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    cursor:pointer;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), opacity .15s ease;
+  }
+  .device-card:active{transform:scale(0.97); opacity:0.85;}
+  .device-dot{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--copper-bright);
+    box-shadow:0 0 8px 2px rgba(227,160,106,0.55);
+    flex-shrink:0;
+  }
+  .device-dot.none{
+    background:transparent; box-shadow:none;
+    border:1.5px dashed var(--text-faint);
+  }
+  .device-info{flex:1; min-width:0;}
+  .device-info.dim{opacity:0.5;}
+  .device-name{font-size:15px; font-weight:600; margin:0 0 2px;}
+  .device-sub{font-size:12.5px; color:var(--text-dim); margin:0; font-family:var(--font-mono); letter-spacing:0.01em;}
+  .device-chevron{color:var(--text-faint); font-size:14px;}
+
+  .section-label{
+    font-family:var(--font-display);
+    font-size:11px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    margin:26px 0 12px 2px;
+    font-weight:600;
+  }
+  .section-label.first{margin-top:22px;}
+
+  .disabled-overlay{opacity:0.4; pointer-events:none;}
+
+  /* Volume dial */
+  .dial-wrap{
+    display:flex; flex-direction:column; align-items:center;
+    padding:8px 0 4px;
+  }
+  .dial{position:relative; width:220px; height:220px;}
+  .dial-center{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .dial-value{
+    font-family:var(--font-mono);
+    font-size:34px;
+    font-weight:500;
+    letter-spacing:-0.01em;
+    color:var(--copper-bright);
+    font-variant-numeric:tabular-nums;
+    text-shadow:0 0 18px rgba(227,160,106,0.35);
+  }
+  .dial-unit{font-family:var(--font-mono); font-size:12px; color:var(--text-dim); margin-top:2px; letter-spacing:0.05em;}
+  .dial-label{
+    font-family:var(--font-display); font-size:10.5px; letter-spacing:0.2em;
+    color:var(--text-faint); margin-top:8px; text-transform:uppercase;
+  }
+  .vol-buttons{display:flex; justify-content:space-between; width:100%; margin-top:18px; gap:14px;}
+  .vol-btn{
+    flex:1; background:var(--surface); border:1px solid var(--divider); border-radius:16px;
+    height:54px; display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-size:20px; font-weight:600; color:var(--text);
+    cursor:pointer; user-select:none;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), background .15s ease;
+  }
+  .vol-btn:active{background:var(--surface-2); transform:scale(0.94);}
+
+  /* Action row */
+  .action-row{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:22px;}
+  .action-btn{
+    background:var(--surface); border:1px solid var(--divider); border-radius:16px; height:52px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    font-size:13.5px; font-weight:600; letter-spacing:0.02em; cursor:pointer;
+    font-family:var(--font-body);
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), background .15s ease;
+  }
+  .action-btn:active{background:var(--surface-2); transform:scale(0.96);}
+  .action-btn.power-off{color:var(--danger);}
+  .icon{width:16px; height:16px; flex-shrink:0;}
+
+  /* Source trigger */
+  .source-trigger{
+    background:var(--surface); border:1px solid var(--divider); border-radius:16px;
+    padding:14px 16px; display:flex; align-items:center; gap:12px; cursor:pointer;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), opacity .15s ease;
+  }
+  .source-trigger:active{transform:scale(0.98); opacity:0.85;}
+  .source-trigger.dim{opacity:0.5;}
+  .source-icon{
+    width:34px; height:34px; border-radius:10px; background:var(--surface-3);
+    display:flex; align-items:center; justify-content:center; color:var(--copper-bright); flex-shrink:0; font-size:16px;
+  }
+  .source-current{flex:1;}
+  .source-current-label{font-size:12px; color:var(--text-faint); font-family:var(--font-mono); letter-spacing:0.04em; margin:0 0 2px;}
+  .source-current-name{font-size:15px; font-weight:600; margin:0; font-family:var(--font-body);}
+  .chevron-r{color:var(--text-faint); font-size:15px;}
+
+  .footer-note{
+    text-align:center; margin-top:22px; font-size:11px; color:var(--text-faint);
+    font-family:var(--font-mono); letter-spacing:0.02em;
+  }
+
+  /* Home indicator, not the Android gesture pill */
+  .home-indicator{
+    width:134px; height:5px; border-radius:999px; background:rgba(255,255,255,0.35);
+    margin:18px auto 8px;
+  }
+
+  /* ---- iOS-style bottom sheet (frosted glass + spring motion) ---- */
+  .sheet-overlay{
+    position:absolute; inset:0; background:rgba(0,0,0,0); pointer-events:none;
+    -webkit-backdrop-filter:blur(0px); backdrop-filter:blur(0px);
+    transition:background .3s ease, -webkit-backdrop-filter .3s ease, backdrop-filter .3s ease;
+    z-index:50; display:flex; align-items:flex-end;
+  }
+  .sheet-overlay.open{
+    background:rgba(8,8,10,0.42); pointer-events:auto;
+    -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+  }
+  .sheet-panel{
+    width:100%;
+    background:rgba(23,23,26,0.78);
+    -webkit-backdrop-filter:blur(28px) saturate(160%);
+    backdrop-filter:blur(28px) saturate(160%);
+    border-top:1px solid rgba(255,255,255,0.1);
+    border-radius:20px 20px 0 0;
+    box-shadow:0 -12px 40px rgba(0,0,0,0.5);
+    transform:translateY(100%);
+    transition:transform .46s cubic-bezier(.34,1.42,.4,1);
+    padding:10px 18px 20px;
+    max-height:72%;
+    display:flex; flex-direction:column;
+  }
+  .sheet-overlay.open .sheet-panel{transform:translateY(0);}
+  .sheet-handle{
+    width:36px; height:5px; border-radius:999px; background:var(--surface-3);
+    margin:4px auto 14px;
+  }
+  .sheet-title{
+    font-family:var(--font-display); font-weight:600; font-size:17px; margin:0 0 2px; padding:0 4px;
+  }
+  .sheet-sub{font-size:12px; color:var(--text-faint); margin:0 0 14px; padding:0 4px; font-family:var(--font-mono);}
+  .sheet-list{overflow-y:auto;}
+  .source-option{
+    display:flex; align-items:center; gap:12px; padding:13px 10px; cursor:pointer;
+    border-radius:12px; font-size:15px;
+  }
+  .source-option:active{background:var(--surface-2);}
+  .source-option .source-icon{width:32px; height:32px; border-radius:9px;}
+  .source-option.selected{color:var(--copper-bright);}
+  .source-option.selected .source-icon{background:rgba(193,127,78,0.18); color:var(--copper-bright);}
+  .source-check{margin-left:auto; color:var(--copper-bright); font-size:14px; opacity:0;}
+  .source-option.selected .source-check{opacity:1;}
+
+  .mockup-tag{
+    position:absolute; top:14px; right:14px; z-index:60;
+    font-family:var(--font-mono); font-size:9.5px; letter-spacing:0.06em;
+    color:var(--text-faint); background:rgba(0,0,0,0.4); padding:3px 7px; border-radius:6px;
+    border:1px solid var(--divider); pointer-events:none;
+  }
+
+  /* ---- Amplifier picker sheet ---- */
+  .sheet-header-row{display:flex; align-items:center; gap:8px; padding:0 4px;}
+  .sheet-back{
+    width:28px; height:28px; border-radius:9px; background:var(--surface-2);
+    display:flex; align-items:center; justify-content:center; color:var(--text-dim);
+    font-size:15px; cursor:pointer; flex-shrink:0;
+  }
+  .amp-option{
+    display:flex; align-items:center; gap:12px; padding:13px 10px; cursor:pointer;
+    border-radius:12px;
+  }
+  .amp-option:active{background:var(--surface-2);}
+  .amp-dot{
+    width:9px; height:9px; border-radius:50%; background:var(--text-faint); flex-shrink:0;
+  }
+  .amp-option.connected .amp-dot{
+    background:var(--copper-bright); box-shadow:0 0 8px 2px rgba(227,160,106,0.55);
+  }
+  .amp-info{flex:1; min-width:0;}
+  .amp-name{font-size:15px; font-weight:600; margin:0 0 2px; color:var(--text);}
+  .amp-option.connected .amp-name{color:var(--copper-bright);}
+  .amp-sub{font-size:12px; color:var(--text-faint); font-family:var(--font-mono); margin:0;}
+  .amp-check{color:var(--copper-bright); font-size:14px; opacity:0; flex-shrink:0;}
+  .amp-option.connected .amp-check{opacity:1;}
+  .sheet-divider{height:1px; background:var(--divider); margin:8px 4px 10px;}
+  .manual-entry-row .source-icon{color:var(--text-dim);}
+  .manual-entry-row:active .source-icon{color:var(--copper-bright);}
+  .manual-entry-row .source-current-name{color:var(--text);}
+  .amp-option.none-option .amp-dot{
+    background:transparent; box-shadow:none;
+    border:1.5px dashed var(--text-faint);
+  }
+  .amp-option.none-option .amp-name{
+    font-style:italic; color:var(--text-dim);
+  }
+  .amp-option.none-option.connected .amp-name{
+    color:var(--copper-bright); font-style:normal;
+  }
+  .amp-option.none-option.connected .amp-dot{
+    border-color:var(--copper-bright); background:transparent; box-shadow:0 0 6px 1px rgba(227,160,106,0.4);
+  }
+
+  .ip-field-wrap{padding:6px 4px 4px;}
+  .ip-input{
+    width:100%; background:var(--surface); border:1px solid var(--divider); border-radius:14px;
+    padding:14px 16px; font-family:var(--font-mono); font-size:16px; color:var(--text);
+    outline:none; letter-spacing:0.02em;
+  }
+  .ip-input:focus{border-color:var(--copper-dim);}
+  .ip-input::placeholder{color:var(--text-faint);}
+  .ip-hint{font-size:11.5px; color:var(--text-faint); margin:8px 2px 0; font-family:var(--font-mono);}
+  .primary-btn{
+    width:100%; margin-top:18px; height:52px; border-radius:16px; border:none;
+    background:linear-gradient(180deg, var(--copper-bright) 0%, var(--copper) 100%);
+    color:#1a120b; font-family:var(--font-display); font-weight:600; font-size:14.5px;
+    letter-spacing:0.01em; cursor:pointer;
+  }
+  .primary-btn:active{filter:brightness(0.94);}
+
+  /* ---- Empty state (no amplifier) ---- */
+  .empty-state{
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:8px 20px 4px;
+  }
+  .empty-state-icon{
+    width:44px; height:44px; border-radius:14px; background:var(--surface);
+    border:1px solid var(--divider); display:flex; align-items:center; justify-content:center;
+    font-size:18px; color:var(--text-faint); margin-bottom:12px;
+  }
+  .empty-state-title{font-family:var(--font-display); font-weight:600; font-size:14px; margin:0 0 6px; color:var(--text-dim);}
+  .empty-state-sub{font-size:12px; color:var(--text-faint); margin:0; line-height:1.5; max-width:230px;}
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="mockup-tag">APPLE-NATIVE VARIANT</div>
+  <div class="island"></div>
+  <div class="status-bar">
+    <span>9:41</span>
+    <span>⚡ 100%</span>
+  </div>
+  <div class="content">
+
+    <div class="nav-header">
+      <p class="nav-eyebrow">Devialet</p>
+      <h1 class="nav-title">Expert Pro Remote</h1>
+    </div>
+
+    <div class="device-card" onclick="openAmpSheet()">
+      <div class="device-dot" id="deviceDot"></div>
+      <div class="device-info" id="deviceInfo">
+        <p class="device-name" id="deviceName">Devialet Expert 140 Pro</p>
+        <p class="device-sub" id="deviceSub">192.168.0.22 · Connected</p>
+      </div>
+      <div class="device-chevron">Change ›</div>
+    </div>
+
+    <!-- No segmented control here — Control is the only tab in the iOS
+         v1, so the Android app's Control/Sound switcher is dropped
+         entirely rather than shown disabled. -->
+
+    <p class="section-label first">Volume</p>
+    <div class="dial-wrap" id="dialWrap">
+      <div class="dial">
+        <svg width="220" height="220" viewBox="0 0 220 220">
+          <circle cx="110" cy="110" r="96" fill="none" stroke="#232326" stroke-width="10"/>
+          <path id="dialArc" fill="none" stroke="url(#copperGrad)" stroke-width="10" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="copperGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#8a5c39"/>
+              <stop offset="100%" stop-color="#e3a06a"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="dial-center">
+          <div class="dial-value" id="dialValue">−25.0</div>
+          <div class="dial-unit" id="dialUnit">dB</div>
+          <div class="dial-label" id="dialSourceLabel">Optical 1</div>
+        </div>
+      </div>
+      <div class="vol-buttons" id="volButtons">
+        <div class="vol-btn">−</div>
+        <div class="vol-btn">+</div>
+      </div>
+    </div>
+
+    <div class="action-row" id="actionRow">
+      <div class="action-btn">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+        <span>Mute</span>
+      </div>
+      <div class="action-btn power-off">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+        <span>Power Off</span>
+      </div>
+    </div>
+
+    <p class="section-label">Source</p>
+    <div class="source-trigger" id="sourceTrigger" onclick="openSheet()">
+      <div class="source-icon" id="triggerIcon">◉</div>
+      <div class="source-current">
+        <p class="source-current-label">Active source</p>
+        <p class="source-current-name" id="triggerName">Optical 1</p>
+      </div>
+      <div class="chevron-r">›</div>
+    </div>
+
+    <p class="footer-note" id="controlFooterNote">Tap the device card to switch amplifiers on your network</p>
+  </div>
+
+  <div class="home-indicator"></div>
+
+  <!-- ============ SOURCE BOTTOM SHEET ============ -->
+  <div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet(event)">
+    <div class="sheet-panel" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <p class="sheet-title">Select source</p>
+      <p class="sheet-sub" id="sourceSheetSub">Devialet Expert 140 Pro</p>
+      <div class="sheet-list" id="sourceList"></div>
+      <div class="empty-state" id="sourceEmptyState" style="display:none; padding:20px 20px 8px;">
+        <div class="empty-state-icon">◉</div>
+        <p class="empty-state-title">No sources available</p>
+        <p class="empty-state-sub">Connect to an amplifier to see its sources.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AMPLIFIER BOTTOM SHEET ============ -->
+  <div class="sheet-overlay" id="ampSheetOverlay" onclick="closeAmpSheet(event)">
+    <div class="sheet-panel" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+
+      <div id="ampListView">
+        <p class="sheet-title">Choose Amplifier</p>
+        <p class="sheet-sub">Amplifiers found on your network</p>
+        <div class="sheet-list" id="ampList"></div>
+        <div class="sheet-divider"></div>
+        <div class="source-option manual-entry-row" onclick="showManualEntry()">
+          <div class="source-icon">⌨</div>
+          <div class="source-current" style="flex:1;">
+            <p class="source-current-name" style="margin:0;">Enter IP Manually</p>
+          </div>
+          <span class="chevron-r">›</span>
+        </div>
+      </div>
+
+      <div id="ampManualView" style="display:none;">
+        <div class="sheet-header-row">
+          <div class="sheet-back" onclick="showAmpList()">‹</div>
+          <div>
+            <p class="sheet-title" style="margin:0;">Enter IP Address</p>
+          </div>
+        </div>
+        <div class="ip-field-wrap">
+          <input class="ip-input" id="manualIpInput" type="text" inputmode="numeric" placeholder="192.168.0.1" autocomplete="off">
+          <p class="ip-hint">Find this in your router's device list or the Devialet app.</p>
+          <button class="primary-btn" onclick="connectManualIp()">Connect</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const START_ANGLE = -225;
+  const MAX_SWEEP = 270;
+  const MIN_DB = -60, MAX_DB = -15;
+  const vol = -25.0;
+
+  function polarToXY(cx, cy, r, angleDeg){
+    const rad = angleDeg * Math.PI / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+  function describeArc(cx, cy, r, startAngle, sweepDeg){
+    const endAngle = startAngle + sweepDeg;
+    const start = polarToXY(cx, cy, r, startAngle);
+    const end = polarToXY(cx, cy, r, endAngle);
+    const largeArcFlag = sweepDeg > 180 ? 1 : 0;
+    return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
+  }
+  function renderVol(){
+    const arc = document.getElementById('dialArc');
+    if (!ampConnected){
+      arc.setAttribute('d','');
+      return;
+    }
+    const fraction = ((vol - MIN_DB) / (MAX_DB - MIN_DB)).toFixed(4);
+    const sweep = MAX_SWEEP * Math.max(0, Math.min(1, fraction));
+    if (sweep <= 0){ arc.setAttribute('d',''); return; }
+    arc.setAttribute('d', describeArc(110, 110, 96, START_ANGLE, sweep));
+  }
+
+  // ---- Source bottom sheet ----
+  const sources = [
+    {name:'Optical 1', icon:'◉'},
+    {name:'UPnP', icon:'◫'},
+    {name:'Roon Ready', icon:'◍'},
+    {name:'AirPlay', icon:'◈'},
+    {name:'Spotify', icon:'◐'},
+    {name:'AIR', icon:'◇'}
+  ];
+  let currentSource = 'Optical 1';
+  function renderSources(){
+    const list = document.getElementById('sourceList');
+    const empty = document.getElementById('sourceEmptyState');
+    if (!ampConnected){
+      list.style.display = 'none';
+      empty.style.display = 'flex';
+      return;
+    }
+    list.style.display = 'block';
+    empty.style.display = 'none';
+    list.innerHTML = '';
+    sources.forEach(s=>{
+      const div = document.createElement('div');
+      div.className = 'source-option' + (s.name===currentSource ? ' selected' : '');
+      div.innerHTML = `<div class="source-icon">${s.icon}</div><span>${s.name}</span><span class="source-check">✓</span>`;
+      div.onclick = ()=> selectSource(s);
+      list.appendChild(div);
+    });
+  }
+  function selectSource(s){
+    currentSource = s.name;
+    document.getElementById('triggerName').textContent = s.name;
+    document.getElementById('triggerIcon').textContent = s.icon;
+    document.getElementById('dialSourceLabel').textContent = s.name;
+    renderSources();
+    closeSheet();
+  }
+  function openSheet(){
+    renderSources();
+    document.getElementById('sheetOverlay').classList.add('open');
+  }
+  function closeSheet(){
+    document.getElementById('sheetOverlay').classList.remove('open');
+  }
+
+  // ---- Amplifier bottom sheet ----
+  const NONE_AMP = {name:'None', modelName:null, ip:null, connected:false, isNone:true};
+  const amplifiers = [
+    {name:'My Devialet', modelName:'Devialet Expert 140 Pro', ip:'192.168.0.22', connected:true},
+    {name:'Living Room Expert', modelName:'Devialet Expert 220 Pro', ip:'192.168.0.31', connected:false},
+    {name:'Studio Phantom', modelName:null, ip:'192.168.0.44', connected:false} // mDNS unresolved - falls back to UDP name
+  ];
+  let ampConnected = true;
+
+  function renderAmps(){
+    const list = document.getElementById('ampList');
+    list.innerHTML = '';
+
+    const noneDiv = document.createElement('div');
+    noneDiv.className = 'amp-option none-option' + (!ampConnected ? ' connected' : '');
+    noneDiv.innerHTML = `<div class="amp-dot"></div>
+      <div class="amp-info">
+        <p class="amp-name">None</p>
+        <p class="amp-sub">Don't connect to any amplifier</p>
+      </div>
+      <span class="amp-check">✓</span>`;
+    noneDiv.onclick = ()=> selectAmp(NONE_AMP);
+    list.appendChild(noneDiv);
+
+    const divider = document.createElement('div');
+    divider.className = 'sheet-divider';
+    list.appendChild(divider);
+
+    amplifiers.forEach(a=>{
+      const div = document.createElement('div');
+      div.className = 'amp-option' + (ampConnected && a.connected ? ' connected' : '');
+      const sub = a.modelName ? `${a.name} · ${a.ip}` : a.ip;
+      div.innerHTML = `<div class="amp-dot"></div>
+        <div class="amp-info">
+          <p class="amp-name">${a.modelName || a.name}</p>
+          <p class="amp-sub">${sub}</p>
+        </div>
+        <span class="amp-check">✓</span>`;
+      div.onclick = ()=> selectAmp(a);
+      list.appendChild(div);
+    });
+  }
+
+  function selectAmp(a){
+    if (a.isNone){
+      ampConnected = false;
+    } else {
+      ampConnected = true;
+      amplifiers.forEach(x=> x.connected = (x===a));
+    }
+    applyConnectionState();
+    renderAmps();
+    setTimeout(closeAmpSheet, 180);
+  }
+
+  function applyConnectionState(){
+    const active = amplifiers.find(a=>a.connected);
+
+    document.getElementById('deviceDot').classList.toggle('none', !ampConnected);
+    document.getElementById('deviceInfo').classList.toggle('dim', !ampConnected);
+    document.getElementById('deviceName').textContent = ampConnected ? (active.modelName || active.name) : 'No Amplifier';
+    document.getElementById('deviceSub').textContent = ampConnected ? (active.ip + ' · Connected') : 'Tap to connect';
+    document.getElementById('sourceSheetSub').textContent = ampConnected ? (active.modelName || active.name) : 'No amplifier connected';
+
+    document.getElementById('dialWrap').classList.toggle('disabled-overlay', !ampConnected);
+    document.getElementById('actionRow').classList.toggle('disabled-overlay', !ampConnected);
+    document.getElementById('dialValue').textContent = ampConnected ? '−25.0' : '—';
+    document.getElementById('dialUnit').style.visibility = ampConnected ? 'visible' : 'hidden';
+    document.getElementById('dialSourceLabel').textContent = ampConnected ? currentSource : 'No source';
+
+    document.getElementById('sourceTrigger').classList.toggle('dim', !ampConnected);
+    document.getElementById('triggerName').textContent = ampConnected ? currentSource : 'No source';
+    document.getElementById('triggerIcon').textContent = ampConnected ? '◉' : '–';
+
+    document.getElementById('controlFooterNote').textContent = ampConnected
+      ? 'Tap the device card to switch amplifiers on your network'
+      : 'Tap the device card to connect to an amplifier';
+
+    renderVol();
+  }
+
+  function openAmpSheet(){
+    showAmpList();
+    renderAmps();
+    document.getElementById('ampSheetOverlay').classList.add('open');
+  }
+  function closeAmpSheet(){
+    document.getElementById('ampSheetOverlay').classList.remove('open');
+  }
+  function showManualEntry(){
+    document.getElementById('ampListView').style.display = 'none';
+    document.getElementById('ampManualView').style.display = 'block';
+    setTimeout(()=> document.getElementById('manualIpInput').focus(), 250);
+  }
+  function showAmpList(){
+    document.getElementById('ampManualView').style.display = 'none';
+    document.getElementById('ampListView').style.display = 'block';
+  }
+  function connectManualIp(){
+    const val = document.getElementById('manualIpInput').value.trim();
+    if(!val) return;
+    amplifiers.forEach(x=> x.connected = false);
+    amplifiers.unshift({name:'New Amplifier', modelName:null, ip:val, connected:true});
+    ampConnected = true;
+    document.getElementById('manualIpInput').value = '';
+    applyConnectionState();
+    showAmpList();
+    renderAmps();
+    setTimeout(closeAmpSheet, 180);
+  }
+
+  renderSources();
+  applyConnectionState();
+</script>
+
+</body>
+</html>
