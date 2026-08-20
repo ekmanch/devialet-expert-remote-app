@@ -35,6 +35,10 @@ via that URL.
 - `docs/app-overview.md` — architecture and feature overview of the original
   app, including a section on Android-specific behavior that needs an
   iOS-equivalent design decision in Flutter.
+- `TODO.md` — tracks deferred work (features, bugs, UI updates, pending
+  protocol verification). Check before starting new work in case it's
+  already listed; update it (check off completed items, add newly
+  discovered ones) as part of your work rather than leaving it stale.
 
 ## Platforms
 
