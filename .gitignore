@@ -110,6 +110,15 @@ coverage/
 # Symbols
 app.*.symbols
 
+# Android Studio / IntelliJ (machine-specific, not project config)
+.idea/
+*.iml
+
+# This is a Flutter application (not a package/library) — pubspec.lock
+# should be committed for reproducible builds, overriding the generic
+# `*.lock` rule above.
+!pubspec.lock
+
 # Exceptions to above rules.
 !**/ios/**/default.mode1v3
 !**/ios/**/default.mode2v3

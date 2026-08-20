@@ -6,7 +6,7 @@ issue, or UX-breaking race condition, found via `git log --oneline` +
 exist in this repo, so all of these were presumably caught by hand-testing
 against a physical amp.
 
-## 1. Volume jump/jerk after releasing VOL +/- buttons
+## 1. Volume jump/jerk after releasing VOL +/- buttons — [Control]
 
 - **Symptom:** amp would report a different volume than the one the user
   actually stopped at when releasing the VOL - / VOL + button; the on-screen
@@ -27,7 +27,7 @@ against a physical amp.
   about to receive a broadcast describing pre-X state," which can happen even
   after the user has let go.
 
-## 2. Same race, but for the volume dial/slider release (not the buttons)
+## 2. Same race, but for the volume dial/slider release (not the buttons) — [Control]
 
 - **Symptom:** identical jump/jerk, but triggered by releasing the volume
   slider/dial drag rather than the step buttons.
@@ -45,7 +45,7 @@ against a physical amp.
   volume-setting UI element (e.g. a second slider style, a hardware volume
   key passthrough) will need the same debounce treatment.
 
-## 3. Wrong source selected — Optical 1 selection played Roon Ready instead
+## 3. Wrong source selected — Optical 1 selection played Roon Ready instead — [Control]
 
 - **Symptom:** selecting a source (e.g. tapping "Optical 1" in the UI) caused
   the amp to actually switch to a *different* source (e.g. "Roon Ready").
@@ -66,7 +66,7 @@ against a physical amp.
   must be ported byte-for-byte, not "cleaned up" or re-derived from a formula,
   since the underlying mapping is non-linear and only known empirically.
 
-## 4. ACTIVE source in the UI didn't update after the user changed it
+## 4. ACTIVE source in the UI didn't update after the user changed it — [Control]
 
 - **Symptom:** after selecting a new source from the app, the UI kept showing
   the *previous* source as active until (presumably) the next broadcast
@@ -90,7 +90,7 @@ against a physical amp.
   state*, not just item identity/labels — a naive `list.map(name) == cached`
   check will miss selection-only changes exactly like this did.
 
-## 5. Amplifier picked an inconsistent volume after switching sources
+## 5. Amplifier picked an inconsistent volume after switching sources — [Control]
 
 - **Symptom:** switching inputs from the app left the amp at whatever volume
   it happened to remember for that input — inconsistent across sources
@@ -111,7 +111,7 @@ against a physical amp.
   input switch" complaint. Don't optimize this away as a redundant network
   call.
 
-## 6. Dangerously loud volume reachable from the app (0dB was too loud)
+## 6. Dangerously loud volume reachable from the app (0dB was too loud) — [Control]
 
 - **Symptom / risk:** the app allowed requesting up to 0dB, which was
   "dangerously loud" on the Expert Pro 140 — a real safety/hardware-damage and
@@ -132,7 +132,7 @@ against a physical amp.
   that's easy to silently regress during a rewrite because it looks like a
   leftover/arbitrary constant.
 
-## 7. Lint: touch-handling didn't call `performClick()`, breaking accessibility semantics
+## 7. Lint: touch-handling didn't call `performClick()`, breaking accessibility semantics — [Control]
 
 - **Symptom:** Android Studio's Code Analysis lint flagged the VOL +/- button
   touch handling for not calling `performClick()`, which is the accessibility
@@ -160,9 +160,10 @@ against a physical amp.
   twice, no ack, no adaptive retry. Not a fix, but also not obviously robust;
   flagging in case the LAN conditions during Flutter development differ
   (e.g. Wi-Fi vs. the Ethernet-oriented use case implied by `usesCleartextTraffic`
-  and general Devialet Ethernet-first design).
+  and general Devialet Ethernet-first design). **[Shared]** — applies to every
+  command family, not just Control.
 - **SAM / Night Mode / SAM level / Bass / Treble are permanently unimplemented**
   at the protocol layer as of `743aa71` — this isn't a regression to fix, it's
   a known gap (see `docs/protocol.md`, "Known-unimplemented commands"). Don't
   mistake the local-only UI toggles for working controls when testing the
-  Flutter port against the current feature set.
+  Flutter port against the current feature set. **[Sound]**

@@ -50,10 +50,27 @@ via that URL.
 
 ## Runtime UI variant switching
 
-There will be a debug-only mechanism added to force which platform's UI renders,
-independent of the actual OS. TBD, decide on exact runtime variable in scaffold phase.
+Debug-only mechanism to force which platform's UI renders, independent of the
+actual OS — implemented in `lib/config/ui_variant.dart`.
+
+- `UiVariant` enum (`android` / `ios`), exposed via the `uiVariantProvider`
+  Riverpod provider (`lib/config/ui_variant.dart`).
+- Controlled by a `--dart-define=UI_VARIANT=android` or
+  `--dart-define=UI_VARIANT=ios` launch argument, read via
+  `String.fromEnvironment('UI_VARIANT')`. Omit the define (or pass anything
+  else) to fall back to the real OS via `defaultTargetPlatform`.
+- Gated behind `kDebugMode` — the override is ignored entirely in release
+  builds even if the define somehow leaks into one.
+- **Android Studio run configuration:** Run → Edit Configurations → select
+  the Flutter run config → "Additional run args" field → add
+  `--dart-define=UI_VARIANT=ios` (or `=android`). Duplicate the run config
+  once per variant (e.g. "Galaxy S25 (Android UI)" / "Galaxy S25 (iOS UI
+  preview)") so switching is a one-click launch-config change, no rebuild of
+  tooling required — this is what lets the iOS UI variant be previewed while
+  running on the Galaxy S25.
+
 When adding a new screen or widget with platform-specific styling, route the
-platform check through this mechanism rather than `Platform.isIOS` /
+platform check through `uiVariantProvider` rather than `Platform.isIOS` /
 `Theme.of(context).platform` directly, so it stays overridable.
 
 ## Networking
@@ -77,6 +94,26 @@ platform check through this mechanism rather than `Platform.isIOS` /
 ## Environment
 
 - IDE: Android Studio (Flutter/Dart plugins).
-- Package manager / tooling: TBD, decide in scaffold phase
+- Package manager / tooling: Flutter's built-in `pub` (`flutter pub`/`dart
+  pub`) — no separate package manager. Flutter 3.47.0 (stable channel), Dart
+  SDK constraint `^3.13.0` in `pubspec.yaml` (matches the version installed
+  on the primary dev machine at scaffold time). No FVM/version-pinning tool
+  introduced yet — single-machine dev today; revisit if a second dev machine
+  or CI needs enforced parity.
+- State management: **Riverpod** (`flutter_riverpod`), decided phase 1 —
+  stream-friendly for the amp's periodic status broadcast, context-free so
+  Android/iOS UI variants can share domain logic, and easiest to unit-test
+  the networking layer in isolation (`ProviderContainer`/provider overrides,
+  no widget tree required).
+- Testing: `flutter_test` (bundled) only — no mocking library. The
+  networking layer exposes one small `UdpTransport` interface, so a
+  hand-written `FakeUdpTransport` (`test/networking/fake_udp_transport.dart`)
+  is clearer than pulling in a mocking package for a single fake.
+- Project structure: `lib/networking/` (protocol encode/decode + transport,
+  pure Dart, zero Flutter imports — verified via
+  `grep -rn "package:flutter" lib/networking/`), `lib/domain/` (Riverpod
+  providers wrapping the networking layer), `lib/config/` (cross-cutting
+  app config, e.g. the UI variant switch), `lib/ui/` (widgets; currently
+  just the Phase 1 debug scaffold).
 - Repo/branching: `devialet-expert-remote-app`, feature work on branches like
   `feature/amp-selection`.
