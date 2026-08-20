@@ -34,7 +34,7 @@ both Android and iOS. This is a port of an earlier Android-only Kotlin app
 ## Runtime UI variant switching
 
 There will be a debug-only mechanism added to force which platform's UI renders,
-independent of the actual OS. Exact runtime variable to be decided.
+independent of the actual OS. TBD, decide on exact runtime variable in scaffold phase.
 When adding a new screen or widget with platform-specific styling, route the
 platform check through this mechanism rather than `Platform.isIOS` /
 `Theme.of(context).platform` directly, so it stays overridable.
@@ -60,6 +60,6 @@ platform check through this mechanism rather than `Platform.isIOS` /
 ## Environment
 
 - IDE: Android Studio (Flutter/Dart plugins).
-- Package manager / tooling: to be decided.
+- Package manager / tooling: TBD, decide in scaffold phase
 - Repo/branching: `devialet-expert-remote-app`, feature work on branches like
   `feature/amp-selection`.
