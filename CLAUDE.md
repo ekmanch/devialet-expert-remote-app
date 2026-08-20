@@ -6,6 +6,17 @@ Flutter remote-control app for the Devialet Expert Pro 140 amplifier, targeting
 both Android and iOS. This is a port of an earlier Android-only Kotlin app
 (source of truth for protocol and known bugs — see `docs/`).
 
+## Background
+
+A pure Android app was developed earlier in Kotlin. The repo where all of the
+code can be accessed is this one:
+https://github.com/ekmanch/devialet-expert-remote
+
+Please refer to it for hints on how things may be implemented. The code in
+this repo has been tested on target (Samsung Galaxy S25) with great results.
+UDP communication works well. mDNS resolution of model and make works great.
+UI elements look good and behave as expected.
+
 ## Reference docs (read before working on networking or porting features)
 
 - `docs/protocol.md` — UDP packet structure, transport details, command types.
