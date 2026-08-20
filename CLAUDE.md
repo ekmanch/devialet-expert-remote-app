@@ -11,11 +11,17 @@ both Android and iOS. This is a port of an earlier Android-only Kotlin app
 A pure Android app was developed earlier in Kotlin. The repo where all of the
 code can be accessed is this one:
 https://github.com/ekmanch/devialet-expert-remote
-
 Please refer to it for hints on how things may be implemented. The code in
 this repo has been tested on target (Samsung Galaxy S25) with great results.
 UDP communication works well. mDNS resolution of model and make works great.
 UI elements look good and behave as expected.
+
+For day-to-day reference, prefer docs/protocol.md, docs/known-gotchas.md,
+and docs/app-overview.md (generated from this repo) over fetching the repo
+directly — only go to the repo link itself if you need to verify something
+those docs don't cover or flagged as uncertain. Don't assume the Kotlin repo
+is checked out locally; it's a separate repo from this one, accessible only
+via that URL.
 
 ## Reference docs (read before working on networking or porting features)
 
