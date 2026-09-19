@@ -73,10 +73,15 @@ and the numbering is shared across both repos and referenced by
   those).
 - **Commit:** `3aecc1a`
 - **Watch out for this in Flutter:** **do not** assume the status-broadcast
-  source index can be reused directly as the command value when
-  reimplementing source selection — this table (and the Phono special case)
-  must be ported byte-for-byte, not "cleaned up" or re-derived from a formula,
-  since the underlying mapping is non-linear and only known empirically.
+  source index can be reused directly as the command value — the payload
+  is the top 16 bits of `float32(index)`, which the amp truncates toward
+  zero (✔ verified 2026-09-19, `docs/protocol.md` "Source selection
+  encoding"; `docs/protocol-verification-2026-09-19.md`). The table's
+  seven byte pairs stay pinned as literal bytes (confirmed on two amps),
+  but the mapping is no longer "only known empirically": the general
+  fallback formula is wrong for indices ≥ 16 (Task 1.1.4), and the old
+  "unmapped index 9 selects Air" observation turned out to be a per-unit
+  firmware alias of slot 9 → 14, not evidence about the formula.
 
 ## 4. ACTIVE source in the UI didn't update after the user changed it — [Control]
 

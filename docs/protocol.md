@@ -19,6 +19,11 @@ Provenance, in order of authority:
    reconciliation" at the end. Where the Dart code disagrees with a fact
    here it is flagged inline with **⚠ Dart:** and listed in that section;
    the doc describes the target behaviour, not the current code.
+4. **The 2026-09-19 live verification run** against the same amp from
+   this repo (`docs/protocol-verification-2026-09-19.md`, raw log in
+   `docs/captures/`, harness in `tool/protocol_probe/`). It settled the
+   three open tcpdump questions and several "inferred" items; facts from
+   it are marked **✔** and rank with ★.
 
 ## Transport
 
@@ -30,13 +35,13 @@ identically regardless of which commands/status fields ride on top of them.
 |---|---|---|---|
 | Status port (amp → app) | UDP **45454** | `DevialetController.STATUS_PORT`; `DevialetProtocol.statusPort` | [Shared] |
 | Command port (app → amp) | UDP **45455** | `DevialetController.COMMAND_PORT`; `DevialetProtocol.commandPort` | [Shared] |
-| Direction, status | Amp broadcasts unsolicited to all listeners on the LAN. ~1 Hz nominal, ★ **up to ~5 Hz observed, ~200 ms between packets during state changes** — do not design around exactly 1/s | `DevialetStatusListener` binds `0.0.0.0:45454` with `socket.broadcast = true`, never sends; KDE daemon capture | [Shared] |
+| Direction, status | Amp broadcasts unsolicited to all listeners on the LAN. ✔ **5 Hz steady, idle or busy**: 150 packets in 30 s, inter-packet gap 197–204 ms (2026-09-19; the older "~1 Hz nominal" was wrong). ✔ Over Wi-Fi the same broadcast arrived 8–164 ms (median 66) after the wired copy and **about half were lost** on the desktop's adapter — a phone measurement is still owed (TODO.md) | `DevialetStatusListener` binds `0.0.0.0:45454` with `socket.broadcast = true`, never sends; KDE daemon capture | [Shared] |
 | Direction, commands | App sends unicast directly to the amp's known IP | `DevialetController.sendTwice()`; `DevialetUdpTransport.sendTwice()` | [Shared] |
 | Discovery/handshake | **None.** The app never sends a query or discovery packet — it passively listens for the amp's own periodic broadcast and learns IP + name from the sender address of whatever arrives on 45454 | `MainActivity.applyStatus()`, `DevialetStatusListener`; confirmed by grep, no outbound broadcast/multicast send exists | [Shared] |
 | mDNS (separate mechanism) | `_spotify-connect._tcp.local.` service type, used only to resolve a friendlier make/model string, not for control — see "mDNS model-name resolution" | `AmpModelNameResolver`; KDE `crates/protocol/src/model_name.rs` | [Shared] |
 | Socket lifetime, commands | A brand-new socket is opened and closed for every logical command (both wire sends share it) | `DevialetController.sendTwice()`; `DevialetUdpTransport.sendTwice()` | [Shared] |
 | Socket lifetime, status | One long-lived socket bound with `SO_REUSEADDR` for the life of the listener | `DevialetStatusListener.start()/stop()`; `DevialetUdpTransport.bindAndListen()` | [Shared] |
-| Timeout / retry (send) | No ack is awaited. Every command is fire-and-forget, sent **exactly twice** back-to-back with no delay. Sending to an offline IP does not fail; the datagram is just lost | `DevialetController.sendTwice()`; `DevialetClient._sendTwice()` | [Shared] |
+| Timeout / retry (send) | No ack is awaited. Every command is fire-and-forget, sent **exactly twice** back-to-back with no delay. Sending to an offline IP does not fail; the datagram is just lost. ✔ The amp needs only one copy (20/20 single sends on Ethernet), but Wi-Fi dropped 2/20 single sends and 0/10 double sends, so the duplicate stays as cheap loss insurance; **no adaptive retry** (decision 2026-09-19) | `DevialetController.sendTwice()`; `DevialetClient._sendTwice()` | [Shared] |
 | Timeout / retry (receive) | No read timeout on the status socket; a receive error just loops | `DevialetStatusListener.start()`; `DevialetUdpTransport.bindAndListen()` | [Shared] |
 | Amp-side staleness | App-side only concept: an amp not heard from for **8 s** is offline, re-evaluated on a 1 s tick against a **monotonic clock**. Not a protocol feature | `MainActivity.ampStaleTimeoutMs = 8_000L`; KDE daemon `online = last_seen < 8 s` | [Shared] |
 | Encryption / auth | None. Plaintext UDP, no login, no pairing, no handshake gate: commands may be sent the instant an IP is known | `AndroidManifest.xml` (`usesCleartextTraffic="true"`) | [Shared] |
@@ -69,16 +74,18 @@ alongside the status byte `111 → −42.0` and every source byte pair below:
 - CRC of ASCII `"123456789"` = `0x29B1`
 - CRC of 12 zero bytes = `0x84F9`
 
-**Counter caveat (inferred, still not confirmed):** `sendTwice()` builds two
+**Counters — ✔ ignored by the amp (2026-09-19).** `sendTwice()` builds two
 packets per logical command and advances *both* counters on each build, so
 the two wire copies of "the same" command do NOT carry identical counter
-bytes (nor identical CRCs). Both the Kotlin app and the Dart
-`PacketCounters` start at (0,0) per process; ★ the KDE CLI also restarts at
-(0,0) on every invocation and the amp accepts every command — weak evidence
-that the amp ignores the counters entirely, but not a capture. Whether the
-amp needs the duplicate send, or contiguous counters, is **unconfirmed**.
-The Dart layer preserves the Kotlin behaviour deliberately; do not "clean
-it up" before a capture settles it (TODO.md, protocol verification).
+bytes (nor identical CRCs); both the Kotlin app and the Dart
+`PacketCounters` start at (0,0) per process, and ★ the KDE CLI restarts at
+(0,0) on every invocation. The live run settled why none of that matters:
+counters frozen at (0,0) on every send (6/6 applied), arbitrary,
+decreasing and mismatched values incl. `0xFFFF` (6/6), and byte-identical
+copies ×2 and ×5 (4/4) were all accepted — the amp neither checks
+contiguity nor de-duplicates. The Dart layer keeps the original behaviour
+for wire fidelity; nothing depends on it and no persisted counter is
+needed across processes.
 
 ### CRC16 (CRC16/CCITT-FALSE) — [Shared]
 
@@ -88,6 +95,11 @@ it up" before a capture settles it (TODO.md, protocol verification).
 - Result written big-endian into offsets 12–13.
 - Source: `DevialetController.crc16()`; `crc16CcittFalse()` in
   `lib/networking/crc16.dart` (`DevialetProtocol.crcCoveredLength = 12`).
+- ✔ **The amp checks it** (2026-09-19): a packet with a corrupted CRC is
+  dropped (0/5 trials, single and double send), and so is one whose byte 0
+  is not `0x44`. The 128 zero bytes of padding are **not** required — a
+  14-byte packet (header through CRC) was applied — but keep sending 142
+  bytes; it is what every implementation and the original capture used.
 
 ### Volume encoding (`dbConvert`) — [Control]
 
@@ -102,6 +114,15 @@ dbConvert(|db|) == (256 >> ceil(1 + log2(|db|))) + dbConvert(|db| - 0.5)   // |d
 
 Reference values: `1.0 → 0x3F80`, `15.0 → 0x4170`, `40.0 → 0x4220`
 (★ KDE test vectors; reproduced by `VolumeCodec.dbConvert` on 2026-09-15).
+
+✔ **What the recursion actually computes (2026-09-19):** the sign-flagged
+word is exactly the **top 16 bits of the IEEE-754 float32** of the signed
+dB value (a `bfloat16` truncation): `−40.0f = 0xC2200000 → C2 20`,
+`15.0f = 0x41700000 → 41 70`. Verified identical to `dbConvert` on every
+0.5 dB step from −100 to +100 dB (`tool/protocol_probe/bf16_check.py`).
+This is the explanation, not a licence to rewrite: the literal port and
+its pinned vectors stay. The amp quantizes on its side too — the exact
+word for −40.25 (`C2 21`) was applied as −40.5 (one sample).
 
 - The sign is applied afterwards: if the dB value is negative, OR `0x8000`
   into the 16-bit word. Sent as `byte6=0x00, byte7=0x04, byte8=hi, byte9=lo`.
@@ -147,7 +168,7 @@ Every command below is **[Control]**. There are no Sound-tab wire commands
 | Mute on | `0x01` | `0x07` | `0x00 0x00` | `setMute(true)`; `CommandPayloads.muteOn` | [Control] |
 | Mute off | `0x00` | `0x07` | `0x00 0x00` | `setMute(false)`; `CommandPayloads.muteOff` | [Control] |
 | Set volume | `0x00` | `0x04` | `hi/lo` of the `dbConvert()`-encoded, sign-flagged word | `setVolumeDb()`; `CommandPayloads.setVolume` | [Control] |
-| Select source, status index 1 | `0x00` | `0x05` | `0x3F 0x80` hardcoded (doesn't follow the general formula) | `selectSource()` — bytes found via Wireshark per `gnulabis/devimote` issue #2; `CommandPayloads._phonoPayload` | [Control] |
+| Select source, status index 1 | `0x00` | `0x05` | `0x3F 0x80` hardcoded — ✔ it is `float32(1.0)`, see "Source selection encoding" | `selectSource()` — bytes found via Wireshark per `gnulabis/devimote` issue #2; `CommandPayloads._hardcodedSelectPayload` | [Control] |
 | Select source, all other indices | `0x00` | `0x05` | see "Source selection encoding" | `selectSource()`; `SourceMapping` | [Control] |
 
 ### Volume and mute are independent — [Control]
@@ -169,14 +190,14 @@ Two layers of indirection, both load-bearing:
 
    | Status index | Command value | Wire bytes 8–9 | Confidence |
    |---|---|---|---|
-   | 0 | −1 | `FF E0` | confirmed (KDE) |
+   | 0 | −1 | `FF E0` | confirmed (KDE); ✔ = float NaN → slot 0 |
    | 1 | *(hardcoded, not in the map)* | `3F 80` | confirmed on **two** amps (KDE) |
    | 2 | 0 | `40 00` | confirmed (KDE) |
-   | 3 | 3 | `40 60` | confirmed (KDE) |
+   | 3 | 3 | `40 60` | confirmed (KDE); ✔ = float 3.5, truncated to 3 |
    | 4 | 4 | `40 80` | confirmed (KDE) |
    | 5 | 5 | `40 A0` | confirmed (KDE) |
    | 14 | 14 | `41 60` | confirmed (Galaxy S25 2026-08-20; KDE) |
-   | other | = status index (raw fallback) | e.g. 9 → `41 10` | **unverified** |
+   | other | = status index (raw fallback) | e.g. 9 → `41 10` | ✔ correct for 6–15 only; **wrong for 16–29** (Task 1.1.4) |
 
    Source: `DevialetController.SOURCE_COMMAND_VALUE`;
    `SourceMapping._commandValueByStatusIndex`. All wire bytes above were
@@ -206,14 +227,31 @@ Two layers of indirection, both load-bearing:
    `test/` are `status_packet_test.dart` fixtures written into a synthetic
    broadcast and read back, which is exactly the live-name path.
 
-   **Raw-index fallback finding** (Galaxy S25, 2026-08-20; unchanged by the
-   KDE work): sending status index 9 (unmapped, `cmdValue = 9`, bytes
-   `41 10`) left the amp's display on "Air" — the same as index 14 (bytes
-   `41 60`). These are different wire bytes, so index 9 is *not* confirmed
-   to mean "Air"; the likely explanation is that 9 wasn't an enabled input
-   on that amp and the command was a no-op. **Treat the raw-index fallback
-   as unverified** until re-tested from a distinct starting source with a
-   capture.
+   ✔ **What the bytes actually are (2026-09-19 live run).** The payload is
+   the **top 16 bits of the IEEE-754 float32 of the slot index** — the
+   same encoding as the volume word — and the amp **truncates toward zero**
+   and selects that slot if it is enabled: `40 40` (3.0) → slot 3, `00 00`
+   (0.0) → slot 0, `3F C0` (1.5) → slot 1, `40 30` (2.75) → slot 2,
+   `40 90` (4.5) → slot 4. NaN (`FF E0`, the table's "−1") and negative
+   values (`BF 80` = −1.0) select slot 0. Read that way the table is not a
+   mapping at all: 1 → 1.0, 2 → 2.0, 4 → 4.0, 5 → 5.0, 14 → 14.0 are
+   literal, index 3's `40 60` is 3.5 (truncated to 3) and index 0's `FF E0`
+   is NaN (→ 0). The table stays because every entry is confirmed on two
+   amps and harmless; the finding matters for what lies *outside* it.
+
+   **Raw-index fallback — ✔ resolved (2026-09-19).** The Galaxy S25
+   observation of 2026-08-20 (index 9 left the display on "Air") was real,
+   not a no-op: on this unit **slot 9 is a firmware alias of slot 14**.
+   `41 10` (9.0) switched to 14 from slots 0, 2 and 3 (3/3), while every
+   other disabled or out-of-range index — 5, 6, 7, 8, 10, 11, 12, 13, 16,
+   29, 30, 100 — was a **no-op** (12/12 from slot 0; 5.0 from slot 14
+   too). So an index the broadcast flags as enabled selects that slot, a
+   disabled one does nothing, except for unit-specific aliases. Whether
+   the alias exists on other units is unknown; a client that only offers
+   indices flagged enabled (`52 + i·17 == '1'`) can never reach it.
+   **Unmapped-but-enabled indices could not be exercised** — this unit
+   enables only 0–4 and 14, all mapped — but the float model predicts
+   `bfloat16(index)` for them.
 
 2. **Bit packing**, once the command value (`cmdValue`) is resolved:
    ```
@@ -221,9 +259,14 @@ Two layers of indirection, both load-bearing:
    byte8 (hi) = (outVal >> 8) & 0xFF
    byte9 (lo) = cmdValue > 7 ? (outVal & 0xFF) >> 1 : (outVal & 0xFF)
    ```
-   The extra `>> 1` on `lo` when `cmdValue > 7` is taken as-is from the
-   reverse-engineered behaviour; no rationale is documented. Confirmed
-   only for `cmdValue = 14`; the 8–15 range is otherwise unexercised.
+   ✔ **The `>> 1` is explained (2026-09-19):** for `cmdValue` 6–7 the
+   formula yields `float32(v)` directly, and for 8–15 halving the low byte
+   lands on `float32(v)` as well (`41 60` = 14.0; without the halving,
+   `41 C0` = 24.0 was a no-op). The table's own entries land on 2.0 / 3.5
+   / 4.0 / 5.0. **For `cmdValue` ≥ 16 the formula yields 32.0, 36.0, … —
+   indices 16–29 are unreachable with the current encoder** (no-ops on the
+   amp). Task 1.1.4 replaces the general case with the float encoding; the
+   seven table entries keep their pinned bytes.
    Source: `SourceMapping.encodeSelectPayload`.
 
 3. **Forced volume after every source switch** — see "Per-input volume
@@ -305,7 +348,7 @@ All timers must run on a **monotonic clock** (Rust uses `Instant`; Kotlin
 |---|---|
 | 400 ms | pending-command / debounce window ("settled input") — same number in Kotlin, Flutter (`docs/known-gotchas.md` #1/#2) and KDE |
 | 100–200 ms | pace of outbound commands during a sustained gesture (a different concern from the 400 ms trust window) |
-| 60–200 ms+ | delay until the amp's next broadcast confirms a command |
+| ✔ 82–200 ms (median ~95, n = 60 on Ethernet; one 297 ms over Wi-Fi) | delay until the amp's next broadcast confirms a command — bounded by the 200 ms broadcast period, not by processing |
 | 8 s | staleness: `online = last_seen < 8 s`, re-evaluated on a 1 s tick |
 | 15.0–18.6 s | real boot time (one sample 16.07 s) |
 | 20 s | boot timeout (15 s made a normal boot flash "Off" first) |
@@ -400,19 +443,27 @@ for a nicer "make/model" label. No Dart implementation yet.
 
 ## Confirmed vs. inferred (flag before relying)
 
-**Confirmed on the real amp:** ports and packet envelope; CRC vectors;
-every source byte pair in the table incl. the index-1 special case and
-the `cmdValue = 14` (`> 7`) branch; per-unit source names; the whole
-status layout; gotchas #8 and #9 with their timings; source + forced
-volume with no delay; boot time 15.0–18.6 s; volume and mute independence.
+**Confirmed on the real amp:** ports and packet envelope; CRC vectors
+and ✔ that the amp enforces the CRC and magic bytes; ✔ counters ignored
+(contiguity, start value, duplicates); ✔ one copy suffices on Ethernet,
+the double send covers Wi-Fi loss; ✔ 5 Hz broadcast, 82–200 ms
+confirmation latency; every source byte pair in the table incl. the
+index-1 special case and the `cmdValue = 14` (`> 7`) branch, ✔ now
+understood as `float32(index)` truncated by the amp, incl. NaN/negative →
+slot 0 and disabled index → no-op; ✔ the 2026-08-20 "index 9 → Air"
+finding as a slot 9 → 14 alias on this unit; ✔ the volume word as
+`bfloat16(dB)`; per-unit source names; the whole status layout; gotchas
+#8 and #9 with their timings; source + forced volume with no delay
+(26/26 more on 2026-09-19); boot time 15.0–18.6 s; volume and mute
+independence.
 
-**Inferred / unverified:** counter contiguity and whether the duplicate
-send matters at all; whether 2 sends suffice under Wi-Fi loss (no
-adaptive retry exists anywhere); the raw-index fallback for unmapped
-sources; the rationale for `>> 1` and the rest of the 8–15 `cmdValue`
-range; front-panel/remote volume changes on a running amp (never tested);
-real two-amp mDNS (needs a second physical amp on the same LAN); SAM /
-Night Mode / SAM level / Bass / Treble bytes (never captured).
+**Inferred / unverified:** the raw fallback for an *enabled* unmapped
+index (no such slot on the owner's unit; the float model predicts
+`bfloat16(index)`); whether the slot 9 → 14 alias exists on other units;
+Wi-Fi broadcast loss/delay **on the phones** (only the desktop adapter
+was measured); front-panel/remote volume changes on a running amp (never
+tested); real two-amp mDNS (needs a second physical amp on the same LAN);
+SAM / Night Mode / SAM level / Bass / Treble bytes (never captured).
 
 ## Code vs. doc reconciliation (2026-09-15, `lib/networking/` @ `3c0b8e0`)
 
@@ -434,3 +485,4 @@ TODO.md; nothing changed in code during the doc pass):
 | 4 | Source names in code comments | Per-unit, never assume a name for an index | ~~Kotlin-era names in comments; `phonoStatusIndex` identifier~~ | **Resolved, Task 1.1.2** (2026-09-19) |
 | 5 | Golden vectors in tests | `"123456789" → 0x29B1`, power-on → `A0 BD`, `1.0/15.0/40.0 → 3F80/4170/4220`, status `111 → −42.0`, all seven source byte pairs | ~~Only `0x84F9` (12 zeros) and structural checks were in the suite~~ | **Resolved, Task 1.1.1** (2026-09-19); power-off `E5 1D` added from the KDE suite |
 | 6 | Send failure | Domain layer must roll back optimistic state | No domain layer yet; `sendTwice` just propagates | State-owner phase |
+| 7 | Select-source fallback, indices ≥ 16 | `bfloat16(index)` (✔ float model, 2026-09-19) | `0x4000 \| (i << 5)` with `>> 1` → 32.0, 36.0, … (no-ops) | **Task 1.1.4** |
