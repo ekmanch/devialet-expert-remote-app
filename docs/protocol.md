@@ -61,9 +61,9 @@ every command; only `byte6`/`byte7`/payload differ per command.
 
 Source: `DevialetController.buildCommand()`; `CommandPacket.encode()`.
 
-★ **Golden vectors** (counters 0,0) — all three reproduced by the Dart
-layer on 2026-09-15 (ad-hoc run; only the 12-zero-bytes CRC is currently
-in the test suite, see reconciliation):
+★ **Golden vectors** (counters 0,0) — all three pinned as literal-byte
+regression tests in `test/networking/` since Task 1.1.1 (2026-09-19),
+alongside the status byte `111 → −42.0` and every source byte pair below:
 
 - Power on: `44 72 00 00 00 00 01 01 00 00 00 00 A0 BD` (+128 zero bytes)
 - CRC of ASCII `"123456789"` = `0x29B1`
@@ -431,5 +431,5 @@ TODO.md; nothing changed in code during the doc pass):
 | 2 | `dbConvert` on non-half-step input | Round to **nearest** 0.5 dB, integer step recursion | ~~Rounded **up** (15.2 and 15.0000001 → the 15.5 word)~~ | **Resolved, Task 1.1.0** (2026-09-19) |
 | 3 | Post-switch volume | Startup-volume setting (default −40) | Hardcoded `sourceSwitchVolumeDb = -40.0` | Volume-limits phase |
 | 4 | Source names in code comments | Per-unit, never assume a name for an index | Kotlin-era names in comments; `phonoStatusIndex` identifier | Rename on next touch |
-| 5 | Golden vectors in tests | `"123456789" → 0x29B1`, power-on → `A0 BD`, `1.0/15.0/40.0 → 3F80/4170/4220` | Only `0x84F9` (12 zeros) and structural checks are in the suite | Phase 1 follow-up: add as regression tests |
+| 5 | Golden vectors in tests | `"123456789" → 0x29B1`, power-on → `A0 BD`, `1.0/15.0/40.0 → 3F80/4170/4220`, status `111 → −42.0`, all seven source byte pairs | ~~Only `0x84F9` (12 zeros) and structural checks were in the suite~~ | **Resolved, Task 1.1.1** (2026-09-19); power-off `E5 1D` added from the KDE suite |
 | 6 | Send failure | Domain layer must roll back optimistic state | No domain layer yet; `sendTwice` just propagates | State-owner phase |

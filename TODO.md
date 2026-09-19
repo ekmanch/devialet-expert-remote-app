@@ -111,10 +111,13 @@ Small, wire-level, unit-testable; no domain layer needed. Details in
       (literal port of the KDE `db_convert`); exact-step output verified
       byte-identical by the golden vectors, and the rounding tests were
       confirmed red against the old recursion before the fix.
-- [ ] **1.1.1** — **Add the golden vectors as regression tests:** CRC `"123456789"` →
+- [x] **1.1.1** — **Add the golden vectors as regression tests:** CRC `"123456789"` →
       `0x29B1`; power-on packet at counters (0,0) → `… A0 BD`;
       `dbConvert` 1.0/15.0/40.0 → `3F80`/`4170`/`4220`; status raw 111 →
-      −42.0; all seven source byte pairs from the protocol table.
+      −42.0; all seven source byte pairs from the protocol table. Done
+      2026-09-19 as literal-byte tests in `test/networking/` (plus
+      power-off `E5 1D` and the raw-fallback index 9 → `41 10`, the latter
+      still unverified on a real amp).
 - [ ] **1.1.2** — **Drop the per-index source names from `source_mapping.dart` /
       `command_payloads.dart` comments and rename `phonoStatusIndex`** —
       names are per-unit (`docs/protocol.md`, "Names are per-unit").

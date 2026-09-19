@@ -45,6 +45,34 @@ void main() {
       expect(payload.byte6, 0x00);
       expect(payload.byte7, 0x05);
     });
+
+    test('golden vectors: select-source wire bytes 8-9 for every documented status index', () {
+      // Literal (byte8, byte9) pairs from the docs/protocol.md source table,
+      // end-to-end through selectSource, so a regression in the mapping
+      // table AND the packing formula can't cancel out (the formula tests
+      // below re-derive their expectation from the same formula).
+      const cases = <(int statusIndex, int byte8, int byte9)>[
+        (0, 0xFF, 0xE0), // cmdValue -1, signed packing
+        (1, 0x3F, 0x80), // hardcoded special case
+        (2, 0x40, 0x00),
+        (3, 0x40, 0x60),
+        (4, 0x40, 0x80),
+        (5, 0x40, 0xA0),
+        (14, 0x41, 0x60), // > 7 branch
+      ];
+      for (final (statusIndex, byte8, byte9) in cases) {
+        final payload = CommandPayloads.selectSource(statusIndex);
+        expect(payload.byte6, 0x00, reason: 'index $statusIndex byte6');
+        expect(payload.byte7, 0x05, reason: 'index $statusIndex byte7');
+        expect(payload.byte8, byte8, reason: 'index $statusIndex byte8');
+        expect(payload.byte9, byte9, reason: 'index $statusIndex byte9');
+      }
+    });
+
+    test('raw-fallback index 9 -> 41 10 (unverified on a real amp per docs/protocol.md)', () {
+      final payload = CommandPayloads.selectSource(9);
+      expect((payload.byte8, payload.byte9), (0x41, 0x10));
+    });
   });
 
   group('SourceMapping — status index -> command value table from docs/protocol.md', () {

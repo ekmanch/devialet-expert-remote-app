@@ -5,6 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('crc16CcittFalse', () {
+    test('golden vector: ASCII "123456789" -> 0x29B1 (docs/protocol.md)', () {
+      // The standard CRC-16/CCITT-FALSE check value; pins poly 0x1021,
+      // init 0xFFFF, no reflection, no final XOR all at once.
+      final data = Uint8List.fromList('123456789'.codeUnits);
+      expect(crc16CcittFalse(data, length: data.length), 0x29B1);
+    });
+
     test('all-zero input over 12 bytes matches an independently-computed reference value', () {
       // Reference value computed separately in Python (CRC16/CCITT-FALSE,
       // poly 0x1021, init 0xFFFF, no final XOR) over 12 zero bytes.

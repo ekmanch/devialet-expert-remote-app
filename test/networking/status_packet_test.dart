@@ -65,6 +65,11 @@ void main() {
       expect(status.volumeDb, -10.0);
     });
 
+    test('golden vector: volume raw byte 111 decodes to -42.0 dB (docs/protocol.md)', () {
+      final status = DevialetStatus.tryParse(buildStatusPacket(volumeRaw: 111))!;
+      expect(status.volumeDb, -42.0);
+    });
+
     test('always returns exactly 30 source slots, including disabled/unset ones', () {
       final data = buildStatusPacket(sources: [(index: 4, enabled: true, name: 'AirPlay')]);
       final status = DevialetStatus.tryParse(data)!;
