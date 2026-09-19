@@ -111,7 +111,9 @@ coverage/
 app.*.symbols
 
 # Android Studio / IntelliJ (machine-specific, not project config)
-.idea/
+.idea/*
+# ...except the shared Flutter run configurations (UI variant switching, see CLAUDE.md)
+!.idea/runConfigurations/
 *.iml
 
 # This is a Flutter application (not a package/library) — pubspec.lock
