@@ -1,11 +1,10 @@
 /// Everything the Control screen renders, as one immutable value.
 ///
-/// Task 2.0.x is UI-only: this is produced by a fake notifier
-/// (`control_view_state_provider.dart`) driven from the debug bar. Task
-/// 3.0.x's real state owner produces the same type from `DevialetStatus`,
-/// which is why the field names line up with it (`isMuted`, `volumeDb`,
-/// `activeSourceIndex`, slot `index` on [SourceItem]). Deliberately free
-/// of Flutter imports.
+/// Produced by `deriveControlView` in `amp_state.dart` from the owner's raw
+/// model (Task 3.0.x); the field names line up with `DevialetStatus`
+/// (`isMuted`, `volumeDb`, `activeSourceIndex`, slot `index` on
+/// [SourceItem]). The fixtures below are the debug simulated amp's and the
+/// widget tests' shapes. Deliberately free of Flutter imports.
 library;
 
 /// Owner decision 2026-09-19: a silent amp ("not responding") is presented
@@ -48,10 +47,11 @@ class AmpRef {
   bool get isResolved => model != null;
 
   @override
-  bool operator ==(Object other) => other is AmpRef && other.id == id;
+  bool operator ==(Object other) =>
+      other is AmpRef && other.id == id && other.name == name && other.model == model && other.ip == ip;
 
   @override
-  int get hashCode => id.hashCode;
+  int get hashCode => Object.hash(id, name, model, ip);
 }
 
 /// An *enabled* source slot. [index] is the status-broadcast slot index
@@ -84,12 +84,18 @@ class ControlViewState {
     required this.ceilingDb,
     required this.sources,
     required this.activeSourceIndex,
+    this.selectedIp,
   });
 
   final ConnectionPhase connection;
 
-  /// `null` == "None" / "No Amplifier".
+  /// `null` == "None" / "No Amplifier" *as presented*. A chosen amp that
+  /// went silent is presented this way too (owner decision 2026-09-19);
+  /// [selectedIp] still names it so a later task can show an offline row.
   final AmpRef? selectedAmp;
+
+  /// The owner's selection, independent of whether that amp is reachable.
+  final String? selectedIp;
   final List<AmpRef> knownAmps;
   final PowerPhase power;
   final bool isMuted;
@@ -137,6 +143,7 @@ class ControlViewState {
     double? ceilingDb,
     List<SourceItem>? sources,
     Object? activeSourceIndex = _unset,
+    Object? selectedIp = _unset,
   }) {
     return ControlViewState(
       connection: connection ?? this.connection,
@@ -151,14 +158,55 @@ class ControlViewState {
       activeSourceIndex: identical(activeSourceIndex, _unset)
           ? this.activeSourceIndex
           : activeSourceIndex as int?,
+      selectedIp: identical(selectedIp, _unset) ? this.selectedIp : selectedIp as String?,
     );
+  }
+
+  /// Value equality so the derived provider suppresses rebuilds when a
+  /// 5 Hz broadcast changes nothing visible (KDE `states_equal`).
+  @override
+  bool operator ==(Object other) =>
+      other is ControlViewState &&
+      other.connection == connection &&
+      other.selectedAmp == selectedAmp &&
+      other.selectedIp == selectedIp &&
+      _listEquals(other.knownAmps, knownAmps) &&
+      other.power == power &&
+      other.isMuted == isMuted &&
+      other.volumeDb == volumeDb &&
+      other.floorDb == floorDb &&
+      other.ceilingDb == ceilingDb &&
+      _listEquals(other.sources, sources) &&
+      other.activeSourceIndex == activeSourceIndex;
+
+  @override
+  int get hashCode => Object.hash(
+    connection,
+    selectedAmp,
+    selectedIp,
+    Object.hashAll(knownAmps),
+    power,
+    isMuted,
+    volumeDb,
+    floorDb,
+    ceilingDb,
+    Object.hashAll(sources),
+    activeSourceIndex,
+  );
+
+  static bool _listEquals<T>(List<T> a, List<T> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   // ---- Fixtures. TEST-NET-1 addresses (192.0.2.0/24, RFC 5737) so a fake
   // can never target real hardware (checklist 27).
 
   static const AmpRef fixtureAmp = AmpRef(
-    id: 'amp-1',
+    id: '192.0.2.22',
     name: 'My Devialet',
     model: 'Devialet Expert 140 Pro',
     ip: '192.0.2.22',
@@ -166,9 +214,9 @@ class ControlViewState {
 
   static const List<AmpRef> fixtureAmps = [
     fixtureAmp,
-    AmpRef(id: 'amp-2', name: 'Living Room', model: 'Devialet Expert 220 Pro', ip: '192.0.2.23'),
+    AmpRef(id: '192.0.2.23', name: 'Living Room', model: 'Devialet Expert 220 Pro', ip: '192.0.2.23'),
     // mDNS unresolved — falls back to the UDP name, per the mockup.
-    AmpRef(id: 'amp-3', name: 'Devialet-ETH', ip: '192.0.2.24'),
+    AmpRef(id: '192.0.2.24', name: 'Devialet-ETH', ip: '192.0.2.24'),
   ];
 
   /// The six mockup source names. Names are per-unit and only ever come
@@ -208,13 +256,21 @@ class ControlViewState {
         connection: ConnectionPhase.notConnected,
         selectedAmp: null,
         knownAmps: const <AmpRef>[],
+        power: PowerPhase.off,
+        isMuted: false,
+        volumeDb: base.floorDb,
         sources: const <SourceItem>[],
         activeSourceIndex: null,
       ),
       // Never chose / chose None: amps are on the LAN, none selected.
+      // No amp: no reading (the floor is the derivation's sentinel, never
+      // shown — checklist 5), power Off, unmuted, no sources.
       DebugScenario.notConnected => base.copyWith(
         connection: ConnectionPhase.notConnected,
         selectedAmp: null,
+        power: PowerPhase.off,
+        isMuted: false,
+        volumeDb: base.floorDb,
         sources: const <SourceItem>[],
         activeSourceIndex: null,
       ),

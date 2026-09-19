@@ -63,8 +63,11 @@ void main() {
       await tapRow(tester, 'Connect');
       await tester.pumpAndSettle();
       expect(find.text('Enter IP Address'), findsNothing);
-      expect(textAt(tester, ControlKeys.deviceName), 'New Amplifier');
-      expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.9 \u00b7 Connected');
+      // A never-heard IP is a valid selection, shown not connected until a
+      // broadcast from it arrives (docs/protocol.md, "Multi-amp").
+      expect(readState(tester).selectedIp, '192.0.2.9');
+      expect(textAt(tester, ControlKeys.deviceName), 'No Amplifier');
+      expect(textAt(tester, ControlKeys.deviceSub), 'Tap to connect');
     });
 
     testWidgets('"Back to list" returns to the list view', (tester) async {

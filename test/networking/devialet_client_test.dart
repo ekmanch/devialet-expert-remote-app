@@ -4,11 +4,10 @@ import 'package:devialet_expert_remote_app/networking/command_packet.dart';
 import 'package:devialet_expert_remote_app/networking/command_payloads.dart';
 import 'package:devialet_expert_remote_app/networking/devialet_client.dart';
 import 'package:devialet_expert_remote_app/networking/protocol_constants.dart';
-import 'package:devialet_expert_remote_app/networking/status_packet.dart';
+import 'package:devialet_expert_remote_app/networking/status_packet_builder.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_udp_transport.dart';
-import 'status_packet_test.dart' show buildStatusPacket;
 
 void main() {
   group('DevialetClient — no handshake required', () {
@@ -94,34 +93,35 @@ void main() {
   });
 
   group('DevialetClient — status listening', () {
-    test('valid status broadcasts are surfaced on statusStream', () async {
+    test('valid status broadcasts are surfaced on statusReports with their sender IP', () async {
       final transport = FakeUdpTransport();
       final client = DevialetClient(transport: transport, deviceIp: '192.168.1.50');
 
       client.startListening();
-      final future = client.statusStream.first;
-      transport.emitIncoming(buildStatusPacket(deviceName: 'Test Amp'));
+      final future = client.statusReports.first;
+      transport.emitIncoming(buildStatusPacket(deviceName: 'Test Amp'), from: '192.0.2.7');
 
-      final status = await future;
-      expect(status.deviceName, 'Test Amp');
+      final report = await future;
+      expect(report.status.deviceName, 'Test Amp');
+      expect(report.senderIp, '192.0.2.7');
 
       await client.dispose();
     });
 
-    test('undersized/malformed packets are dropped and never reach statusStream', () async {
+    test('undersized/malformed packets are dropped and never reach statusReports', () async {
       final transport = FakeUdpTransport();
       final client = DevialetClient(transport: transport, deviceIp: '192.168.1.50');
 
-      final received = <DevialetStatus>[];
+      final received = <AmpStatusReport>[];
       client.startListening();
-      final subscription = client.statusStream.listen(received.add);
+      final subscription = client.statusReports.listen(received.add);
 
       transport.emitIncoming(Uint8List(10)); // far too short
       transport.emitIncoming(buildStatusPacket(deviceName: 'Valid'));
       await Future<void>.delayed(Duration.zero);
 
       expect(received, hasLength(1));
-      expect(received.single.deviceName, 'Valid');
+      expect(received.single.status.deviceName, 'Valid');
 
       await subscription.cancel();
       await client.dispose();

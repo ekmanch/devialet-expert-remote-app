@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/window_class.dart';
-import '../../domain/control_view_state_provider.dart';
+import '../../domain/amp_state_owner.dart';
 import '../debug/debug_state_driver.dart';
 import '../platform/adaptive_sheet.dart';
 import '../theme/app_theme.dart';
@@ -51,7 +51,7 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
     final t = theme.tokens;
     final style = theme.style;
     final state = ref.watch(controlViewStateProvider);
-    final notifier = ref.read(controlViewStateProvider.notifier);
+    final notifier = ref.read(ampStateProvider.notifier);
     final widthClass = WindowClassScope.of(context).width;
 
     final shownDb = _dragDb ?? state.volumeDb;

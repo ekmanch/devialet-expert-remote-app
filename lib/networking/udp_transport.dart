@@ -2,6 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+/// One received datagram with its sender. The sender's address is what
+/// keys the discovery map and decides which broadcast may touch live
+/// control state (`docs/protocol.md`, "Multi-amp discovery"); it is a
+/// plain string so nothing above the transport needs `dart:io`.
+typedef UdpDatagram = ({Uint8List data, String senderAddress});
+
 /// Abstraction over the UDP socket operations the protocol layer needs, so
 /// [DevialetClient] can be unit-tested with a fake instead of a real socket.
 abstract class UdpTransport {
@@ -12,11 +18,12 @@ abstract class UdpTransport {
   /// commands").
   Future<void> sendTwice(Uint8List first, Uint8List second, String host, int port);
 
-  /// Binds to [port] and returns a stream of raw datagram payloads. The
+  /// Binds to [port] and returns a stream of raw datagrams with their
+  /// sender address. The
   /// original app never sets a read timeout and just keeps looping on
   /// transient errors — the returned stream should behave the same way
   /// (stay open across errors) rather than closing on the first hiccup.
-  Stream<Uint8List> bindAndListen(int port);
+  Stream<UdpDatagram> bindAndListen(int port);
 
   /// Releases the listening socket opened by [bindAndListen], if any.
   void close();
@@ -40,8 +47,8 @@ class DevialetUdpTransport implements UdpTransport {
   }
 
   @override
-  Stream<Uint8List> bindAndListen(int port) {
-    final controller = StreamController<Uint8List>();
+  Stream<UdpDatagram> bindAndListen(int port) {
+    final controller = StreamController<UdpDatagram>();
 
     RawDatagramSocket.bind(InternetAddress.anyIPv4, port, reuseAddress: true)
         .then((socket) {
@@ -51,7 +58,9 @@ class DevialetUdpTransport implements UdpTransport {
             (event) {
               if (event != RawSocketEvent.read) return;
               final datagram = socket.receive();
-              if (datagram != null) controller.add(datagram.data);
+              if (datagram != null) {
+                controller.add((data: datagram.data, senderAddress: datagram.address.address));
+              }
               // A `null` receive() or any other transient hiccup is simply
               // ignored and the loop continues, matching the original app's
               // "receive() throws -> loop continues" behavior.

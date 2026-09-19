@@ -142,10 +142,10 @@ class _DebugNetworkScreenState extends ConsumerState<DebugNetworkScreen> {
         const Divider(height: 32),
         Text('Live status broadcast:', style: Theme.of(context).textTheme.titleSmall),
         statusAsync.when(
-          data: (status) => Text(
-            'Name: ${status.deviceName}\n'
-            'Power: ${status.isPoweredOn}   Mute: ${status.isMuted}\n'
-            'Active source index: ${status.activeSourceIndex}   Volume: ${status.volumeDb} dB',
+          data: (report) => Text(
+            'From: ${report.senderIp}   Name: ${report.status.deviceName}\n'
+            'Power: ${report.status.isPoweredOn}   Mute: ${report.status.isMuted}\n'
+            'Active source index: ${report.status.activeSourceIndex}   Volume: ${report.status.volumeDb} dB',
           ),
           loading: () => const Text('Waiting for first broadcast…'),
           error: (e, _) => Text('Status listener error: $e'),

@@ -196,7 +196,7 @@ void main() {
       expect(readState(tester).power, PowerPhase.booting);
     });
 
-    testWidgets('power flips on → off → booting from the button', (tester) async {
+    testWidgets('power flips on → off → on optimistically from the button', (tester) async {
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
       await tester.tap(find.byKey(ControlKeys.powerButton));
       await tester.pump(const Duration(milliseconds: 200));
@@ -204,8 +204,9 @@ void main() {
       expect(tester.widget<DeviceDot>(find.byKey(ControlKeys.deviceDot)).state, DeviceDotState.off);
       await tester.tap(find.byKey(ControlKeys.powerButton));
       await tester.pump(const Duration(milliseconds: 200));
-      expect(textAt(tester, ControlKeys.powerLabel), 'Powering on\u2026');
-      expect(textAt(tester, ControlKeys.deviceSub), 'Booting\u2026');
+      // Task 3.2.0 turns this edge into 'Powering on…' via markBooting.
+      expect(textAt(tester, ControlKeys.powerLabel), 'Power Off');
+      expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.22 \u00b7 Connected');
     });
 
     testWidgets('no amp: power and volume inert, source trigger still opens the empty state', (tester) async {
@@ -213,8 +214,8 @@ void main() {
       await tester.tap(find.byKey(ControlKeys.powerButton), warnIfMissed: false);
       await tester.tap(find.byKey(ControlKeys.volMinus), warnIfMissed: false);
       await tester.pump();
-      expect(readState(tester).power, PowerPhase.on);
-      expect(readState(tester).volumeDb, -25.0);
+      expect(readState(tester).hasAmp, isFalse);
+      expect(textAt(tester, ControlKeys.dialValue), '\u2014');
       await tester.tap(find.byKey(ControlKeys.sourceTrigger));
       await tester.pumpAndSettle();
       expect(find.text('No sources available'), findsOneWidget);

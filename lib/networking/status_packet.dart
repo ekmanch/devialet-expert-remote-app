@@ -21,6 +21,7 @@ class DevialetStatus {
     required this.isPoweredOn,
     required this.isMuted,
     required this.activeSourceIndex,
+    required this.volumeRaw,
     required this.volumeDb,
     required this.sources,
   });
@@ -32,6 +33,11 @@ class DevialetStatus {
   /// 0-14, matches the index used for [DevialetSourceInfo.index] /
   /// select-source command mapping.
   final int activeSourceIndex;
+
+  /// The raw volume byte (offset 565). Exposed unmasked next to [volumeDb]
+  /// because the state owner's *confirmed* channel keys on it: the decode
+  /// is exact, so equality on the byte is a safe confirmation match.
+  final int volumeRaw;
   final double volumeDb;
 
   /// Always exactly 30 entries (indices 0-29), including disabled slots —
@@ -78,13 +84,15 @@ class DevialetStatus {
       final isPoweredOn = (data[_powerOffset] & _powerBit) != 0;
       final activeSourceIndex = (data[_sourceIndexOffset] & _sourceIndexMask) >> 2;
       final isMuted = (data[_muteOffset] & _muteBit) != 0;
-      final volumeDb = VolumeCodec.decodeStatusVolume(data[_volumeOffset]);
+      final volumeRaw = data[_volumeOffset];
+      final volumeDb = VolumeCodec.decodeStatusVolume(volumeRaw);
 
       return DevialetStatus(
         deviceName: deviceName,
         isPoweredOn: isPoweredOn,
         isMuted: isMuted,
         activeSourceIndex: activeSourceIndex,
+        volumeRaw: volumeRaw,
         volumeDb: volumeDb,
         sources: sources,
       );

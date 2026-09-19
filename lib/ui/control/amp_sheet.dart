@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/control_view_state.dart';
-import '../../domain/control_view_state_provider.dart';
+import '../../domain/amp_state_owner.dart';
 import '../platform/adaptive_pressable.dart';
 import '../platform/adaptive_text_field.dart';
 import '../theme/app_theme.dart';
@@ -45,7 +45,7 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
 
   void _connectManual() {
     if (!_ipValid) return;
-    ref.read(controlViewStateProvider.notifier).addManualAmp(_ip.text.trim());
+    ref.read(ampStateProvider.notifier).addManualAmp(_ip.text.trim());
     Navigator.of(context).pop();
   }
 
@@ -62,7 +62,7 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
   Widget _buildList(BuildContext context, ControlViewState state) {
     final theme = AppTheme.of(context);
     final t = theme.tokens;
-    final notifier = ref.read(controlViewStateProvider.notifier);
+    final notifier = ref.read(ampStateProvider.notifier);
     final noneSelected = state.selectedAmp == null;
 
     Widget divider() => Container(height: 1, color: t.divider, margin: const EdgeInsets.symmetric(vertical: 6));

@@ -53,9 +53,10 @@ and the numbering is shared across both repos and referenced by
 - **Superseded design (2026-09-15):** the KDE widget replaced per-input
   debounce timestamps with one pending-command mask in the state owner,
   plus an unmasked "confirmed" channel keyed on the exact raw status byte.
-  Every input path is then covered by construction — see `TODO.md`
-  (state owner / pending-command mask phases) and `docs/protocol.md`,
-  "Timing facts". Don't port #1/#2 as two separate fixes.
+  Every input path is then covered by construction — implemented in this
+  repo on 2026-09-19 (Tasks 3.0.x / 3.1.x): `docs/architecture.md` §8,
+  `lib/domain/amp_tracker.dart`, reproduced in
+  `test/domain/amp_state_test.dart`. Don't port #1/#2 as two separate fixes.
 
 ## 3. Wrong source selected — Optical 1 selection played Roon Ready instead — [Control]
 

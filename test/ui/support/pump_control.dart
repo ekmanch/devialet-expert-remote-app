@@ -4,20 +4,41 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:devialet_expert_remote_app/config/ui_variant.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
-import 'package:devialet_expert_remote_app/domain/control_view_state_provider.dart';
+import 'package:devialet_expert_remote_app/domain/amp_state_owner.dart';
+import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
+import 'package:devialet_expert_remote_app/domain/devialet_client_provider.dart';
+import 'package:devialet_expert_remote_app/domain/monotonic_clock.dart';
 import 'package:devialet_expert_remote_app/ui/app.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_screen.dart';
 import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
+
+import '../../domain/support/fake_time.dart';
+import '../../networking/fake_udp_transport.dart';
 
 /// Galaxy S25-ish logical size; the mockups are 390 wide.
 const Size phonePortrait = Size(390, 844);
 const Size phoneLandscape = Size(844, 390);
 const Size tabletLandscape = Size(1024, 768);
 
-/// Pumps the real app root with the fake state and variant overridden —
-/// the first use of the ProviderScope-override pattern in the widget
-/// tests (CLAUDE.md, "Testing"). Never touches real networking: the
-/// Control screen doesn't watch the transport providers.
+/// The app root with overrides that keep the real owner off the network
+/// and off the wall clock: a fake transport (no socket), a frozen clock
+/// (pending values never expire unless a test advances it) and no stale
+/// tick. [variant] is left to the real resolver when null.
+Widget hermeticApp({UiVariant? variant, FakeClock? clock, Stream<void>? ticks}) {
+  return ProviderScope(
+    overrides: [
+      if (variant != null) uiVariantProvider.overrideWithValue(variant),
+      devialetTransportProvider.overrideWithValue(FakeUdpTransport()),
+      monotonicClockProvider.overrideWithValue(clock ?? FakeClock()),
+      staleTickProvider.overrideWithValue(ticks ?? const Stream<void>.empty()),
+    ],
+    child: const DevialetRemoteApp(),
+  );
+}
+
+/// Pumps the real app root on the real owner, seeded with [state] through
+/// the owner's ingest path (synthetic broadcasts from TEST-NET IPs), with
+/// the variant overridden. Never touches real networking (checklist 19).
 Future<void> pumpControl(
   WidgetTester tester, {
   required ControlViewState state,
@@ -27,15 +48,9 @@ Future<void> pumpControl(
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        uiVariantProvider.overrideWithValue(variant),
-        controlViewStateProvider.overrideWith(() => ControlViewNotifier(initial: state)),
-      ],
-      child: const DevialetRemoteApp(),
-    ),
-  );
+  await tester.pumpWidget(hermeticApp(variant: variant));
+  await tester.pump();
+  seedFromControlView(containerOf(tester).read(ampStateProvider.notifier), state);
   await tester.pump();
 }
 

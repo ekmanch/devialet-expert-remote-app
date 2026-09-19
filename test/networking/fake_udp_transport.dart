@@ -15,7 +15,7 @@ class SentPair {
 /// datagrams through [emitIncoming] without a real socket.
 class FakeUdpTransport implements UdpTransport {
   final List<SentPair> sentPairs = [];
-  final StreamController<Uint8List> _incoming = StreamController<Uint8List>.broadcast();
+  final StreamController<UdpDatagram> _incoming = StreamController<UdpDatagram>.broadcast();
   bool closed = false;
 
   @override
@@ -24,9 +24,12 @@ class FakeUdpTransport implements UdpTransport {
   }
 
   @override
-  Stream<Uint8List> bindAndListen(int port) => _incoming.stream;
+  Stream<UdpDatagram> bindAndListen(int port) => _incoming.stream;
 
-  void emitIncoming(Uint8List data) => _incoming.add(data);
+  /// Pushes one datagram as if received from [from] (TEST-NET-1 by default
+  /// so a fixture can never name real hardware, checklist item 27).
+  void emitIncoming(Uint8List data, {String from = '192.0.2.22'}) =>
+      _incoming.add((data: data, senderAddress: from));
 
   @override
   void close() {

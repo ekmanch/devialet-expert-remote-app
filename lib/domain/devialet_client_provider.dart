@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../networking/devialet_client.dart';
-import '../networking/status_packet.dart';
 import '../networking/udp_transport.dart';
 
 /// Thin Riverpod wiring around the networking layer for this phase — just
@@ -21,11 +20,10 @@ final devialetClientProvider = Provider<DevialetClient>((ref) {
   return client;
 });
 
-/// Live status-broadcast stream. Starts listening on first watch and stops
-/// when the last listener goes away.
-final ampStatusStreamProvider = StreamProvider<DevialetStatus>((ref) {
-  final client = ref.watch(devialetClientProvider);
-  client.startListening();
-  ref.onDispose(client.stopListening);
-  return client.statusStream;
-});
+/// A plain view of the broadcast stream for the debug network screen. The
+/// socket's lifetime belongs to the owner (`amp_state_owner.dart`), which
+/// starts listening on build and stops on dispose — this provider must
+/// not stop it (`stopListening` closes the transport).
+final ampStatusStreamProvider = StreamProvider<AmpStatusReport>(
+  (ref) => ref.watch(devialetClientProvider).statusReports,
+);

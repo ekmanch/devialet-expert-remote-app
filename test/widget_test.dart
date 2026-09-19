@@ -1,15 +1,15 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:devialet_expert_remote_app/ui/app.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_screen.dart';
+
+import 'ui/support/pump_control.dart';
 
 void main() {
   testWidgets('home is the Control screen and the debug bar reaches the network test screen', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: DevialetRemoteApp()));
+    await tester.pumpWidget(hermeticApp());
     await tester.pump();
 
     expect(find.byType(ControlScreen), findsOneWidget);

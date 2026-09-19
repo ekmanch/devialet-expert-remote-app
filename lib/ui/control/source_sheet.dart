@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/control_view_state_provider.dart';
+import '../../domain/amp_state_owner.dart';
 import '../platform/adaptive_pressable.dart';
 import '../theme/app_theme.dart';
 import '../widgets/sheet_scaffold.dart';
@@ -17,7 +17,7 @@ class SourceSheet extends ConsumerWidget {
     final theme = AppTheme.of(context);
     final t = theme.tokens;
     final state = ref.watch(controlViewStateProvider);
-    final notifier = ref.read(controlViewStateProvider.notifier);
+    final notifier = ref.read(ampStateProvider.notifier);
 
     return SheetScaffold(
       title: 'Select source',

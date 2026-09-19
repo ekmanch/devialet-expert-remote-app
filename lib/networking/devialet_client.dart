@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'command_packet.dart';
 import 'command_payloads.dart';
@@ -12,6 +11,11 @@ import 'volume_codec.dart';
 /// Thrown when a command is issued before a target amp IP has been set.
 /// Mirrors the original app's `requireIp {}` gate, enforced here instead of
 /// pushed onto callers.
+/// A parsed broadcast together with the IP it came from. The state owner
+/// keys its discovery map on [senderIp] and only lets the selected amp's
+/// reports touch live control state.
+typedef AmpStatusReport = ({String senderIp, DevialetStatus status});
+
 class NoDeviceIpSetException implements Exception {
   @override
   String toString() => 'DevialetClient: no device IP set';
@@ -79,23 +83,24 @@ class DevialetClient {
     return _transport.sendTwice(first, second, ip, DevialetProtocol.commandPort);
   }
 
-  StreamSubscription<Uint8List>? _statusSubscription;
-  final StreamController<DevialetStatus> _statusController = StreamController<DevialetStatus>.broadcast();
+  StreamSubscription<UdpDatagram>? _statusSubscription;
+  final StreamController<AmpStatusReport> _statusController = StreamController<AmpStatusReport>.broadcast();
 
   /// Emits every successfully-parsed status broadcast. Malformed/undersized
   /// packets are silently dropped upstream (see [DevialetStatus.tryParse])
   /// and never reach this stream — matching the original app's behavior of
-  /// never surfacing a parse failure to the UI.
-  Stream<DevialetStatus> get statusStream => _statusController.stream;
+  /// never surfacing a parse failure to the UI. Each report carries the
+  /// sender IP (see [AmpStatusReport]).
+  Stream<AmpStatusReport> get statusReports => _statusController.stream;
 
   /// Starts listening for status broadcasts. In the original app this is
   /// tied to `onResume()`/`onPause()`; here it's an explicit call so the
   /// domain layer can decide when that should happen (Flutter's lifecycle
   /// hooks differ from Android's Activity lifecycle).
   void startListening() {
-    _statusSubscription ??= _transport.bindAndListen(DevialetProtocol.statusPort).listen((data) {
-      final status = DevialetStatus.tryParse(data);
-      if (status != null) _statusController.add(status);
+    _statusSubscription ??= _transport.bindAndListen(DevialetProtocol.statusPort).listen((datagram) {
+      final status = DevialetStatus.tryParse(datagram.data);
+      if (status != null) _statusController.add((senderIp: datagram.senderAddress, status: status));
     }, onError: (_) {});
   }
 

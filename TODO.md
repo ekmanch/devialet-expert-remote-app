@@ -327,7 +327,10 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
       not-responding / not-connected / muted so every state above can be
       eyeballed on the Galaxy S25 without an amp. Done: in-flow bar under
       the footer, `kDebugMode` only, ◀ / ▶ plus a "Net" button that pushes
-      the Task 1 network test screen.
+      the Task 1 network test screen. **Since 3.0.x the bar drives a
+      simulated amp** (`lib/ui/debug/simulated_amp.dart`, TEST-NET IPs,
+      real ingest path, opt-in on first tap); Booting reverts after the
+      20 s deadline until 3.2.x, "Not responding" takes the real 8 s.
 - [ ] **2.0.13** — **Hands-on check on the Galaxy S25** in both UI variants, report
       recorded here (checklist item 23), before the task is called done.
       The interim expanded column is checked on an Android tablet
@@ -378,28 +381,44 @@ gotchas #1/#2 one input at a time.
 
 ### 3.0.x — State owner (Riverpod)
 
-- [ ] **3.0.0** — One Riverpod-owned live amp state, injected into every surface as a
+- [x] **3.0.0** — One Riverpod-owned live amp state, injected into every surface as a
       *required* dependency; views never keep private copies of
-      volume/mute/ip/power (checklist items 2, 5).
-- [ ] **3.0.1** — **Confirmed-vs-optimistic split:** the owner exposes both a
+      volume/mute/ip/power (checklist items 2, 5). Done 2026-09-19:
+      `AmpStateOwner` / `ampStateProvider` (`lib/domain/amp_state_owner.dart`),
+      the UI reads the derived `controlViewStateProvider`; the fake notifier
+      is gone. Design: `docs/architecture.md`. The dial's in-progress drag
+      value is gesture state, not a copy (TODO 3.6.4).
+- [x] **3.0.1** — **Confirmed-vs-optimistic split:** the owner exposes both a
       *displayed* value (optimistic, masked) and a separate unmasked
       **confirmed** value taken from the raw status byte; exact equality,
       no epsilon (`docs/protocol.md`, status notes). Feedback (Task 3.10.x)
       derives from confirmed state, never from the gesture (checklist
-      item 25).
-- [ ] **3.0.2** — Optimistic writes are **synchronous, before the async send**, so each
+      item 25). Done 2026-09-19: `confirmedAmpStateProvider` /
+      `ConfirmedAmpState` (carries `volumeRaw`, now parsed by
+      `DevialetStatus`).
+- [x] **3.0.2** — Optimistic writes are **synchronous, before the async send**, so each
       step accumulates on the stored value (5 taps 10 ms apart = 5 steps);
       rollback on send failure (checklist item 3; `docs/protocol.md`
-      reconciliation #6).
-- [ ] **3.0.3** — All timers on one monotonic clock source; staleness `online =
-      last_seen < 8 s` on a 1 s tick.
-- [ ] **3.0.4** — Status broadcasts are **triggers, not truth**: re-read state after a
+      reconciliation #6). Done 2026-09-19 structurally: intents arm the
+      pending slot, then `await` an `AmpCommandSink`, clearing the slot on
+      a throw. **Sends are `NoopCommandSink` until Tasks 3.5–3.9** (owner
+      decision: display-only first), so an optimistic change reverts after
+      400 ms on a real amp.
+- [x] **3.0.3** — All timers on one monotonic clock source; staleness `online =
+      last_seen < 8 s` on a 1 s tick. Done 2026-09-19 (`MonotonicClock`,
+      `staleTickProvider`; deadlines are compared on every ingest and tick,
+      no per-field timers).
+- [x] **3.0.4** — Status broadcasts are **triggers, not truth**: re-read state after a
       change rather than trusting a single field; never assume fields of
-      one update arrive atomically (checklist items 12, 13).
-- [ ] **3.0.5** — Only the broadcast whose sender IP matches the selected amp updates
+      one update arrive atomically (checklist items 12, 13). Done
+      2026-09-19 by construction: every ingest replaces the whole `status`
+      and the view is re-derived from it; there are no per-field handlers.
+- [x] **3.0.5** — Only the broadcast whose sender IP matches the selected amp updates
       live control state; every broadcast feeds the discovery map (Task
-      3.9.0 owns the map's semantics).
-- [ ] **3.0.6** — **No "one screen at a time" assumption.** On expanded widths
+      3.9.0 owns the map's semantics). Done 2026-09-19; the transport now
+      carries the sender (`UdpDatagram`, `AmpStatusReport`).
+- [ ] **3.0.6** — *(open — not touched by 3.0.x; sheet-visibility rules come with
+      3.8.2 / 3.11.x)* **No "one screen at a time" assumption.** On expanded widths
       Control and Settings (or Control and the amp/source lists) can be
       visible and interactive *simultaneously*, and two windows of the
       app can exist on iPadOS / Android multi-window. So: every
@@ -410,36 +429,58 @@ gotchas #1/#2 one input at a time.
       are owner-driven and expressed in terms of *what is visible*, not
       of navigation routes; a settings Apply must reflect on a Control
       pane that never left the screen (checklist item 11's re-trigger).
-- [ ] **3.0.7** — **Width class is injected like the UI variant:** one
+- [ ] **3.0.7** — *(open — `WindowClassScope` still reads `MediaQuery` in the app
+      builder; a provider/define override is the remaining piece)* **Width class is injected like the UI variant:** one
       `windowSizeClassProvider` (or equivalent) derived from the window,
       overridable in tests and by a debug define, so layouts and any
       per-width constants read it rather than `MediaQuery` ad hoc, and
       so a phone-width window on a tablet gets the phone layout by
       construction (checklist item 28).
 
-- [ ] **3.0.8** — **A silent amp is presented as "no amplifier" but the
+- [x] **3.0.8** — **A silent amp is presented as "no amplifier" but the
       selection is not forgotten** (owner decision 2026-09-19, Task 2.0.x):
       after 8 s without a broadcast the owner emits the not-connected
       shape (`ControlViewState.selectedAmp == null`, list pruned), while
       the *persisted* selection (3.3.x) stays untouched, so the next
       broadcast from that IP reconnects without a tap. Distinct from the
-      user choosing "None" (checklist items 4, 26).
+      user choosing "None" (checklist items 4, 26). Done 2026-09-19:
+      "pruned" = the list shows online amps only, the map never evicts
+      (KDE); `selectedIp` is kept and exposed on the view. Caveat for
+      3.9.x: while the chosen amp is silent the sheet highlights "None";
+      decide whether to render an offline row from `selectedIp` instead.
+
+- **S25 soak 2026-09-19 (owner):** the real amp (192.168.0.22) appears in the
+  amp sheet next to the simulated ones, named from its UDP broadcast — no
+  model name until Task 3.9.5 resolves it over mDNS, as expected.
+- [ ] **3.0.9** — `ControlViewState.volumeDb` is non-nullable and the derivation
+      fills it with the floor when there is no amp (a sentinel the UI never
+      formats because it checks `hasAmp` first). The honest type is
+      `double?`; change it together with the readout path in
+      `control_screen.dart` when a task next touches that file.
 
 ### 3.1.x — Pending-command mask + confirmed channel
 
-- [ ] **3.1.0** — 400 ms pending mask in the state owner (not in widgets): after a
+- [x] **3.1.0** — 400 ms pending mask in the state owner (not in widgets): after a
       local command the local value is authoritative until a broadcast
       exactly matches it (confirmed) or 400 ms elapse (fall back to the
       amp's value). A newer command replaces the value and re-arms the
       deadline. Covers volume, mute, power, source in one place (checklist
-      item 1).
-- [ ] **3.1.1** — Unit tests with `FakeUdpTransport` reproducing gotchas #1/#2 (late
+      item 1). Done 2026-09-19 (`PendingValue`, `TrackedAmp.resolvePending`,
+      `docs/architecture.md` §8).
+- [x] **3.1.1** — Unit tests with `FakeUdpTransport` reproducing gotchas #1/#2 (late
       pre-change broadcast) and proving the mask absorbs them; prove the
       assertion catches the bug by reintroducing it (checklist item 20).
+      Done 2026-09-19: `test/domain/amp_state_test.dart` ("pending-command
+      mask" group, incl. the unmasked counter-test) and
+      `test/domain/amp_state_owner_test.dart` (socket → owner, rollback,
+      400 ms fallback).
 
 ### 3.2.x — Power / boot state machine
 
-- [ ] **3.2.0** — States Off / Booting / On. Booting starts on a local power-on, ends on
+- [ ] **3.2.0** — *(seam ready since 3.0.x: `TrackedAmp.bootDeadline`,
+      `AmpStateOwner.markBooting`, `powerPhaseAt` renders Booting and
+      `resolvePending` clears it on On or timeout; wire `togglePower`'s
+      off→on edge and the confirmation rules)* States Off / Booting / On. Booting starts on a local power-on, ends on
       the amp's confirmation or a **20 s** timeout that silently falls
       back to Off; a late confirmation still corrects to On; repeated
       power-on taps don't extend the deadline. Power-off stays immediate.
@@ -612,7 +653,9 @@ from the KDE widget's settings page.
 
 - [ ] **3.9.0** — Discovery map keyed by sender IP, updated by every broadcast, never
       evicted; silent amps flip to offline after 8 s; the sheet's list
-      refreshes live while open.
+      refreshes live while open. *(Map, eviction rule and staleness exist
+      since 3.0.x; remaining: the sheet watches the live list, and the
+      offline-row presentation vs. hidden — 3.0.8 chose hidden.)*
 - [ ] **3.9.1** — Persist selection with **two distinct states**: "chosen X" and
       "chosen nothing (None)", plus a "user has chosen" flag, so restart
       never resurrects a default the user opted out of (checklist item 4).
