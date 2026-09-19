@@ -117,7 +117,7 @@ Reference values: `1.0 → 0x3F80`, `15.0 → 0x4170`, `40.0 → 0x4220`
   stops a dangerous value, so the clamp is a client duty. History: the
   Kotlin app clamped at 0 dB (too loud), then −15 dB (`docs/known-gotchas.md`
   #6). ★ **Owner decision 2026-09-14: the ceiling is a persisted setting,
-  default −10.0 dB**, alongside a floor (default −45.0) and a startup volume
+  default −10.0 dB**, alongside a floor (default −50.0) and a startup volume
   (default −40.0), all over −96..0; the ceiling is enforced inside the
   command constructor as a *required* parameter with an explicit "none"
   for unbounded, so no caller can forget it. The floor is a UI-only
@@ -126,8 +126,9 @@ Reference values: `1.0 → 0x3F80`, `15.0 → 0x4170`, `40.0 → 0x4220`
   *optional defaulted* parameter on `setVolumeDb`/`setVolume`, and
   `volume_codec_test.dart` pins −15.0 ("is not silently regressed"). This
   is deliberately unchanged in the 2026-09-15 doc pass: change it once, in
-  the shared settings object, with the UI range and that test, in the
-  volume-limits phase (TODO.md) — not as a drive-by edit.
+  the shared settings object, with the UI range and that test, in Task
+  3.4.7 / 3.4.8 (value) and Task 1.1.3 (required parameter) — not as a
+  drive-by edit.
 - **Status-broadcast volume uses a different, simpler formula** — see the
   status packet section. The two are not inverses; do not assume symmetry.
 
@@ -241,8 +242,7 @@ power-on. This is a product decision masking a hardware quirk — do not
 optimise it away as a redundant network call.
 **⚠ Dart:** `DevialetClient.selectSource` hardcodes
 `sourceSwitchVolumeDb = -40.0` and sends it through the −15 default
-ceiling; it becomes the startup-volume setting in the volume-limits phase
-(TODO.md).
+ceiling; it becomes the startup-volume setting in Task 3.4.8 (TODO.md).
 
 ### Known-unimplemented commands — [Sound]
 

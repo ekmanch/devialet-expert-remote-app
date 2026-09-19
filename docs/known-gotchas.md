@@ -145,11 +145,12 @@ and the numbering is shared across both repos and referenced by
   leftover/arbitrary constant.
 - **Decision update (owner, 2026-09-14):** the ceiling becomes a persisted
   setting with default **−10.0 dB** (the KDE widget's value), alongside a
-  floor (−45.0) and a startup volume (−40.0), enforced inside the command
+  floor (−50.0) and a startup volume (−40.0), enforced inside the command
   constructor as a *required* parameter. The safety rationale stands; only
   the number and where it lives change. `VolumeCodec.defaultSafetyMaxDb`
-  is still −15.0 until the volume-limits phase in `TODO.md` — change it
-  there, once, together with the UI range and the test that pins it.
+  is still −15.0 until Task 3.4.7 / 3.4.8 in `TODO.md` (the required
+  parameter is Task 1.1.3) — change it there, once, together with the UI
+  range and the test that pins it.
 
 ## 7. Lint: touch-handling didn't call `performClick()`, breaking accessibility semantics — [Control]
 

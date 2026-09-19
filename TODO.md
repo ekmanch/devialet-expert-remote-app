@@ -600,6 +600,8 @@ via both UI variants; the real-iPad check is Task 4.4.0.
       to flip their status from "inferred, not confirmed" to confirmed (or
       correct them if the capture reveals different behavior than assumed).
 - [ ] `docs/protocol.md` and `docs/known-gotchas.md` still point into this
-      file with the old wording ("Phase 1 follow-ups", "volume-limits
-      phase", "state owner / pending-command mask phases"). Retarget those
-      pointers to Task 1.1.x / 3.4.x / 3.0.x-3.1.x on the next docs touch.
+      file with the old wording ("state owner / pending-command mask
+      phases"). Retarget those pointers to Task 3.0.x-3.1.x on the next
+      docs touch. ("Phase 1 follow-ups" and "volume-limits phase" were
+      retargeted to Task 1.1.x / 3.4.x on 2026-09-19; the floor default
+      in both docs was corrected to −50.0 to match 3.4.7.)
