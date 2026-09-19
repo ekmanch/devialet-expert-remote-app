@@ -110,13 +110,9 @@ Reference values: `1.0 → 0x3F80`, `15.0 → 0x4170`, `40.0 → 0x4220`
   **nearest** 0.5 dB and recurses on an integer step count: byte-identical
   to the formula on every exact step, never hangs (e.g. −15.3 → the −15.5
   word), and immune to floating-point drift in either direction.
-  **⚠ Dart:** `VolumeCodec.dbConvert` does not hang either (its base case
-  is `<= 0.5`, not `== 0.5`), but it effectively rounds **up** to the next
-  0.5 step instead of to nearest: `15.2 → 0x4178` (the 15.5 word, Rust
-  gives 0x4170) and `15.0000001 → 0x4178` while `14.9999999 → 0x4170`.
-  Any upward float drift from a UI computation therefore sends a command
-  0.5 dB louder than intended. Quantize to the nearest 0.5 dB step before
-  encoding, as the Rust crate does (TODO.md, Phase 1 follow-ups).
+  **Dart:** `VolumeCodec.dbConvert` matches the Rust behaviour since Task
+  1.1.0 (quantize once at entry, recurse on the integer step count; the
+  rounding cases are pinned in `test/networking/volume_codec_test.dart`).
 - **Ceiling.** The protocol accepts up to **+30 dB**; nothing on the wire
   stops a dangerous value, so the clamp is a client duty. History: the
   Kotlin app clamped at 0 dB (too loud), then −15 dB (`docs/known-gotchas.md`
@@ -432,7 +428,7 @@ TODO.md; nothing changed in code during the doc pass):
 | # | Where | Doc / decision | Dart today | Resolution |
 |---|---|---|---|---|
 | 1 | Volume ceiling | Setting, default **−10.0**, required constructor parameter (owner decision 2026-09-14) | `VolumeCodec.defaultSafetyMaxDb = -15.0`, optional defaulted parameter, test pins −15 | Volume-limits phase: change constant, UI range and test together |
-| 2 | `dbConvert` on non-half-step input | Round to **nearest** 0.5 dB, integer step recursion | Rounds **up** (15.2 and 15.0000001 → the 15.5 word) | Phase 1 follow-up: quantize before encoding |
+| 2 | `dbConvert` on non-half-step input | Round to **nearest** 0.5 dB, integer step recursion | ~~Rounded **up** (15.2 and 15.0000001 → the 15.5 word)~~ | **Resolved, Task 1.1.0** (2026-09-19) |
 | 3 | Post-switch volume | Startup-volume setting (default −40) | Hardcoded `sourceSwitchVolumeDb = -40.0` | Volume-limits phase |
 | 4 | Source names in code comments | Per-unit, never assume a name for an index | Kotlin-era names in comments; `phonoStatusIndex` identifier | Rename on next touch |
 | 5 | Golden vectors in tests | `"123456789" → 0x29B1`, power-on → `A0 BD`, `1.0/15.0/40.0 → 3F80/4170/4220` | Only `0x84F9` (12 zeros) and structural checks are in the suite | Phase 1 follow-up: add as regression tests |

@@ -106,12 +106,11 @@ answers, and the implementation work reappears as task items below.
 Small, wire-level, unit-testable; no domain layer needed. Details in
 `docs/protocol.md`, "Code vs. doc reconciliation".
 
-- [ ] **1.1.0** — **Quantize to the nearest 0.5 dB before `dbConvert`.** Today the
-      Dart recursion rounds *up* on non-half-step input (15.2 → the 15.5
-      word; 15.0000001 → the 15.5 word), so upward float drift sends
-      0.5 dB louder than intended. Round to nearest and recurse on an
-      integer step count, as the Rust crate does; keep exact-step output
-      byte-identical.
+- [x] **1.1.0** — **Quantize to the nearest 0.5 dB before `dbConvert`.** Done
+      2026-09-19: quantize once at entry, recurse on an integer step count
+      (literal port of the KDE `db_convert`); exact-step output verified
+      byte-identical by the golden vectors, and the rounding tests were
+      confirmed red against the old recursion before the fix.
 - [ ] **1.1.1** — **Add the golden vectors as regression tests:** CRC `"123456789"` →
       `0x29B1`; power-on packet at counters (0,0) → `… A0 BD`;
       `dbConvert` 1.0/15.0/40.0 → `3F80`/`4170`/`4220`; status raw 111 →

@@ -22,6 +22,63 @@ void main() {
     });
   });
 
+  group('VolumeCodec.dbConvert golden vectors (docs/protocol.md)', () {
+    // Exact-step inputs; output must stay byte-identical across any
+    // quantization change (TODO.md, "Quantize to the nearest 0.5 dB").
+    test('dbConvert(1.0) == 0x3F80', () {
+      expect(VolumeCodec.dbConvert(1.0), 0x3F80);
+    });
+
+    test('dbConvert(15.0) == 0x4170', () {
+      expect(VolumeCodec.dbConvert(15.0), 0x4170);
+    });
+
+    test('dbConvert(40.0) == 0x4220', () {
+      expect(VolumeCodec.dbConvert(40.0), 0x4220);
+    });
+
+    test('remaining exact-step vectors from the KDE reference suite', () {
+      // crates/protocol/src/dbconvert.rs, matches_reference_at_exact_half_db_steps.
+      expect(VolumeCodec.dbConvert(1.5), 0x3FC0);
+      expect(VolumeCodec.dbConvert(2.0), 0x4000);
+      expect(VolumeCodec.dbConvert(4.0), 0x4080);
+      expect(VolumeCodec.dbConvert(8.0), 0x4100);
+    });
+  });
+
+  group('VolumeCodec.dbConvert non-half-step rounding', () {
+    // TODO.md, "Quantize to the nearest 0.5 dB before dbConvert": input
+    // that is not on the 0.5 dB grid must round to the *nearest* step, not
+    // up, so upward float drift never sends 0.5 dB louder than intended.
+    const golden15 = 0x4170;
+
+    test('15.0000001 rounds to nearest (15.0), not up to 15.5', () {
+      expect(VolumeCodec.dbConvert(15.0000001), golden15);
+    });
+
+    test('14.9999999 rounds to nearest (15.0) from below', () {
+      expect(VolumeCodec.dbConvert(14.9999999), golden15);
+    });
+
+    test('15.3 rounds to the nearest 0.5 dB step (15.5), not 15.0 or 16.0', () {
+      final expected = VolumeCodec.dbConvert(15.5);
+      expect(expected, isNot(VolumeCodec.dbConvert(15.0)));
+      expect(expected, isNot(VolumeCodec.dbConvert(16.0)));
+      expect(VolumeCodec.dbConvert(15.3), expected);
+    });
+
+    test('15.7 rounds to 15.5 (grid is 0.5 dB, not 1.0 dB)', () {
+      final expected = VolumeCodec.dbConvert(15.5);
+      expect(expected, isNot(VolumeCodec.dbConvert(16.0)));
+      expect(VolumeCodec.dbConvert(15.7), expected);
+    });
+
+    test('rounds to nearest at the lowest step boundary (0.25)', () {
+      expect(VolumeCodec.dbConvert(0.24), 0x0000);
+      expect(VolumeCodec.dbConvert(0.26), 0x3F00);
+    });
+  });
+
   group('VolumeCodec.encodeCommandWord', () {
     test('0.0 dB encodes with no sign bit set', () {
       expect(VolumeCodec.encodeCommandWord(0.0, maxDb: 0.0), 0x0000);
@@ -52,6 +109,7 @@ void main() {
       expect(VolumeCodec.decodeStatusVolume(195), 0.0);
       expect(VolumeCodec.decodeStatusVolume(165), -15.0);
       expect(VolumeCodec.decodeStatusVolume(255), 30.0);
+      expect(VolumeCodec.decodeStatusVolume(111), -42.0);
     });
 
     test('is not the inverse of the command-side encoding', () {
