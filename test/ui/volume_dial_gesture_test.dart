@@ -1,0 +1,98 @@
+import 'dart:math' as math;
+
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
+import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
+
+import 'support/pump_control.dart';
+
+Offset ringPoint(WidgetTester tester, double angleDeg, {double radius = 96}) {
+  final center = tester.getCenter(find.byKey(ControlKeys.dial));
+  return center + Offset(math.cos(angleDeg * math.pi / 180), math.sin(angleDeg * math.pi / 180)) * radius;
+}
+
+void main() {
+  testWidgets('rotary drag: readout follows the finger, value commits on release', (tester) async {
+    await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+    final gesture = await tester.startGesture(ringPoint(tester, 180)); // 9 o'clock
+    await tester.pump();
+    expect(textAt(tester, ControlKeys.dialValue), '\u221252.5');
+    expect(readState(tester).volumeDb, -25.0, reason: 'not committed until release');
+
+    await gesture.moveTo(ringPoint(tester, -90)); // 12 o'clock
+    await tester.pump();
+    expect(textAt(tester, ControlKeys.dialValue), '\u221237.5');
+
+    await gesture.moveTo(ringPoint(tester, 0)); // 3 o'clock
+    await tester.pump();
+    expect(textAt(tester, ControlKeys.dialValue), '\u221222.5');
+
+    await gesture.up();
+    await tester.pump();
+    expect(readState(tester).volumeDb, -22.5);
+    expect(textAt(tester, ControlKeys.dialValue), '\u221222.5');
+  });
+
+  testWidgets('values are monotonic along the arc and quantized to 0.5 dB', (tester) async {
+    await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+    final gesture = await tester.startGesture(ringPoint(tester, -225));
+    final seen = <double>[];
+    for (var a = -225.0; a <= 45; a += 10) {
+      await gesture.moveTo(ringPoint(tester, a));
+      await tester.pump();
+      seen.add(double.parse(textAt(tester, ControlKeys.dialValue).replaceAll('\u2212', '-')));
+    }
+    await gesture.up();
+    for (var i = 1; i < seen.length; i++) {
+      expect(seen[i], greaterThanOrEqualTo(seen[i - 1]));
+    }
+    for (final v in seen) {
+      expect((v * 2).roundToDouble(), v * 2);
+    }
+    expect(seen.first, -60.0);
+    expect(seen.last, -15.0);
+  });
+
+  testWidgets('crossing the bottom dead zone never jumps between the ends', (tester) async {
+    await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+    final gesture = await tester.startGesture(ringPoint(tester, 40)); // just before the end
+    await tester.pump();
+    expect(textAt(tester, ControlKeys.dialValue), '\u221216.0');
+    await gesture.moveTo(ringPoint(tester, 90)); // straight down: dead zone
+    await tester.pump();
+    expect(textAt(tester, ControlKeys.dialValue), '\u221216.0');
+    await gesture.up();
+  });
+
+  testWidgets('a press on the centre readout starts no drag', (tester) async {
+    await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+    final gesture = await tester.startGesture(tester.getCenter(find.byKey(ControlKeys.dial)));
+    await gesture.moveTo(ringPoint(tester, -90, radius: 20));
+    await tester.pump();
+    expect(textAt(tester, ControlKeys.dialValue), '\u221225.0');
+    await gesture.up();
+    await tester.pump();
+    expect(readState(tester).volumeDb, -25.0);
+  });
+
+  testWidgets('disabled dial (Off) emits nothing', (tester) async {
+    await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.off));
+    final gesture = await tester.startGesture(ringPoint(tester, 180));
+    await gesture.moveTo(ringPoint(tester, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    expect(textAt(tester, ControlKeys.dialValue), '\u221225.0');
+    expect(readState(tester).volumeDb, -25.0);
+  });
+
+  testWidgets('the dial range comes from the state, not constants', (tester) async {
+    final state = ControlViewState.connectedFixture.copyWith(floorDb: -50, ceilingDb: -20, volumeDb: -40);
+    await pumpControl(tester, state: state);
+    final gesture = await tester.startGesture(ringPoint(tester, -90)); // 12 o'clock = midpoint
+    await tester.pump();
+    expect(textAt(tester, ControlKeys.dialValue), '\u221235.0');
+    await gesture.up();
+  });
+}

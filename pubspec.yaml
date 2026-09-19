@@ -53,33 +53,44 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  # Font licences (OFL) are shipped as assets so main.dart can register them
+  # with LicenseRegistry — the OFL requires the notice to travel with the
+  # fonts (CLAUDE.md checklist item 18: the asset manifest is part of the
+  # feature).
+  assets:
+    - assets/fonts/space_grotesk/OFL.txt
+    - assets/fonts/jetbrains_mono/OFL.txt
+    - assets/fonts/inter/OFL.txt
 
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/to/resolution-aware-images
+  # Bundled from design/mockups (Google-hosted there). Display = Space
+  # Grotesk, numerics = JetBrains Mono, Android body = Inter; the iOS UI
+  # variant uses the system font for body text (the mockup's one
+  # deliberate platform swap). See lib/ui/theme/app_typography.dart.
+  fonts:
+    - family: SpaceGrotesk
+      fonts:
+        - asset: assets/fonts/space_grotesk/space_grotesk_regular.ttf
+          weight: 400
+        - asset: assets/fonts/space_grotesk/space_grotesk_medium.ttf
+          weight: 500
+        - asset: assets/fonts/space_grotesk/space_grotesk_semibold.ttf
+          weight: 600
+        - asset: assets/fonts/space_grotesk/space_grotesk_bold.ttf
+          weight: 700
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/jetbrains_mono/jetbrains_mono_regular.ttf
+          weight: 400
+        - asset: assets/fonts/jetbrains_mono/jetbrains_mono_medium.ttf
+          weight: 500
+        - asset: assets/fonts/jetbrains_mono/jetbrains_mono_semibold.ttf
+          weight: 600
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/inter/Inter_18pt-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/inter/Inter_18pt-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/inter/Inter_18pt-SemiBold.ttf
+          weight: 600
 
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/to/asset-from-package
-
-  # To add custom fonts to your application, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
-  # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font. For
-  # example:
-  # fonts:
-  #   - family: Schyler
-  #     fonts:
-  #       - asset: fonts/Schyler-Regular.ttf
-  #       - asset: fonts/Schyler-Italic.ttf
-  #         style: italic
-  #   - family: Trajan Pro
-  #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
-  #       - asset: fonts/TrajanPro_Bold.ttf
-  #         weight: 700
-  #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package

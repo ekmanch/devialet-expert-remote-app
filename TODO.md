@@ -41,7 +41,12 @@ layout is chosen by **window width class** (compact / medium / expanded,
 per Material 3 and iPadOS size classes), never by device type, because a
 tablet can present a phone-width window (iPad Split View / Slide Over /
 Stage Manager, Android split-screen and resizable windows) and change it
-at runtime. The two-pane expanded layout itself is Task 3.11.x, deferred
+at runtime. **Orientation (owner decision 2026-09-19):** phones are
+locked to portrait (`lib/config/orientation_policy.dart`, decided by the
+display's shortest side < 600 dp, applied once in `main.dart`); tablets
+keep every orientation because 3.11.x's two-pane layout is a landscape
+layout. The compact-*height* handling below therefore only matters for
+tablets in split screen. The two-pane expanded layout itself is Task 3.11.x, deferred
 until Control and Settings exist. Note CLAUDE.md still names only the Galaxy
 S25 as a test device; add tablets there when it is next edited.
 
@@ -197,7 +202,29 @@ group; those are **out of scope here** and belong to Task 3.4.x.
 Per-variant through `uiVariantProvider` (CLAUDE.md, "Runtime UI variant
 switching"); conventions differ, behaviour below does not.
 
-- [ ] **2.0.0** — **Adaptive layout from the first commit (phones + tablets).** The
+**Built 2026-09-19** (2.0.0–2.0.12; 2.0.13 is the owner's hands-on check).
+Code map: `lib/domain/control_view_state.dart` (+ `_provider.dart`, the
+fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
+`lib/ui/platform/`, `lib/ui/widgets/`, `lib/ui/control/`,
+`lib/ui/debug/debug_state_driver.dart`; 133 tests under `test/`.
+**Owner decisions taken while planning, 2026-09-19:**
+
+- **A silent amp is presented exactly like "no amplifier selected"** —
+  discovered list emptied, active = None, footer "Not connected". A phone
+  cannot tell an amp that stopped broadcasting from one that is unplugged,
+  so there is no third "Not responding" presentation (2.0.8 / 2.0.10 below
+  were rewritten accordingly). The *persisted* selection must still
+  survive silence so the app reconnects by itself when broadcasts resume —
+  Task 3.0.8.
+- Fonts are bundled (`assets/fonts/`, OFL notices registered with
+  `LicenseRegistry` in `main.dart`); the iOS variant keeps the system font
+  for body text, as the mockup intends.
+- Full static sheets (amp sheet with the inline manual-IP view, source
+  sheet with empty state); the dial has a rotary drag on the ring band.
+- No v20 mockup pass: after the decision above the only deltas from v19
+  are two text substitutions ("Muted" readout, footer status word).
+
+- [x] **2.0.0** — **Adaptive layout from the first commit (phones + tablets).** The
       mockups describe the *compact* width class only. Build the Control
       screen against a width-class value (compact / medium / expanded)
       read from the window, not from `Platform`/device type, and give
@@ -210,67 +237,132 @@ switching"); conventions differ, behaviour below does not.
       mockup pass, and tablet verification is deferred because loading
       the iPad is a whole process the owner doesn't want early in the
       port. The width-class plumbing must still be in place now so 3.8.0
-      is a layout swap, not a refactor.
-- [ ] **2.0.1** — **Window-size changes at runtime** (rotation, iPad Split View /
+      is a layout swap, not a refactor. Done: `WindowClassScope`
+      (Material 3 breakpoints 600/840, 480/900) installed in the app
+      `builder:`; the interim column is one `ConstrainedBox`
+      (`kInterimColumnMaxWidth = 480`, `control_layout.dart`) that 3.11.1
+      swaps out; compact height scrolls. Sheets cap their width the same way.
+- [x] **2.0.1** — **Window-size changes at runtime** (rotation, iPad Split View /
       Slide Over / Stage Manager resize, Android split-screen) must
       rebuild the layout without losing state: open sheet, in-progress
       dial drag, draft settings survive a width-class change (the Kotlin
       app handled rotation itself via `configChanges`; Flutter has no
       equivalent free pass — `docs/app-overview.md`, "Screen/orientation
-      handling").
-- [ ] **2.0.2** — **Header / amp card:** whole row is the tap target; shows
+      handling"). Done: fake state lives in Riverpod, the live drag value
+      in `ControlScreen`'s state, sheets are Navigator routes with their
+      own state; `test/ui/control_screen_resize_test.dart` resizes
+      390×844 → 1024×768 with a sheet open, mid-drag, and with a typed IP.
+- [x] **2.0.2** — **Header / amp card:** whole row is the tap target; shows
       `model ?? name` with the IP and a static status word; nothing-selected
       header reads "No Amplifier" / "Tap to connect". Device dot states:
       connected / booting (pulsing amber) / off / none (plain outline).
-- [ ] **2.0.3** — **Amp bottom sheet (static):** "None" is always the first row, above
+      Done (`device_card.dart`; "Connected" stays while the amp is Off —
+      it describes the UDP link, per the mockup comment).
+- [x] **2.0.3** — **Amp bottom sheet (static):** "None" is always the first row, above
       a divider, italic, plain outline dot; strings verbatim from the
       Android app: "None" / "Don't connect to any amplifier". Rows show
       `model ?? name` with a " · name unresolved" tag when only the UDP
       name is known; selected row has a check. Manual-IP entry view kept
-      inside the same sheet.
-- [ ] **2.0.4** — **Volume dial + VOL −/+ buttons + dB readout.** Slider hit target
+      inside the same sheet. Done (`amp_sheet.dart`; IPv4 validated
+      before "Connect" is enabled; "‹ Back to list" returns to the list —
+      not in the mockup, needed because the scrim is the only other exit).
+- [x] **2.0.4** — **Volume dial + VOL −/+ buttons + dB readout.** Slider hit target
       larger than the painted track; the readout binds to the live drag
       value. The mockup's dial range is hardcoded −60..−15 and the arc
       geometry is ported from `VolumeDialView.kt`; the *range* must come
       from the floor/ceiling settings once Task 3.4.x exists — don't bake
-      the mockup's numbers in (checklist items 14, 15).
-- [ ] **2.0.5** — **Mute control:** toggle with label Mute/Unmute **and** a glyph that
+      the mockup's numbers in (checklist items 14, 15). Done: range is
+      `floorDb`/`ceilingDb` on the state (fixture −60/−15; a −50/−20 test
+      proves nothing is baked); ring band from r 63 to the box edge is the
+      hit target, the centre readout is not; bottom 90° dead zone snaps
+      on press, is ignored mid-drag; the dial claims the pointer eagerly so
+      the scroll view never steals a vertical drag; 0.5 dB display steps.
+- [x] **2.0.5** — **Mute control:** toggle with label Mute/Unmute **and** a glyph that
       follows state; readouts show the word "Muted" instead of a dB value
-      when muted.
-- [ ] **2.0.6** — **Power control and Booting presentation:** spinner replaces the
+      when muted. Done.
+- [x] **2.0.6** — **Power control and Booting presentation:** spinner replaces the
       power glyph, label "Powering on…", pulsing amber status dot, header
       subtext "Booting…", power control genuinely inert while Booting.
-- [ ] **2.0.7** — **Buttons whose label changes** ("Mute"↔"Unmute", "Power
+      Done (the fake owner has no boot timer: Booting stays until the
+      debug bar moves on, so tests are deterministic; Task 3.2.x drives
+      it from the amp).
+- [x] **2.0.7** — **Buttons whose label changes** ("Mute"↔"Unmute", "Power
       On"↔"Powering on…") sized to their widest possible content, measured
       on the Galaxy S25, so nothing shifts on toggle (checklist item 16).
-- [ ] **2.0.8** — **Disabled presentation:** Off / Booting / not-responding: every
-      non-power control dimmed to **0.4** opacity, disabled, **keeping
-      last-known text** ("−25.0", "Unmute", source name). Not-connected
-      dims whole groups (volume, actions, source) per group, dB shows "—".
-- [ ] **2.0.9** — **Source row:** closed row shows an icon chip following the active
-      source's glyph, eyebrow label, name (elide at 16 chars — "Chromecast
-      Audio" is the stress case), caret; placeholder "No source". Open: a
-      floating list / bottom sheet over the row (nothing below moves),
-      active row highlighted with a check; empty state when there are no
-      sources.
-- [ ] **2.0.10** — **Footer status:** static "Connected" / "Not responding" / "Not
-      connected".
-- [ ] **2.0.11** — **Theme tokens** (copper/graphite palette, dark + light variants)
+      Done structurally (`WidestLabel` lays every candidate out invisibly;
+      `test/ui/widest_label_test.dart` pins icon position and label width
+      across states). The on-device measurement is 2.0.13.
+- [x] **2.0.8** — **Disabled presentation:** Off / Booting: every non-power control
+      dimmed to **0.4** opacity, disabled, **keeping last-known text**
+      ("−25.0", "Unmute", source name). No amp (incl. a silent amp, see
+      the decision above): dial group 0.4, whole action row 0.4 (power
+      included), source trigger 0.5 **still tappable** (opens the empty
+      state), dB shows "—" with the unit hidden but its space kept. Done
+      through one `DimmedGroup` at four gate points, gating derived from
+      `ControlViewState`'s getters so every input path is covered
+      (checklist item 6; `test/ui/control_screen_states_test.dart`).
+- [x] **2.0.9** — **Source row:** closed row shows an icon chip following the active
+      source's glyph, eyebrow label, name (elided — "Chromecast Audio
+      Extra Long" is the test case), caret; placeholder "No source". Open: a
+      bottom sheet over the row (nothing below moves), active row
+      highlighted with a check; empty state when there are no sources.
+      Done. Glyphs are the mockup's Unicode symbols keyed on the live name
+      (`source_glyphs.dart`); coverage on device is a 2.0.13 check.
+- [x] **2.0.10** — **Footer status:** static "Connected" / "Not connected" (the
+      third word was dropped with the silent-amp decision above; the
+      mockup's hint sentence was replaced, owner decision 2026-09-19).
+- [x] **2.0.11** — **Theme tokens** (copper/graphite palette, dark + light variants)
       lifted from the mockup CSS into one place so Task 3.4.x's Theme
       setting and Task 5.0.0's icon can reuse them. Fonts in the mockups
       are Google-hosted (Space Grotesk / JetBrains Mono / Inter) — bundle
       what ships or pick platform fonts; an asset outside the bundle
-      renders as nothing (checklist item 18).
-- [ ] **2.0.12** — **Debug state driver:** a debug-only control (not a hidden gesture)
+      renders as nothing (checklist item 18). Done: `AppTokens.dark/light`
+      (+ `ThemeExtension`), `AppTypography`, `AppTheme.of(context)`;
+      brightness follows the OS through the one `builder:` in `app.dart`,
+      which is where 3.4.x's Theme setting plugs in. Not ported: the light
+      theme's gradient "foil" text on the wordmark and dial value (flat
+      copper instead) — revisit in the light-theme eye check.
+- [x] **2.0.12** — **Debug state driver:** a debug-only control (not a hidden gesture)
       that cycles the fake state through connected / off / booting /
       not-responding / not-connected / muted so every state above can be
-      eyeballed on the Galaxy S25 without an amp.
+      eyeballed on the Galaxy S25 without an amp. Done: in-flow bar under
+      the footer, `kDebugMode` only, ◀ / ▶ plus a "Net" button that pushes
+      the Task 1 network test screen.
 - [ ] **2.0.13** — **Hands-on check on the Galaxy S25** in both UI variants, report
       recorded here (checklist item 23), before the task is called done.
       The interim expanded column is checked on an Android tablet
       emulator or a resizable desktop window only — **no iPad load in
       this task**. Measured row heights and button widths are per width
-      class (checklist items 14, 16).
+      class (checklist items 14, 16). Checklist for the soak (both run
+      configs, `UI_VARIANT=android` and `=ios`):
+      - cycle all six scenarios with the debug bar; compare each against
+        the v19 mockup side by side (fonts, sizes, spacing, colours);
+      - glyph coverage of ◉ ◫ ◍ ◈ ◐ ◇ ⌨ ✓ in the trigger and the sheets
+        (tofu → replace with painted icons in `stroke_icons.dart`);
+      - dial: drag feel around the ring, the bottom dead zone, a press on
+        the readout doing nothing, −/+ taps; readout following the finger;
+      - press feedback: Android ripple, iOS spring scale; the power
+        button's red/green press tint;
+      - booting dot pulse (1.1 s) and spinner (0.7 s) timing;
+      - sheets: Android gradient panel vs iOS frosted panel and its
+        scroll performance; scrim tap dismisses; manual-IP keyboard type
+        and the "Connect" enable rule;
+      - light theme via the OS toggle (flat copper text where the mockup
+        has foil gradients — decide whether to port them);
+      - ✔ the phone must not rotate (portrait lock) — verified on the S25
+        2026-09-19; a resize with a sheet open and mid-drag is checked on
+        the tablet emulator instead;
+      - tablet emulator / resizable window: the centred 480 column, the
+        sheet width cap, phone-landscape scrolling;
+      - record measured row heights and label widths per width class
+        here; port any measured value that disagrees with the mockup.
+      - **S25 soak 2026-09-19 (owner):** everything renders fine in both
+        variants. The column does not quite fit the screen *with the
+        debug bar* (≈ 66 dp: 32 dp chips + 16 dp padding + 18 dp margin).
+        Decide after the debug bar is gone (release builds already omit
+        it) whether the dial needs scaling down from 220 dp or the
+        vertical rhythm tightening — leave the mockup numbers until then
+        (checklist item 14: measure, don't guess).
 
 ## Task 3.0.x-3.3.x — Software architecture: state owner + persistence layer
 
@@ -324,6 +416,14 @@ gotchas #1/#2 one input at a time.
       per-width constants read it rather than `MediaQuery` ad hoc, and
       so a phone-width window on a tablet gets the phone layout by
       construction (checklist item 28).
+
+- [ ] **3.0.8** — **A silent amp is presented as "no amplifier" but the
+      selection is not forgotten** (owner decision 2026-09-19, Task 2.0.x):
+      after 8 s without a broadcast the owner emits the not-connected
+      shape (`ControlViewState.selectedAmp == null`, list pruned), while
+      the *persisted* selection (3.3.x) stays untouched, so the next
+      broadcast from that IP reconnects without a tap. Distinct from the
+      user choosing "None" (checklist items 4, 26).
 
 ### 3.1.x — Pending-command mask + confirmed channel
 

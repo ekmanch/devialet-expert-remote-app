@@ -56,7 +56,9 @@ via that URL.
 
 - Targets: Android and iOS, both first-class. Phones and tablets are both
   first-class on both platforms (owner decision 2026-09-19) — layout is
-  chosen by window width class, never by device type.
+  chosen by window width class, never by device type. Phones are locked to
+  portrait; tablets rotate freely (`lib/config/orientation_policy.dart`,
+  owner decision 2026-09-19).
 - UI intentionally diverges by platform: Material conventions on Android,
   more iOS-native conventions (navigation, back behavior, settings layout)
   on iOS. Don't default to a single shared UI "that looks fine on both" —
@@ -300,7 +302,11 @@ platform-specific.
   pure Dart, zero Flutter imports — verified via
   `grep -rn "package:flutter" lib/networking/`), `lib/domain/` (Riverpod
   providers wrapping the networking layer), `lib/config/` (cross-cutting
-  app config, e.g. the UI variant switch), `lib/ui/` (widgets; currently
-  just the Phase 1 debug scaffold).
+  app config: the UI variant switch, the window width/height class),
+  `lib/ui/` (`theme/` tokens + typography, `platform/` the only widgets
+  that branch on the variant, `widgets/` shared primitives, `control/` the
+  Control screen, `debug/` the debug state driver and the Task 1 network
+  test screen), `tool/protocol_probe/` (dev-machine protocol harness, not
+  part of the app).
 - Repo/branching: `devialet-expert-remote-app`, feature work on branches like
   `feature/amp-selection`.
