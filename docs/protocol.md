@@ -1,156 +1,221 @@
 # Devialet Expert / Expert Pro UDP Protocol
 
-Reverse-engineered by the community (not an official Devialet API), as implemented
-in this app. Sources cited per-claim below; "inferred" = not directly confirmed
-by a comment, test, or observed byte value in this repo — treat as lower confidence.
+Reverse-engineered by the community (not an official Devialet API). Sources
+cited per-claim below; "inferred" = not directly confirmed by a comment,
+test, or observed byte value — treat as lower confidence.
 
-Based on commit `743aa71` (current `main`, working tree clean as of this doc).
+Provenance, in order of authority:
+
+1. **Real-device measurements from the KDE Plasma widget**
+   (`devialet-expert-remote-kde`, Rust `crates/protocol` + daemon, v1.0.4),
+   against an Expert 140 Pro (`192.168.0.22`, UDP name "My Devialet-ETH").
+   Facts established there *after* the Kotlin app are marked **★**. That
+   widget is the most battle-tested implementation of this protocol; when
+   this doc and the Kotlin-derived text disagree, the ★ fact wins.
+2. The original Kotlin app (`devialet-expert-remote`, `main` @ `743aa71`),
+   whose class/function names are cited as `DevialetController.…` etc.
+3. This repo's Dart networking layer (`lib/networking/`, `main` @ `3c0b8e0`),
+   reconciled against 1 and 2 on 2026-09-15 — see "Code vs. doc
+   reconciliation" at the end. Where the Dart code disagrees with a fact
+   here it is flagged inline with **⚠ Dart:** and listed in that section;
+   the doc describes the target behaviour, not the current code.
 
 ## Transport
 
-All transport-layer properties below are **[Shared]** — the wire mechanics (ports,
-socket lifetime, retry behavior, discovery, encryption) are used identically
-regardless of which commands/status fields ride on top of them; nothing here
-is Control- or Sound-specific.
+All transport-layer properties below are **[Shared]** — the wire mechanics
+(ports, socket lifetime, retry behavior, discovery, encryption) are used
+identically regardless of which commands/status fields ride on top of them.
 
 | Property | Value | Source | Scope |
 |---|---|---|---|
-| Status port (amp → app) | UDP **45454** | `DevialetController.STATUS_PORT` | [Shared] |
-| Command port (app → amp) | UDP **45455** | `DevialetController.COMMAND_PORT` | [Shared] |
-| Direction, status | Amp broadcasts unsolicited, ~1x/sec, to all listeners on the LAN | `DevialetStatusListener` binds `0.0.0.0:45454` with `socket.broadcast = true`, never sends anything | [Shared] |
-| Direction, commands | App sends unicast directly to the amp's known IP | `DevialetController.sendTwice()`: `InetAddress.getByName(deviceIp)` | [Shared] |
-| Discovery/handshake | **None.** The app never sends a query or discovery packet — it passively listens for the amp's own periodic broadcast and learns IP + name from the sender address of whatever arrives on 45454 | `MainActivity.applyStatus()`, `DevialetStatusListener` — confirmed by grep, no outbound broadcast/multicast send exists anywhere in the codebase | [Shared] |
-| mDNS (separate mechanism) | `_spotify-connect._tcp.` service type, used only to resolve a friendlier make/model string, not for control | `AmpModelNameResolver` — see Task 3 doc; not part of the Devialet UDP protocol itself | [Shared] |
-| Socket lifetime, commands | A brand-new `DatagramSocket()` is opened and closed (`.use {}`) for every `sendTwice()` call | `DevialetController.sendTwice()` | [Shared] |
-| Socket lifetime, status | One long-lived socket bound for the life of the listener thread (started `onResume`, stopped `onPause`) | `DevialetStatusListener.start()/stop()`, `MainActivity.onResume()/onPause()` | [Shared] |
-| Timeout / retry (send) | No ack is awaited. Every command is fire-and-forget, sent **twice** back-to-back with no delay between the two sends | `DevialetController.sendTwice()`: `repeat(2) { ... }` | [Shared] |
-| Timeout / retry (receive) | No read timeout is set on the status socket (blocking `receive()`); a receive exception just loops (or exits if `stop()` was called) | `DevialetStatusListener.start()` | [Shared] |
-| Amp-side staleness | App-side only concept: an amp not heard from for 8s is treated as offline in the UI. Not a protocol feature. | `MainActivity.ampStaleTimeoutMs = 8_000L` | [Shared] |
-| Encryption / auth | None. Plaintext UDP, no login, no pairing. | `AndroidManifest.xml` (`usesCleartextTraffic="true"`); `DevialetController` class doc | [Shared] |
+| Status port (amp → app) | UDP **45454** | `DevialetController.STATUS_PORT`; `DevialetProtocol.statusPort` | [Shared] |
+| Command port (app → amp) | UDP **45455** | `DevialetController.COMMAND_PORT`; `DevialetProtocol.commandPort` | [Shared] |
+| Direction, status | Amp broadcasts unsolicited to all listeners on the LAN. ~1 Hz nominal, ★ **up to ~5 Hz observed, ~200 ms between packets during state changes** — do not design around exactly 1/s | `DevialetStatusListener` binds `0.0.0.0:45454` with `socket.broadcast = true`, never sends; KDE daemon capture | [Shared] |
+| Direction, commands | App sends unicast directly to the amp's known IP | `DevialetController.sendTwice()`; `DevialetUdpTransport.sendTwice()` | [Shared] |
+| Discovery/handshake | **None.** The app never sends a query or discovery packet — it passively listens for the amp's own periodic broadcast and learns IP + name from the sender address of whatever arrives on 45454 | `MainActivity.applyStatus()`, `DevialetStatusListener`; confirmed by grep, no outbound broadcast/multicast send exists | [Shared] |
+| mDNS (separate mechanism) | `_spotify-connect._tcp.local.` service type, used only to resolve a friendlier make/model string, not for control — see "mDNS model-name resolution" | `AmpModelNameResolver`; KDE `crates/protocol/src/model_name.rs` | [Shared] |
+| Socket lifetime, commands | A brand-new socket is opened and closed for every logical command (both wire sends share it) | `DevialetController.sendTwice()`; `DevialetUdpTransport.sendTwice()` | [Shared] |
+| Socket lifetime, status | One long-lived socket bound with `SO_REUSEADDR` for the life of the listener | `DevialetStatusListener.start()/stop()`; `DevialetUdpTransport.bindAndListen()` | [Shared] |
+| Timeout / retry (send) | No ack is awaited. Every command is fire-and-forget, sent **exactly twice** back-to-back with no delay. Sending to an offline IP does not fail; the datagram is just lost | `DevialetController.sendTwice()`; `DevialetClient._sendTwice()` | [Shared] |
+| Timeout / retry (receive) | No read timeout on the status socket; a receive error just loops | `DevialetStatusListener.start()`; `DevialetUdpTransport.bindAndListen()` | [Shared] |
+| Amp-side staleness | App-side only concept: an amp not heard from for **8 s** is offline, re-evaluated on a 1 s tick against a **monotonic clock**. Not a protocol feature | `MainActivity.ampStaleTimeoutMs = 8_000L`; KDE daemon `online = last_seen < 8 s` | [Shared] |
+| Encryption / auth | None. Plaintext UDP, no login, no pairing, no handshake gate: commands may be sent the instant an IP is known | `AndroidManifest.xml` (`usesCleartextTraffic="true"`) | [Shared] |
 
 ## Command packet structure (app → amp, port 45455) — [Shared]
 
-The overall 142-byte envelope (header, counters, CRC, padding) is generic
-plumbing used by every command regardless of family — [Shared]. Only
-`byte6`/`byte7`/payload values (see command table below) differ per
-Control/Sound command.
-
-Fixed-size **142-byte** packet. All multi-byte fields big-endian.
+Fixed-size **142-byte** packet. All multi-byte fields big-endian. The
+envelope (header, counters, CRC, padding) is generic plumbing used by
+every command; only `byte6`/`byte7`/payload differ per command.
 
 | Offset | Length | Field | Notes |
 |---|---|---|---|
-| 0–1 | 2 | Magic / header | Constant `0x44 0x72` (ASCII "Dr") on every command | 
-| 2–3 | 2 | Packet counter | Big-endian uint16, increments per packet sent (wraps 0xFFFF → 0), shared across all command types | 
-| 4–5 | 2 | Command counter | Big-endian uint16, increments per *logical* command (see caveat below), same wrap behavior | 
+| 0–1 | 2 | Magic / header | Constant `0x44 0x72` (ASCII "Dr") on every command |
+| 2–3 | 2 | Packet counter | uint16, advances per **wire send**, wraps 0xFFFF → 0 |
+| 4–5 | 2 | Command counter | uint16, advances per **wire send** (see counter caveat), same wrap |
 | 6 | 1 | `byte6` | Command family selector (see command table) |
 | 7 | 1 | `byte7` | Command sub-selector |
-| 8–9 | 2 | Payload (`byte8`, `byte9`) | Command-specific value, defaults to `0x00 0x00` when unused |
-| 10–11 | 2 | *(unused)* | Left as zero-initialized `ByteArray` default | 
-| 12–13 | 2 | CRC16 | Big-endian, CRC16/CCITT-FALSE over bytes 0–11 (see below) |
-| 14–141 | 128 | *(unused/padding)* | Zero-filled; packet is always allocated at exactly 142 bytes regardless of command | 
+| 8–9 | 2 | Payload (`byte8`, `byte9`) | Command-specific value, `0x00 0x00` when unused |
+| 10–11 | 2 | *(unused)* | Zero |
+| 12–13 | 2 | CRC16 | Big-endian, CRC16/CCITT-FALSE over bytes 0–11 only (see below) |
+| 14–141 | 128 | *(padding)* | Zero-filled; packet is always exactly 142 bytes |
 
-Source: `DevialetController.buildCommand()`.
+Source: `DevialetController.buildCommand()`; `CommandPacket.encode()`.
 
-**Counter caveat (inferred, not confirmed):** `sendTwice()` calls `buildCommand()`
-twice per logical command, and `buildCommand()` advances *both* counters each
-call. So a single logical action (e.g. one mute toggle) actually consumes two
-packet-counter values and two command-counter values, one pair per wire send —
-the two transmitted copies of "the same" command do NOT have identical counter
-bytes. Whether the amp cares about strict counter continuity, or simply
-de-duplicates by payload, is not established in this codebase; this is exactly
-the kind of sequencing detail worth confirming with a packet capture before
-porting. **[Shared]**
+★ **Golden vectors** (counters 0,0) — all three reproduced by the Dart
+layer on 2026-09-15 (ad-hoc run; only the 12-zero-bytes CRC is currently
+in the test suite, see reconciliation):
+
+- Power on: `44 72 00 00 00 00 01 01 00 00 00 00 A0 BD` (+128 zero bytes)
+- CRC of ASCII `"123456789"` = `0x29B1`
+- CRC of 12 zero bytes = `0x84F9`
+
+**Counter caveat (inferred, still not confirmed):** `sendTwice()` builds two
+packets per logical command and advances *both* counters on each build, so
+the two wire copies of "the same" command do NOT carry identical counter
+bytes (nor identical CRCs). Both the Kotlin app and the Dart
+`PacketCounters` start at (0,0) per process; ★ the KDE CLI also restarts at
+(0,0) on every invocation and the amp accepts every command — weak evidence
+that the amp ignores the counters entirely, but not a capture. Whether the
+amp needs the duplicate send, or contiguous counters, is **unconfirmed**.
+The Dart layer preserves the Kotlin behaviour deliberately; do not "clean
+it up" before a capture settles it (TODO.md, protocol verification).
 
 ### CRC16 (CRC16/CCITT-FALSE) — [Shared]
 
-- Polynomial `0x1021`, initial value `0xFFFF`, no final XOR.
-- Computed over exactly the first **12 bytes** (offsets 0–11) of the 142-byte
-  packet — fixed constant in code, not parameterized by packet length.
-- Result written big-endian into offset 12–13.
-- Source: `DevialetController.crc16()`, called as `crc16(data)` from `buildCommand()`.
-- **History note:** earlier code (pre commit `3aecc1a`) took an explicit
-  `length` parameter; it was hardcoded to `12` at the only call site and later
-  simplified to a fixed loop bound. Behavior is unchanged, just the signature.
+- Polynomial `0x1021`, initial value `0xFFFF`, no reflection, no final XOR.
+- Computed over exactly the first **12 bytes** (offsets 0–11) — a fixed
+  constant, not parameterized by packet length.
+- Result written big-endian into offsets 12–13.
+- Source: `DevialetController.crc16()`; `crc16CcittFalse()` in
+  `lib/networking/crc16.dart` (`DevialetProtocol.crcCoveredLength = 12`).
 
 ### Volume encoding (`dbConvert`) — [Control]
 
-The amp does not use a linear dB→byte mapping. `DevialetController.dbConvert()`
-implements a custom recursive encoding:
+The amp does not use a linear dB→byte mapping. The command side uses a
+custom recursive encoding on `|db|`:
 
 ```
 dbConvert(0.0)  == 0x0000
 dbConvert(0.5)  == 0x3F00
-dbConvert(|db|) == (256 >> ceil(1 + ln(|db|)/ln(2))) + dbConvert(|db| - 0.5)   // recursive, for |db| > 0.5
+dbConvert(|db|) == (256 >> ceil(1 + log2(|db|))) + dbConvert(|db| - 0.5)   // |db| > 0.5
 ```
 
-- Input is `abs(dbValue)`; the sign is re-applied afterward as a flag bit.
-- `setVolumeDb(dbIn, maxDb)`:
-  1. Clamps `dbIn` to `maxDb` (default **-15.0 dB**, a deliberate safety cap — see `docs/known-gotchas.md`).
-  2. Runs the clamped value through `dbConvert`.
-  3. If the (clamped) dB value is negative, ORs `0x8000` into the 16-bit word (sign bit).
-  4. Sends via `sendTwice(0x00, 0x04, hi, lo)` where `hi`/`lo` are the resulting word's high/low bytes.
-- Source: `DevialetController.dbConvert()`, `setVolumeDb()`.
-- **Status-broadcast volume uses a different, simpler formula** — see the status
-  packet section below. The two are not the same encoding; do not assume symmetry.
+Reference values: `1.0 → 0x3F80`, `15.0 → 0x4170`, `40.0 → 0x4220`
+(★ KDE test vectors; reproduced by `VolumeCodec.dbConvert` on 2026-09-15).
+
+- The sign is applied afterwards: if the dB value is negative, OR `0x8000`
+  into the 16-bit word. Sent as `byte6=0x00, byte7=0x04, byte8=hi, byte9=lo`.
+- ★ **Port-critical — non-half-step input.** The literal recursion only
+  terminates on exact 0.5 dB steps. The Rust port rounds the input to the
+  **nearest** 0.5 dB and recurses on an integer step count: byte-identical
+  to the formula on every exact step, never hangs (e.g. −15.3 → the −15.5
+  word), and immune to floating-point drift in either direction.
+  **⚠ Dart:** `VolumeCodec.dbConvert` does not hang either (its base case
+  is `<= 0.5`, not `== 0.5`), but it effectively rounds **up** to the next
+  0.5 step instead of to nearest: `15.2 → 0x4178` (the 15.5 word, Rust
+  gives 0x4170) and `15.0000001 → 0x4178` while `14.9999999 → 0x4170`.
+  Any upward float drift from a UI computation therefore sends a command
+  0.5 dB louder than intended. Quantize to the nearest 0.5 dB step before
+  encoding, as the Rust crate does (TODO.md, Phase 1 follow-ups).
+- **Ceiling.** The protocol accepts up to **+30 dB**; nothing on the wire
+  stops a dangerous value, so the clamp is a client duty. History: the
+  Kotlin app clamped at 0 dB (too loud), then −15 dB (`docs/known-gotchas.md`
+  #6). ★ **Owner decision 2026-09-14: the ceiling is a persisted setting,
+  default −10.0 dB**, alongside a floor (default −45.0) and a startup volume
+  (default −40.0), all over −96..0; the ceiling is enforced inside the
+  command constructor as a *required* parameter with an explicit "none"
+  for unbounded, so no caller can forget it. The floor is a UI-only
+  concept and never reaches the wire.
+  **⚠ Dart:** `VolumeCodec.defaultSafetyMaxDb` is still **−15.0**, is an
+  *optional defaulted* parameter on `setVolumeDb`/`setVolume`, and
+  `volume_codec_test.dart` pins −15.0 ("is not silently regressed"). This
+  is deliberately unchanged in the 2026-09-15 doc pass: change it once, in
+  the shared settings object, with the UI range and that test, in the
+  volume-limits phase (TODO.md) — not as a drive-by edit.
+- **Status-broadcast volume uses a different, simpler formula** — see the
+  status packet section. The two are not inverses; do not assume symmetry.
 
 ## Command types (app → amp)
 
-All sent via `sendTwice(byte6, byte7, byte8=0, byte9=0)` — i.e. every command
-below is transmitted **twice** in immediate succession, no ack, fire-and-forget.
+All sent via `sendTwice(byte6, byte7, byte8=0, byte9=0)` — every command
+is transmitted **twice** in immediate succession, no ack, fire-and-forget.
 
-Every command below is **[Control]** — power, mute, volume, and source
-selection are exactly the Control-tab feature set; there are no Sound-tab
-wire commands in this table (see "Known-unimplemented commands" below for
-why: SAM/Night Mode/Bass/Treble never got reverse-engineered byte values).
+Every command below is **[Control]**. There are no Sound-tab wire commands
+(see "Known-unimplemented commands").
 
 | Command | byte6 | byte7 | byte8/byte9 | Source | Scope |
 |---|---|---|---|---|---|
-| Power on | `0x01` | `0x01` | `0x00 0x00` | `DevialetController.setPower(true)` | [Control] |
-| Power off | `0x00` | `0x01` | `0x00 0x00` | `DevialetController.setPower(false)` | [Control] |
-| Mute on | `0x01` | `0x07` | `0x00 0x00` | `DevialetController.setMute(true)` | [Control] |
-| Mute off | `0x00` | `0x07` | `0x00 0x00` | `DevialetController.setMute(false)` | [Control] |
-| Set volume | `0x00` | `0x04` | `hi/lo` of the `dbConvert()`-encoded, sign-flagged 16-bit word | `DevialetController.setVolumeDb()` | [Control] |
-| Select source (Phono, status index 1) | `0x00` | `0x05` | `0x3F 0x80` (hardcoded, doesn't follow the general formula) | `DevialetController.selectSource()` — bytes found via Wireshark per `gnulabis/devimote` issue #2, per code comment | [Control] |
-| Select source (all other known inputs) | `0x00` | `0x05` | see "Source selection" below | `DevialetController.selectSource()` | [Control] |
+| Power on | `0x01` | `0x01` | `0x00 0x00` | `setPower(true)`; `CommandPayloads.powerOn` | [Control] |
+| Power off | `0x00` | `0x01` | `0x00 0x00` | `setPower(false)`; `CommandPayloads.powerOff` | [Control] |
+| Mute on | `0x01` | `0x07` | `0x00 0x00` | `setMute(true)`; `CommandPayloads.muteOn` | [Control] |
+| Mute off | `0x00` | `0x07` | `0x00 0x00` | `setMute(false)`; `CommandPayloads.muteOff` | [Control] |
+| Set volume | `0x00` | `0x04` | `hi/lo` of the `dbConvert()`-encoded, sign-flagged word | `setVolumeDb()`; `CommandPayloads.setVolume` | [Control] |
+| Select source, status index 1 | `0x00` | `0x05` | `0x3F 0x80` hardcoded (doesn't follow the general formula) | `selectSource()` — bytes found via Wireshark per `gnulabis/devimote` issue #2; `CommandPayloads._phonoPayload` | [Control] |
+| Select source, all other indices | `0x00` | `0x05` | see "Source selection encoding" | `selectSource()`; `SourceMapping` | [Control] |
+
+### Volume and mute are independent — [Control]
+
+★ Separate opcodes; a volume packet carries no mute bit, so **a volume
+command does not unmute**. The KDE widget relies on this to correct a muted
+amp's volume (e.g. after a ceiling change) without unmuting it. Any
+"auto-unmute on volume change" behaviour is a client decision layered on
+top (see TODO.md, volume interaction), not a wire effect.
 
 ### Source selection encoding — [Control]
 
 Two layers of indirection, both load-bearing:
 
-1. **Index remapping.** The source index reported in the amp's status
-   broadcast (`DevialetSource.index`, 0–14) is *not* the value the amp expects
-   in the select-source command. A lookup table remaps known status indices to
-   command values:
+1. **Index remapping.** The source index reported in the status broadcast
+   is *not* the value the amp expects in the select-source command
+   (`docs/known-gotchas.md` #3). A lookup table remaps known status
+   indices to command values:
 
-   | Status broadcast index | Source | Command value |
-   |---|---|---|
-   | 0 | Optical 1 | -1 |
-   | 1 | Phono | *(hardcoded bytes, see above — not in this map)* |
-   | 2 | UPnP | 0 |
-   | 3 | Roon Ready | 3 |
-   | 4 | AirPlay | 4 |
-   | 5 | Spotify | 5 |
-   | 14 | Air (Bluetooth) | 14 |
+   | Status index | Command value | Wire bytes 8–9 | Confidence |
+   |---|---|---|---|
+   | 0 | −1 | `FF E0` | confirmed (KDE) |
+   | 1 | *(hardcoded, not in the map)* | `3F 80` | confirmed on **two** amps (KDE) |
+   | 2 | 0 | `40 00` | confirmed (KDE) |
+   | 3 | 3 | `40 60` | confirmed (KDE) |
+   | 4 | 4 | `40 80` | confirmed (KDE) |
+   | 5 | 5 | `40 A0` | confirmed (KDE) |
+   | 14 | 14 | `41 60` | confirmed (Galaxy S25 2026-08-20; KDE) |
+   | other | = status index (raw fallback) | e.g. 9 → `41 10` | **unverified** |
 
-   Any index not in the map (custom/uncommon inputs) falls through and uses
-   the **raw status index** as the command value directly, flagged in code
-   as "may need adjusting per-amp/firmware."
-   Source: `DevialetController.SOURCE_COMMAND_VALUE`, `selectSource()`.
+   Source: `DevialetController.SOURCE_COMMAND_VALUE`;
+   `SourceMapping._commandValueByStatusIndex`. All wire bytes above were
+   reproduced by `CommandPayloads.selectSource` on 2026-09-15.
 
-   **Real-device finding** (Samsung Galaxy S25, 2026-08-20 — commit: TBD,
-   to be added once committed): sending status index 9 (unmapped, so
-   `cmdValue = 9` via this raw-index fallback) resulted in the amp's own
-   display showing "Air" — the same source selected by status index 14
-   (`cmdValue = 14`, the documented Air/Bluetooth mapping). These are **not**
-   the same wire bytes (`0x41 0x10` for `cmdValue = 9` vs `0x41 0x60` for
-   `cmdValue = 14`), so index 9 is *not* confirmed to genuinely mean "Air" —
-   the more likely explanation is that raw index 9 doesn't correspond to any
-   enabled input on this particular amp's configuration, and the command was
-   a no-op that left the display showing whatever was already selected. This
-   wasn't isolated with a distinct starting source, so **treat the raw-index
-   fallback for unmapped inputs as still unverified** — this one data point
-   is not evidence it's safe to rely on generically. Worth re-testing with a
-   distinct starting source and/or a packet capture before depending on it.
+   Index 0's command value is −1, so the packing below **needs signed
+   arithmetic**: `0x4000 | (−1 << 5)` must yield `…FFE0` (Dart ints are
+   64-bit signed, so `-32`; `hi = (-32 >> 8) & 0xFF = 0xFF`, `lo = 0xE0`).
+   A 16-bit unsigned transcription would produce `0x3FE0` — wrong.
+
+   ★ **Names are per-unit, numbers are not.** The names historically
+   attached to this table ("Optical 1", "Phono", "UPnP", "Roon Ready",
+   "AirPlay", "Spotify", "Air") were what one reference amp happened to
+   have configured at each slot when the Kotlin table was written. Sending
+   index 1's hardcoded bytes to a *second* Expert Pro 140 selected that
+   amp's slot 1, which it calls "UPnP" (the first amp calls it "Phono");
+   every other name on that amp was likewise shifted by one, and "Phono"
+   did not appear in its 30 slots at all (KDE
+   `docs/devialet_source_mapping.md`, 2026-08-21). The numeric mapping is
+   confirmed and portable; the names are not a protocol constant. **The
+   only authoritative name for an index is that amp's own live broadcast**
+   (the source-name field at `53 + i·17`). Never key anything on a name
+   assumed for an index, and never hardcode a per-index name in code.
+   **⚠ Dart:** `source_mapping.dart` and `command_payloads.dart` still
+   carry the Kotlin-era names as trailing comments and the identifier
+   `phonoStatusIndex`. Nothing is keyed by them, but they mislead; rename
+   to index-based wording on the next touch of that file (TODO.md).
+
+   **Raw-index fallback finding** (Galaxy S25, 2026-08-20; unchanged by the
+   KDE work): sending status index 9 (unmapped, `cmdValue = 9`, bytes
+   `41 10`) left the amp's display on "Air" — the same as index 14 (bytes
+   `41 60`). These are different wire bytes, so index 9 is *not* confirmed
+   to mean "Air"; the likely explanation is that 9 wasn't an enabled input
+   on that amp and the command was a no-op. **Treat the raw-index fallback
+   as unverified** until re-tested from a distinct starting source with a
+   capture.
 
 2. **Bit packing**, once the command value (`cmdValue`) is resolved:
    ```
@@ -159,148 +224,216 @@ Two layers of indirection, both load-bearing:
    byte9 (lo) = cmdValue > 7 ? (outVal & 0xFF) >> 1 : (outVal & 0xFF)
    ```
    The extra `>> 1` on `lo` when `cmdValue > 7` is taken as-is from the
-   reverse-engineered behavior; no rationale is documented in code.
+   reverse-engineered behaviour; no rationale is documented. Confirmed
+   only for `cmdValue = 14`; the 8–15 range is otherwise unexercised.
+   Source: `SourceMapping.encodeSelectPayload`.
 
-   **Confirmed against real device** (Samsung Galaxy S25, 2026-08-20 —
-   commit: TBD, to be added once committed) for `cmdValue = 14` (Air/
-   Bluetooth, status index 14): the amp's own display showed "Air" after
-   this command, matching the intended selection — so the `>7` branch's
-   formula works correctly for this one value. The exact *rationale* for the
-   `>> 1` is still undocumented, and the branch hasn't been exercised across
-   the full 8–15 `cmdValue` range (see the index-9 finding above, which
-   muddies rather than confirms the fallback path specifically) — not yet
-   verified via packet capture.
+3. **Forced volume after every source switch** — see "Per-input volume
+   memory" below.
 
-3. **Forced volume after every source switch.** Immediately after sending the
-   source-select command, the app also sends `setVolumeDb(-40.0)` unconditionally
-   for every source (not just some). This compensates for the amp's own
-   inconsistent per-input startup volume (observed -40dB on Optical 1 vs -38dB
-   on other inputs) and is a deliberate UX decision, not part of the wire
-   protocol itself. Source: `DevialetController.selectSource()`,
-   `SOURCE_SWITCH_VOLUME_DB`. See `docs/known-gotchas.md` (commit `88d97eb`).
+### Per-input volume memory and the forced post-switch volume — [Control]
+
+The amp remembers a volume per input (−40 on Optical 1 vs −38 on others
+were observed), which reads as random to a user. Every source switch is
+therefore followed by a volume command: source×2 then volume×2, same
+counter sequence, ★ **zero delay needed** (6/6 measured; no settling
+period between the two). Historically fixed at **−40 dB**
+(`docs/known-gotchas.md` #5); ★ the KDE widget made it the **startup
+volume setting** (default −40), also applied after a widget-initiated
+power-on. This is a product decision masking a hardware quirk — do not
+optimise it away as a redundant network call.
+**⚠ Dart:** `DevialetClient.selectSource` hardcodes
+`sourceSwitchVolumeDb = -40.0` and sends it through the −15 default
+ceiling; it becomes the startup-volume setting in the volume-limits phase
+(TODO.md).
 
 ### Known-unimplemented commands — [Sound]
 
-SAM, Night Mode, Bass, and Treble are all Sound-tab-only features per
-`docs/app-overview.md` — tagged [Sound] in full, out of scope for this phase.
-
-The UI has controls for SAM (on/off + level 0–100%), Night Mode (on/off), Bass
-and Treble (-18..+18 dB) — **none of these send anything over the wire**. The
-command bytes haven't been reverse-engineered; toggling them only updates local
-UI state. Explicitly stubbed out with TODOs in `DevialetController.kt` (lines
-154–198) rather than guessed, specifically to avoid sending unverified bytes
-that could do something unintended to the amp. Anyone porting this needs to
-either replicate this "UI-only" behavior or do the packet-sniffing work first.
+SAM, Night Mode, SAM level, Bass, Treble: command bytes were never
+reverse-engineered, and no status field carries them. The Kotlin Sound tab
+is local state only (resets to `samLevel 70`, `bass 0`, `treble 0`,
+`samOn true`, `nightOn false` every launch); explicitly stubbed with TODOs
+in `DevialetController.kt` rather than guessed, to avoid sending
+unverified bytes. Not attempted in the KDE widget either. Either replicate
+the "UI-only" behaviour honestly labelled, or do the capture first
+(TODO.md, protocol verification).
 
 ## Status packet structure (amp → app, port 45454)
 
-Received via a single non-blocking-free `receive()` loop on a 2048-byte buffer;
-packets shorter than **566 bytes** are silently discarded (treated as
-malformed/irrelevant). Source: `DevialetStatusListener.parseStatus()`.
-
-The device name field is [Shared] (used by both discovery and either tab's
-header display); the source list and power/mute/volume/active-source fields
-are [Control] — the source picker, power toggle, mute toggle, and volume
-display are all Control-tab UI per `docs/app-overview.md`. No status fields
-here carry SAM/Night Mode/Bass/Treble state — those are local-UI-only
-([Sound]) and never reported by the amp at all.
+Packets shorter than **566 bytes** are silently discarded. Inbound packets
+are not CRC-checked. ★ Layout verified byte-for-byte over 84 packets on
+the real amp (KDE). Source: `DevialetStatusListener.parseStatus()`;
+`DevialetStatus.tryParse()` (matches this table exactly).
 
 | Offset | Length | Field | Decoding | Scope |
 |---|---|---|---|---|
-| 19 | 31 | Device (friendly) name | UTF-8, trimmed of NUL and space padding | [Shared] |
+| 19 | 31 | Device (friendly) name | UTF-8 (lossy), trimmed of NUL and space padding | [Shared] |
 | 52 + i·17 | 1 | Source `i` enabled flag (i = 0..29) | ASCII `'1'` == enabled, anything else == disabled | [Control] |
-| 53 + i·17 | 16 | Source `i` name | UTF-8, trimmed of NUL and space padding | [Control] |
-| 562 | 1 (bit `0x80`) | Power state | `1` = on | [Control] |
-| 563 | 1 (bits `0x3C`, i.e. `>>2`) | Active source index | 0–14, matches `DevialetSource.index` used for source remapping above | [Control] |
-| 563 | 1 (bit `0x02`) | Mute state | `1` = muted | [Control] |
-| 565 | 1 | Volume (raw byte, 0–255) | `volumeDb = (volumeInt - 195) / 2.0` — **note this is a completely different formula from the command-side `dbConvert()`**, not its inverse | [Control] |
+| 53 + i·17 | 16 | Source `i` name | UTF-8, trimmed of NUL and space padding; 16-char max | [Control] |
+| 562 | bit `0x80` | Power state | `1` = on | [Control] |
+| 563 | bits `0x3C` (`>> 2`) | Active source index | 0–15 by mask; observed 0–14 | [Control] |
+| 563 | bit `0x02` | Mute state | `1` = muted | [Control] |
+| 565 | 1 | Volume (raw byte) | **`dB = (raw − 195) / 2`**, exact: 195 = 0 dB, 165 = −15, 111 = −42 | [Control] |
 
-Notes: **[Shared]** (general parsing behavior, applies to the whole packet regardless of which fields are read)
-- The source table is a **fixed 30-slot array** (indices 0–29), regardless of
-  how many the amp actually reports as enabled — disabled slots are still
-  parsed and kept (just flagged `isEnabled = false`), so the app can show
-  "enabled sources" as a filtered view. Source: `parseStatus()` loop `for (i in 0 until 30)`.
-  This 30-slot count and the exact byte layout are read directly from the
-  code, not independently re-verified against a live packet capture in this
-  pass — flagged here as **taken from code, not cross-checked against raw
-  bytes**.
-- Minimum length check (566 bytes) implies the last read field (volume at
-  offset 565) is the effective minimum-size driver; no explicit upper bound is
-  enforced (buffer is 2048 bytes, excess is simply unread).
-- No checksum/CRC validation is performed on incoming status packets — the app
-  trusts length + successful field extraction as "valid enough."
+Notes **[Shared]**:
+- The source table is a **fixed 30-slot array** including disabled slots;
+  `selected` is derived per slot from the active index. Show "enabled
+  sources" as a filtered view.
+- Minimum length 566 is driven by the last read field (volume at 565); no
+  upper bound is enforced (2048-byte buffer, excess unread).
+- Because the status formula is exact, **equality on the raw byte (or its
+  decoded dB) is safe for confirmation matching** — no epsilon needed.
+  This is what the pending-command mask's "confirmed" channel keys on.
+- No status field carries SAM/Night Mode/Bass/Treble.
 
 ## Volume dB derivation, both directions — [Control]
 
 | Direction | Formula | Source |
 |---|---|---|
-| Command (app → amp) | Custom recursive `dbConvert()` + sign bit | `DevialetController.dbConvert()` |
-| Status (amp → app) | `(volumeInt - 195) / 2.0` | `DevialetStatus.volumeDb` |
+| Command (app → amp) | Custom recursive `dbConvert()` + sign bit | `DevialetController.dbConvert()`; `VolumeCodec.encodeCommandWord` |
+| Status (amp → app) | `(raw − 195) / 2.0` | `DevialetStatus.volumeDb`; `VolumeCodec.decodeStatusVolume` |
 
-These are **not mathematical inverses of each other** as implemented — they're
-two independently reverse-engineered encodings for two different packet types.
-Do not assume one can be derived from the other; port both as separate,
+These are **not mathematical inverses** — two independently
+reverse-engineered encodings for two packet types. Port both as separate,
 literal transcriptions.
 
-## Sequencing / state machine — [Shared]
+## Timing facts — [Shared] (★ all measured on the real amp)
 
-General send/receive sequencing rules apply regardless of which command
-family is involved — [Shared] as a whole, except the source-select →
-forced-volume ordering rule, which is [Control] (both halves of that
-sequence are Control-tab actions).
+None of these exist in the Dart layer yet; `DevialetClient` deliberately
+stops at the wire. They are the spec for the domain/state phase (TODO.md).
+All timers must run on a **monotonic clock** (Rust uses `Instant`; Kotlin
+`SystemClock.elapsedRealtime()`), never wall-clock time.
 
-- **No handshake.** The app can send commands the instant it has an IP — it
-  does not wait for a first status broadcast before allowing control.
-  (`MainActivity.requireIp` only checks that an IP string is set, not that the
-  amp has ever responded.)
-- **No command ordering requirement enforced or documented** other than: send
-  source-select, then always follow with a forced volume set (see above) — this
-  is app-level sequencing, not a protocol requirement signaled by the amp. **[Control]**
-- **No acknowledgement is ever read.** The app has no way to know a command
-  actually reached or was applied by the amp — the only feedback loop is
-  passively noticing the *next* status broadcast reflect the new state (up to
-  ~1s later, see debounce handling in known-gotchas.md).
-- **Multi-amp on one LAN:** every amp's broadcast is processed regardless of
-  which one is "selected" — used to build the discovery/picker list — but only
-  the broadcast whose sender IP matches the currently selected amp updates the
-  live UI (volume/mute/power/source). Source: `MainActivity.applyStatus()`.
+| Value | Meaning |
+|---|---|
+| 400 ms | pending-command / debounce window ("settled input") — same number in Kotlin, Flutter (`docs/known-gotchas.md` #1/#2) and KDE |
+| 100–200 ms | pace of outbound commands during a sustained gesture (a different concern from the 400 ms trust window) |
+| 60–200 ms+ | delay until the amp's next broadcast confirms a command |
+| 8 s | staleness: `online = last_seen < 8 s`, re-evaluated on a 1 s tick |
+| 15.0–18.6 s | real boot time (one sample 16.07 s) |
+| 20 s | boot timeout (15 s made a normal boot flash "Off" first) |
+| 500 ms | delay after the first "power on" broadcast before a volume command is safe (`docs/known-gotchas.md` #9) |
+| 1500 ms | bounded fallback for the post-boot display hold |
+| 0 ms | settling needed between source switch and the forced volume (6/6) |
+
+## Post-boot firmware behaviour — [Control] (★ 21+ real boots)
+
+Full write-ups: `docs/known-gotchas.md` #8 and #9. Summary:
+
+- **#8 — the broadcast is wrong after boot and never self-corrects.** The
+  first `power_on` packet still carries the pre-shutdown volume byte;
+  ~200 ms later the broadcast reads **raw 111 = −42.0 dB** and stays there
+  while the front panel reads −40 (the configurator's startup volume).
+  Any volume command, any value, makes the broadcast track reality again.
+  "The status *is* the wrong value — don't fix it by re-reading harder."
+  This is the root cause of the Kotlin-era "amp-initiated volume changes
+  aren't reflected until we send one" observation; stop looking for it in
+  the client.
+- **#9 — volume commands sent before the amp has applied its own startup
+  volume are silently dropped.** Sweep from the first power-on packet:
+  +2 ms 0/1, +100 ms 1/2, +200 ms 9/9 (but every pass had the amp applying
+  at ≤ +202 ms), +500 ms 3/3, +1018/+2030 ms 1/1. Latest observed amp-side
+  application: **+394 ms**. Hence 500 ms — "200 ms is the middle of the
+  observed spread, not a safety margin." A user volume change inside that
+  window **is** honoured (4/4 at +161…+349 ms), so a deferred send must
+  re-target to the user's value, never override it.
+- Commands sent while the amp is Off or Booting are dropped by the amp
+  (seen even 2 ms after "On").
+
+## Multi-amp discovery, selection, persistence — [Shared]
+
+- Amps are keyed by **sender IP**; every broadcast updates the discovery
+  map; entries are **never evicted** — a silent amp flips to
+  `online = false` after 8 s. Known amps are in-memory only.
+- Only the broadcast whose sender IP matches the selected amp updates the
+  live control state; all broadcasts feed the picker list
+  (`MainActivity.applyStatus()`).
+- ★ **Auto-select-if-alone**: nothing explicitly selected **and** the user
+  has never made a choice **and** exactly one amp known → that amp. With 0
+  or 2+ amps, show the not-connected state; don't guess. Three-plus amps
+  was never testable.
+- ★ Selecting "None" must be a distinct persisted state from "never
+  chosen". Android collapses both into one empty-string sentinel (harmless
+  there, no auto-select); with auto-select it was a real bug: clearing the
+  selection looked like "never called" and the amp was re-picked on
+  restart. Persist the "has explicit selection" flag too.
+- A never-heard IP is a valid selection (manual-IP fallback for other
+  subnets); show that IP with the not-connected fields until a broadcast
+  arrives. A persisted IP needs **no** reconciliation step: trust it and
+  let staleness govern connectedness (what Android does with
+  `amp_ip`/`amp_name`).
+- Not-connected state: name `""`, online false, sources `[]`, power "Off".
+  ★ **Beware the zero default**: a "none" state once produced
+  `volume = 0.0`, which a slider clamped into range and displayed as a
+  plausible "−15.0 dB". Check "is there an amp" before any clamp.
+
+## mDNS model-name resolution — [Shared]
+
+Not part of the Devialet UDP protocol; a separate, best-effort mechanism
+for a nicer "make/model" label. No Dart implementation yet.
+
+- Service type `_spotify-connect._tcp.local.` — not Devialet-specific, so a
+  resolution is **only trusted for an IP already heard over UDP**. Match
+  on the first IPv4 address. Resolved once, never re-attempted or cleared,
+  and carried forward across every status re-ingestion (or the ~1 s
+  broadcast wipes it). Display `modelName ?? udpName`, keeping both (model
+  as label, UDP name as subtitle).
+- ★ Android's `NsdManager` restart bursts (`RETRY_DELAYS_MS`,
+  `STEADY_INTERVAL_MS`, for Samsung Wi-Fi power-save — see
+  `docs/app-overview.md`) are an Android artefact, not an mDNS
+  requirement: one continuous browse resolved in < 0.6 s on Linux.
+- `parseModelName`: take the part before the first `-` (whole string if
+  none), trim, empty → null; insert a space at every letter→digit and
+  digit→**uppercase** boundary (digit→lowercase is not one); prefix
+  "Devialet ". `Expert140Pro-K48A…local.` → "Devialet Expert 140 Pro"
+  (the one real case); `2go` → "Devialet 2go"; `Phantom2Reactor900-…` →
+  "Devialet Phantom 2 Reactor 900". Real two-amp mDNS is untested.
 
 ## Edge cases handled in code — [Shared]
 
-All rows below are general transport/parsing robustness behavior, not tied to
-any specific command family — [Shared] throughout.
-
 | Case | Handling | Source |
 |---|---|---|
-| Status packet < 566 bytes | Dropped (`return null`), no crash, no retry | `DevialetStatusListener.parseStatus()` |
-| Any exception during status parse (bad encoding, out-of-bounds, etc.) | Caught broadly, packet dropped, listener keeps running | `parseStatus()` try/catch |
-| Socket bind/setup failure (e.g. port in use) | Caught; app silently loses live status but direct control commands still work since they don't depend on this listener | `DevialetStatusListener.start()` outer try/catch, comment explicit about this tradeoff |
-| `receive()` throws while still running | Loop continues (treated as transient); loop exits cleanly if `stop()` was called concurrently | `DevialetStatusListener.start()` |
-| Command send fails (e.g. no route to host) | Caught via `runCatching {}` at every call site in `MainActivity`, silently swallowed — no user-facing error surfaced | e.g. `network.submit { runCatching { controller.setMute(...) } }` |
-| Duplicate/out-of-order status broadcasts | Not de-duplicated or sequenced — each processed independently as "the current truth"; UI simply reflects whatever arrived most recently, with debounce windows (see `docs/known-gotchas.md`) to avoid visibly jittering after a locally-initiated change | `MainActivity.applyStatus()` |
-| No IP selected yet | Every control action gated behind `requireIp {}`, shows a toast instead of sending | `MainActivity.requireIp()` |
+| Status packet < 566 bytes | Dropped, no crash, no retry | `parseStatus()`; `DevialetStatus.tryParse` returns `null` |
+| Any exception during status parse | Caught broadly, packet dropped, listener keeps running | `parseStatus()` try/catch; `tryParse` catch-all |
+| Socket bind/setup failure (e.g. port in use) | Caught; app loses live status but direct control commands still work | `DevialetStatusListener.start()`; `bindAndListen` `catchError` |
+| `receive()` throws while still running | Loop continues; exits cleanly only on `stop()` | `DevialetStatusListener.start()`; `bindAndListen` |
+| Command send fails (e.g. no route to host) | Kotlin: caught at every call site, silently swallowed. Dart: `sendTwice` propagates; the domain layer must catch **and roll back the optimistic value** (a failed command must not assert an unconfirmed value indefinitely) | `MainActivity` `runCatching {}`; `DevialetUdpTransport.sendTwice` |
+| Duplicate/out-of-order status broadcasts | Not de-duplicated; each is "the current truth", subject to the pending-command mask | `MainActivity.applyStatus()` |
+| No IP selected yet | Every control gated; Kotlin shows a toast, Dart throws `NoDeviceIpSetException` | `MainActivity.requireIp()`; `DevialetClient._sendTwice` |
 
-## Open questions / worth confirming before porting
+## Confirmed vs. inferred (flag before relying)
 
-- ~~Exact meaning of the `lo >> 1` bit-shift quirk in source selection when
-  `cmdValue > 7`~~ — **confirmed against real device** (Samsung Galaxy S25,
-  2026-08-20 — commit: TBD, to be added once committed) for `cmdValue = 14`
-  (Air/Bluetooth): the formula as documented works correctly. The *rationale*
-  for the shift is still undocumented, and it hasn't been exercised for
-  other `cmdValue > 7` values. **[Control]**
-- **New, from the same test session:** status index 9 (unmapped, raw-index
-  fallback, `cmdValue = 9`) and status index 14 (`cmdValue = 14`) sent
-  different wire bytes but the amp displayed "Air" after both. Likely a
-  no-op on the unmapped index rather than a genuine equivalence — not
-  isolated or confirmed, worth re-testing with a distinct starting source.
-  See "Source selection encoding" above. **[Control]**
-- Whether the amp requires exactly 2 retransmits (`sendTwice`) or tolerates/needs
-  more under packet loss — no loss-handling beyond the fixed double-send exists. **[Shared]**
-- Whether packet/command counters need to be *contiguous* per logical action,
-  given `sendTwice()`'s two calls to `buildCommand()` each advance both
-  counters independently (see "Counter caveat" above) — **still inferred,
-  not confirmed**; real-device testing so far hasn't included a packet
-  capture, so amp tolerance of this counter scheme vs. a strict-continuity
-  requirement remains unverified either way. **[Shared]**
-- SAM, Night Mode, SAM level, Bass, Treble command bytes are entirely unknown —
-  will need original packet capture work, not just code archaeology. **[Sound]**
+**Confirmed on the real amp:** ports and packet envelope; CRC vectors;
+every source byte pair in the table incl. the index-1 special case and
+the `cmdValue = 14` (`> 7`) branch; per-unit source names; the whole
+status layout; gotchas #8 and #9 with their timings; source + forced
+volume with no delay; boot time 15.0–18.6 s; volume and mute independence.
+
+**Inferred / unverified:** counter contiguity and whether the duplicate
+send matters at all; whether 2 sends suffice under Wi-Fi loss (no
+adaptive retry exists anywhere); the raw-index fallback for unmapped
+sources; the rationale for `>> 1` and the rest of the 8–15 `cmdValue`
+range; front-panel/remote volume changes on a running amp (never tested);
+real two-amp mDNS (needs a second physical amp on the same LAN); SAM /
+Night Mode / SAM level / Bass / Treble bytes (never captured).
+
+## Code vs. doc reconciliation (2026-09-15, `lib/networking/` @ `3c0b8e0`)
+
+Checked by reading the Dart sources and running them against the ★
+vectors above. **Agrees:** ports, 142-byte envelope, counters advancing
+per wire send from (0,0), CRC over 12 bytes and all three golden vectors,
+every command's byte6/byte7, all seven source byte pairs incl. signed
+packing of index 0, status layout and formula (`111 → −42.0`), fresh
+socket per logical command, `SO_REUSEADDR` + broadcast on the listener,
+drop-and-continue on short/malformed packets, source-then-volume with no
+delay. **Disagrees** (each also flagged inline above and tracked in
+TODO.md; nothing changed in code during the doc pass):
+
+| # | Where | Doc / decision | Dart today | Resolution |
+|---|---|---|---|---|
+| 1 | Volume ceiling | Setting, default **−10.0**, required constructor parameter (owner decision 2026-09-14) | `VolumeCodec.defaultSafetyMaxDb = -15.0`, optional defaulted parameter, test pins −15 | Volume-limits phase: change constant, UI range and test together |
+| 2 | `dbConvert` on non-half-step input | Round to **nearest** 0.5 dB, integer step recursion | Rounds **up** (15.2 and 15.0000001 → the 15.5 word) | Phase 1 follow-up: quantize before encoding |
+| 3 | Post-switch volume | Startup-volume setting (default −40) | Hardcoded `sourceSwitchVolumeDb = -40.0` | Volume-limits phase |
+| 4 | Source names in code comments | Per-unit, never assume a name for an index | Kotlin-era names in comments; `phonoStatusIndex` identifier | Rename on next touch |
+| 5 | Golden vectors in tests | `"123456789" → 0x29B1`, power-on → `A0 BD`, `1.0/15.0/40.0 → 3F80/4170/4220` | Only `0x84F9` (12 zeros) and structural checks are in the suite | Phase 1 follow-up: add as regression tests |
+| 6 | Send failure | Domain layer must roll back optimistic state | No domain layer yet; `sendTwice` just propagates | State-owner phase |

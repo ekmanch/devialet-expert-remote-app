@@ -143,6 +143,10 @@ deliberate decision (not just a 1:1 translation) for iOS:
   own native mDNS/Bonjour APIs (`NWBrowser`/`NetServiceBrowser`) with different
   timing/backoff characteristics — the retry-burst tuning here is
   Android-specific and should not be assumed to carry over as-is.
+  **Confirmed 2026-09-14 by the KDE widget:** the bursts are an
+  `NsdManager` artefact, not an mDNS requirement — one continuous browse
+  resolved the model name in < 0.6 s on Linux. See `docs/protocol.md`,
+  "mDNS model-name resolution", for the portable resolution rules.
   Also gated to **API 36+ only** on Android (`NsdServiceInfo.getHostname()`),
   silently doing nothing below that — the Flutter port needs its own
   version/capability gating per platform, not a shared assumption.
@@ -179,6 +183,8 @@ deliberate decision (not just a 1:1 translation) for iOS:
   `Stopwatch`/`DateTime` has its own platform nuances) rather than naively
   reaching for wall-clock time, or the debounce fixes in
   `docs/known-gotchas.md` could silently regress.
+  Same conclusion in the KDE widget (Rust `Instant`); the full timer set
+  that must share that clock is in `docs/protocol.md`, "Timing facts".
 - **Screen/orientation handling:** `android:configChanges="orientation|screenSize"`
   means `MainActivity` handles rotation itself rather than being
   recreated — there is no separate state-restoration path
