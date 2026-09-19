@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Galaxy S25 (Android UI)" type="FlutterRunConfigurationType" factoryName="Flutter">
+  <configuration default="false" name="Android UI" type="FlutterRunConfigurationType" factoryName="Flutter">
     <option name="additionalArgs" value="--dart-define=UI_VARIANT=android" />
     <option name="filePath" value="$PROJECT_DIR$/lib/main.dart" />
-    <method />
+    <method v="2" />
   </configuration>
 </component>
