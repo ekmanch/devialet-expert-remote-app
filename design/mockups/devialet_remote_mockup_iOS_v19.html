@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Devialet Expert Pro Remote — iOS Mockup (Apple-native variant)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e0e10;
+    --bg-2:#101012;
+    --page:#08080a;
+    --surface:#121214;
+    --surface-2:#161618;
+    --surface-3:#141416;
+    --copper:#c17f4e;
+    --copper-bright:#e3a06a;
+    --copper-dim:#8a5c39;
+    --text:#f2f0ec;
+    --text-dim:#9a9a9f;
+    --text-faint:#5c5c60;
+    --divider:rgba(255,255,255,0.10);
+    --danger:#b5544a;
+    --success:#5fa374;
+    --success-bright:#7bc796;
+    --warning:#a3813a;
+    --warning-bright:#e0b563;
+    --dial-track:#232326;
+    --sheet-tint:rgba(23,23,26,0.78);
+    --home-indicator:rgba(255,255,255,0.35);
+    --card-shadow:none;
+    --accent-rgb:227,160,106;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+    /* iOS system font stack — this is the one deliberate platform swap.
+       Everything else (copper/graphite palette, Space Grotesk for display,
+       JetBrains Mono for numerics) is carried over unchanged from the
+       Android app so the two feel like the same product. */
+    --font-body:-apple-system,'SF Pro Text',system-ui,sans-serif;
+  }
+  /* Light theme, take 3. v10's mistake wasn't the concept, it was two
+     concrete things:
+     1) Warm-on-warm. A cream background (#f7f5f1) behind a gold
+        accent leaves almost no hue separation — the eye only sees a
+        small lightness gap, so it reads as one flat sepia wash.
+        Background is now closer to true neutral white.
+     2) The gold itself was under-saturated (#a9821f carried a heavy
+        gray/blue component) and was doing double duty as BOTH the
+        accent color AND, via a CSS inheritance bug below, the plain
+        body-text color for things like the device name and title —
+        so it had to be muted enough to stay readable everywhere,
+        which is exactly what made it look dull instead of gold.
+     Fix: a properly saturated, low-blue gold (#c9a227), reserved for
+     accents only (wordmark, the big dB readout, icons, selected
+     states, glows) — ordinary text stays dark neutral charcoal, the
+     way white-and-gold references (jewelry, fixtures, cake trim)
+     actually use gold: as trim on a neutral field, not as body copy.
+     --accent-rgb still drives every translucent wash/glow via
+     rgba(var(--accent-rgb),alpha), and the dial's SVG gradient stops
+     now read var(--copper-dim)/var(--copper-bright) too, so the ring
+     itself goes gold in light mode instead of staying copper — it's
+     a metal accent like everything else, so it should follow suit.
+
+     Bug fix, unrelated to the palette: .nav-title/.device-name/etc
+     never set color explicitly — they inherited body's color, but
+     that's computed from :root's value BEFORE it enters .phone.light's
+     scope, so they stayed stuck near-white regardless of theme
+     (visible as barely-legible "ghost" text in the last screenshot).
+     Setting color:var(--text) once on .phone (above) re-establishes
+     correct inheritance from that point down. */
+  /* v13: pulled back from v12's elevated-card look. Dark theme's
+     minimalism comes from cards being ALMOST the same value as the
+     page (bg #0e0e10 vs surface #121214 — a 4-unit difference) plus
+     a thin border, no shadow at all. v12 gave light theme actual
+     drop-shadow elevation and a bigger bg/surface gap — different
+     design language, not a themed version of the same one. Light
+     theme now mirrors dark theme's actual mechanism: background
+     pushed close to true white, cards a hair off that (not stark
+     white-on-gray), border-only definition, shadow removed. */
+  /* v14: v13 still wasn't right — I'd removed the shadow AND kept a
+     visible color-step between bg/surface/surface-3, so the page vs.
+     card vs. nested-button contrast was still doing real work, just
+     less. What was actually wanted: color does almost NONE of the
+     differentiation — bg, card, and nested-button surfaces are all
+     close to one uniform off-white — and shadow alone carries the
+     "this is raised" signal. */
+  /* v15: literally the same white, not "close to." Background,
+     cards, and nested buttons (steppers, segmented track) are all
+     #ffffff now — zero color difference. Shadow plus the divider
+     border are the only things that separate one surface from
+     another, exactly as asked. */
+  .phone.light{
+    --bg:#ffffff;
+    --bg-2:#ffffff;
+    --surface:#ffffff;
+    --surface-2:#ffffff;
+    --surface-3:#ffffff;
+    --copper-bright:#d98c0f;
+    --copper-dim:#ddbb6e;
+    --accent-rgb:217,140,15;
+    --text:#18140f;
+    --text-dim:#6f6a61;
+    --text-faint:#a39c8f;
+    --divider:rgba(24,20,15,0.10);
+    --dial-track:#e4e0d6;
+    --sheet-tint:rgba(255,255,255,0.96);
+    --home-indicator:rgba(24,20,15,0.24);
+    --card-shadow:0 3px 10px -3px rgba(24,20,15,0.10), 0 1px 3px rgba(24,20,15,0.06);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--page);}
+  body{
+    font-family:var(--font-body);
+    color:var(--text);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:40px 16px;
+    min-height:100vh;
+  }
+  .phone{
+    width:390px;
+    max-width:100%;
+    background:linear-gradient(180deg,var(--bg) 0%, var(--bg-2) 100%);
+    color:var(--text);
+    border-radius:54px;
+    border:1px solid rgba(255,255,255,0.06);
+    box-shadow:0 40px 80px -20px rgba(0,0,0,0.7), 0 0 0 8px #050506;
+    overflow:hidden;
+    position:relative;
+  }
+  /* Dynamic Island, not an Android-style notch cutout */
+  .island{
+    width:112px;height:34px;background:#000;border-radius:20px;
+    margin:14px auto 0; position:relative; z-index:5;
+  }
+  .status-bar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:6px 30px 0; font-family:var(--font-body); font-size:13px;
+    font-weight:600; color:var(--copper-bright); letter-spacing:0.01em;
+  }
+  .content{
+    padding:4px 20px 26px;
+  }
+
+  /* Nav header — iOS large-title convention instead of the Android
+     wordmark-over-title stack */
+  .nav-header{padding:14px 2px 18px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px;}
+  .nav-header-text{min-width:0;}
+  .nav-eyebrow{
+    display:inline-block;
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:12px;
+    letter-spacing:0.2em;
+    color:var(--copper-bright);
+    text-transform:uppercase;
+    margin:0 0 2px;
+  }
+  /* Foil-text sheen, light theme only — see Android for the full
+     reasoning (kept off the dB readout; too busy on a number that
+     size/weight, fine on small branding text). */
+  .phone.light .nav-eyebrow{
+    background:linear-gradient(90deg,#a8710b 0%,#d99a1f 50%,#fbe6ab 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .nav-title{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:30px;
+    margin:0;
+    letter-spacing:-0.015em;
+  }
+
+  /* Icon button — used for the settings gear in the nav header and
+     the back control on the Settings screen. */
+  .icon-btn{
+    width:38px; height:38px; border-radius:12px; flex-shrink:0; margin-top:2px;
+    background:var(--surface); border:1px solid var(--divider); box-shadow:var(--card-shadow);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--text-dim); cursor:pointer; font-size:18px;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), opacity .15s ease;
+  }
+  .icon-btn:active{transform:scale(0.92); opacity:0.8;}
+  .icon-btn .icon{width:19px; height:19px;}
+
+  /* Device selector */
+  .device-card{
+    background:var(--surface);
+    border:1px solid var(--divider);
+    box-shadow:var(--card-shadow);
+    border-radius:18px;
+    padding:14px 16px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    cursor:pointer;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), opacity .15s ease;
+  }
+  .device-card:active{transform:scale(0.97); opacity:0.85;}
+  .device-dot{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--copper-bright);
+    box-shadow:0 0 8px 2px rgba(var(--accent-rgb),0.55);
+    flex-shrink:0;
+  }
+  .phone.light .device-dot{
+    background:radial-gradient(circle at 32% 28%, #fcecc0 0%, #f0a623 38%, #a8710b 100%);
+    box-shadow:none;
+  }
+  .device-dot.none{
+    background:transparent; box-shadow:none;
+    border:1.5px dashed var(--text-faint);
+  }
+  .device-dot.booting{
+    background:var(--warning-bright);
+    box-shadow:0 0 8px 2px rgba(224,181,99,0.5);
+    animation:dotPulse 1.1s ease-in-out infinite;
+  }
+  .device-dot.off{
+    background:transparent; box-shadow:none;
+    border:1.5px solid var(--text-faint);
+  }
+  @keyframes dotPulse{
+    0%,100%{opacity:1;}
+    50%{opacity:0.35;}
+  }
+  .device-info{flex:1; min-width:0;}
+  .device-info.dim{opacity:0.5;}
+  .device-name{font-size:15px; font-weight:600; margin:0 0 2px;}
+  .device-sub{font-size:12.5px; color:var(--text-dim); margin:0; font-family:var(--font-mono); letter-spacing:0.01em;}
+  .device-chevron{color:var(--text-faint); font-size:14px;}
+
+  .section-label{
+    font-family:var(--font-display);
+    font-size:11px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    margin:26px 0 12px 2px;
+    font-weight:600;
+  }
+  .section-label.first{margin-top:22px;}
+
+  .disabled-overlay{opacity:0.4; pointer-events:none;}
+
+  /* Volume dial */
+  .dial-wrap{
+    display:flex; flex-direction:column; align-items:center;
+    padding:8px 0 4px;
+  }
+  .dial{position:relative; width:220px; height:220px;}
+  .phone.light .dialArc{stroke:url(#goldGrad);}
+  .dial-center{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .dial-value{
+    font-family:var(--font-mono);
+    font-size:34px;
+    font-weight:500;
+    letter-spacing:-0.01em;
+    line-height:1;
+    color:var(--copper-bright);
+    font-variant-numeric:tabular-nums;
+    text-shadow:0 0 18px rgba(var(--accent-rgb),0.35);
+  }
+  .dial-unit{font-family:var(--font-mono); font-size:12px; color:var(--text-dim); margin-top:0px; letter-spacing:0.05em;}
+  .dial-label{
+    font-family:var(--font-display); font-size:10.5px; letter-spacing:0.2em;
+    color:var(--text-faint); margin-top:8px; text-transform:uppercase;
+  }
+  .vol-buttons{display:flex; justify-content:space-between; width:100%; margin-top:18px; gap:14px;}
+  .vol-btn{
+    flex:1; background:var(--surface); border:1px solid var(--divider); box-shadow:var(--card-shadow); border-radius:16px;
+    height:54px; display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-size:20px; font-weight:600; color:var(--text);
+    cursor:pointer; user-select:none;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), background .15s ease;
+  }
+  .vol-btn:active{background:var(--surface-2); transform:scale(0.94);}
+
+  /* Action row */
+  .action-row{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:22px;}
+  .action-btn{
+    background:var(--surface); border:1px solid var(--divider); box-shadow:var(--card-shadow); border-radius:16px; height:52px;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    font-size:13.5px; font-weight:600; letter-spacing:0.02em; cursor:pointer;
+    font-family:var(--font-body);
+    color:var(--text);
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .action-btn:active{background:var(--surface-2); transform:scale(0.96);}
+  .action-btn.active{
+    background:rgba(var(--accent-rgb),0.14); border-color:var(--copper-dim); color:var(--copper-bright);
+  }
+  .action-btn.power-btn.state-off{color:var(--text-dim);}
+  .action-btn.power-btn.state-booting{
+    border-color:var(--warning); color:var(--warning-bright);
+    pointer-events:none;
+  }
+  /* Press-state warning color — the touch equivalent of the flyout's
+     hover cue. Border/text/icon tint red or green for the instant a
+     finger is down on the button, previewing what the tap will do;
+     the background press-fill above stays neutral, so this reads as
+     a quiet accent rather than a "dangerous action" warning. */
+  .action-btn.power-btn.state-on:active{
+    border-color:var(--danger); color:var(--danger);
+  }
+  .action-btn.power-btn.state-off:active{
+    border-color:var(--success); color:var(--success-bright);
+  }
+  .icon{width:16px; height:16px; flex-shrink:0;}
+  .spinner{
+    width:16px; height:16px; border-radius:50%;
+    border:2px solid rgba(224,181,99,0.25); border-top-color:var(--warning-bright);
+    animation:spin 0.7s linear infinite; flex-shrink:0;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* Source trigger */
+  .source-trigger{
+    background:var(--surface); border:1px solid var(--divider); box-shadow:var(--card-shadow); border-radius:16px;
+    padding:14px 16px; display:flex; align-items:center; gap:12px; cursor:pointer;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), opacity .15s ease;
+  }
+  .source-trigger:active{transform:scale(0.98); opacity:0.85;}
+  .source-trigger.dim{opacity:0.5;}
+  .source-icon{
+    width:34px; height:34px; border-radius:10px; background:transparent;
+    display:flex; align-items:center; justify-content:center; color:var(--copper-bright); flex-shrink:0; font-size:16px;
+  }
+  .source-current{flex:1;}
+  .source-current-label{font-size:12px; color:var(--text-faint); font-family:var(--font-mono); letter-spacing:0.04em; margin:0 0 2px;}
+  .source-current-name{font-size:15px; font-weight:600; margin:0; font-family:var(--font-body);}
+  .chevron-r{color:var(--text-faint); font-size:15px;}
+
+  .footer-note{
+    text-align:center; margin-top:22px; font-size:11px; color:var(--text-faint);
+    font-family:var(--font-mono); letter-spacing:0.02em;
+  }
+
+  /* Home indicator, not the Android gesture pill */
+  .home-indicator{
+    width:134px; height:5px; border-radius:999px; background:var(--home-indicator);
+    margin:18px auto 8px;
+  }
+
+  /* ---- iOS-style bottom sheet (frosted glass + spring motion) ---- */
+  .sheet-overlay{
+    position:absolute; inset:0; background:rgba(0,0,0,0); pointer-events:none;
+    -webkit-backdrop-filter:blur(0px); backdrop-filter:blur(0px);
+    transition:background .3s ease, -webkit-backdrop-filter .3s ease, backdrop-filter .3s ease;
+    z-index:50; display:flex; align-items:flex-end;
+  }
+  .sheet-overlay.open{
+    background:rgba(8,8,10,0.42); pointer-events:auto;
+    -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+  }
+  .sheet-panel{
+    width:100%;
+    background:var(--sheet-tint);
+    -webkit-backdrop-filter:blur(28px) saturate(160%);
+    backdrop-filter:blur(28px) saturate(160%);
+    border-top:1px solid var(--divider);
+    border-radius:20px 20px 0 0;
+    box-shadow:0 -12px 40px rgba(0,0,0,0.5);
+    transform:translateY(100%);
+    transition:transform .46s cubic-bezier(.34,1.42,.4,1);
+    padding:10px 18px 20px;
+    max-height:72%;
+    display:flex; flex-direction:column;
+  }
+  .sheet-overlay.open .sheet-panel{transform:translateY(0);}
+  .sheet-handle{
+    width:36px; height:5px; border-radius:999px; background:var(--surface-3);
+    margin:4px auto 14px;
+  }
+  .sheet-title{
+    font-family:var(--font-display); font-weight:600; font-size:17px; margin:0 0 2px; padding:0 4px;
+  }
+  .sheet-sub{font-size:12px; color:var(--text-faint); margin:0 0 14px; padding:0 4px; font-family:var(--font-mono);}
+  .sheet-list{overflow-y:auto;}
+  .source-option{
+    display:flex; align-items:center; gap:12px; padding:13px 10px; cursor:pointer;
+    border-radius:12px; font-size:15px;
+  }
+  .source-option:active{background:var(--surface-2);}
+  .source-option .source-icon{width:32px; height:32px; border-radius:9px;}
+  .source-option.selected{color:var(--copper-bright);}
+  .source-option.selected .source-icon{background:rgba(var(--accent-rgb),0.18); color:var(--copper-bright);}
+  .source-check{margin-left:auto; color:var(--copper-bright); font-size:14px; opacity:0;}
+  .source-option.selected .source-check{opacity:1;}
+
+  .phone.light .source-icon{
+    background:radial-gradient(circle at 32% 28%, #fcecc0 0%, #f0a623 38%, #a8710b 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    text-shadow:0 3px 5px rgba(160,110,10,0.35);
+  }
+  .phone.light .source-option.selected .source-icon{background-color:transparent;}
+  .phone.light .manual-entry-row .source-icon{
+    background:none; -webkit-text-fill-color:var(--text-dim); color:var(--text-dim); text-shadow:none;
+  }
+
+  .mockup-tag{
+    font-family:var(--font-mono); font-size:10px; letter-spacing:0.07em;
+    color:var(--text-faint); background:rgba(255,255,255,0.05); padding:4px 10px; border-radius:7px;
+    border:1px solid var(--divider); margin-bottom:14px; text-transform:uppercase;
+  }
+
+  /* ---- Amplifier picker sheet ---- */
+  .sheet-header-row{display:flex; align-items:center; gap:8px; padding:0 4px;}
+  .sheet-back{
+    width:28px; height:28px; border-radius:9px; background:var(--surface-2);
+    display:flex; align-items:center; justify-content:center; color:var(--text-dim);
+    font-size:15px; cursor:pointer; flex-shrink:0;
+  }
+  .amp-option{
+    display:flex; align-items:center; gap:12px; padding:13px 10px; cursor:pointer;
+    border-radius:12px;
+  }
+  .amp-option:active{background:var(--surface-2);}
+  .amp-dot{
+    width:9px; height:9px; border-radius:50%; background:var(--text-faint); flex-shrink:0;
+  }
+  .amp-option.connected .amp-dot{
+    background:var(--copper-bright); box-shadow:0 0 8px 2px rgba(var(--accent-rgb),0.55);
+  }
+  .phone.light .amp-option.connected .amp-dot{
+    background:radial-gradient(circle at 32% 28%, #fcecc0 0%, #f0a623 38%, #a8710b 100%);
+    box-shadow:none;
+  }
+  .amp-info{flex:1; min-width:0;}
+  .amp-name{font-size:15px; font-weight:600; margin:0 0 2px; color:var(--text);}
+  .amp-option.connected .amp-name{color:var(--copper-bright);}
+  .amp-sub{font-size:12px; color:var(--text-faint); font-family:var(--font-mono); margin:0;}
+  .amp-check{color:var(--copper-bright); font-size:14px; opacity:0; flex-shrink:0;}
+  .amp-option.connected .amp-check{opacity:1;}
+  .sheet-divider{height:1px; background:var(--divider); margin:8px 4px 10px;}
+  .manual-entry-row .source-icon{color:var(--text-dim);}
+  .manual-entry-row:active .source-icon{color:var(--copper-bright);}
+  .manual-entry-row .source-current-name{color:var(--text);}
+  .amp-option.none-option .amp-dot{
+    background:transparent; box-shadow:none;
+    border:1.5px dashed var(--text-faint);
+  }
+  .amp-option.none-option .amp-name{
+    font-style:italic; color:var(--text-dim);
+  }
+  .amp-option.none-option.connected .amp-name{
+    color:var(--copper-bright); font-style:normal;
+  }
+  .amp-option.none-option.connected .amp-dot{
+    border-color:var(--copper-bright); background:transparent; box-shadow:0 0 6px 1px rgba(var(--accent-rgb),0.4);
+  }
+
+  .ip-field-wrap{padding:6px 4px 4px;}
+  .ip-input{
+    width:100%; background:var(--surface); border:1px solid var(--divider); border-radius:14px;
+    padding:14px 16px; font-family:var(--font-mono); font-size:16px; color:var(--text);
+    outline:none; letter-spacing:0.02em;
+  }
+  .ip-input:focus{border-color:var(--copper-dim);}
+  .ip-input::placeholder{color:var(--text-faint);}
+  .ip-hint{font-size:11.5px; color:var(--text-faint); margin:8px 2px 0; font-family:var(--font-mono);}
+  .primary-btn{
+    width:100%; margin-top:18px; height:52px; border-radius:16px; border:none;
+    background:linear-gradient(180deg, var(--copper-bright) 0%, var(--copper) 100%);
+    color:#1a120b; font-family:var(--font-display); font-weight:600; font-size:14.5px;
+    letter-spacing:0.01em; cursor:pointer;
+  }
+  .primary-btn:active{filter:brightness(0.94);}
+
+  /* ---- Empty state (no amplifier) ---- */
+  .empty-state{
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:8px 20px 4px;
+  }
+  .empty-state-icon{
+    width:44px; height:44px; border-radius:14px; background:var(--surface);
+    border:1px solid var(--divider); display:flex; align-items:center; justify-content:center;
+    font-size:18px; color:var(--text-faint); margin-bottom:12px;
+  }
+  .empty-state-title{font-family:var(--font-display); font-weight:600; font-size:14px; margin:0 0 6px; color:var(--text-dim);}
+  .empty-state-sub{font-size:12px; color:var(--text-faint); margin:0; line-height:1.5; max-width:230px;}
+
+  /* ---- Two-screen slider: Control ⇄ Settings ---- */
+  /* Same push-navigation pattern a real UINavigationController would
+     use — status bar and home indicator stay fixed, only the content
+     between them slides, with the spring feel matched to the sheets. */
+  .viewport{overflow:hidden;}
+  .screens{display:flex; align-items:flex-start; width:200%; transition:transform .46s cubic-bezier(.34,1.42,.4,1);}
+  .screens.settings-open{transform:translateX(-50%);}
+  .screen{width:50%; flex-shrink:0; box-sizing:border-box;}
+
+  /* ---- Settings screen ---- */
+  /* iOS convention: a leading text back-button naming the screen you
+     came from (rather than Android's bare back arrow), in the accent
+     color, with the title centered over it. */
+  .settings-topbar{display:flex; align-items:center; position:relative; padding:10px 0 6px; min-height:30px;}
+  .settings-back-btn{
+    display:flex; align-items:center; gap:1px; cursor:pointer;
+    color:var(--copper-bright); font-size:16px; font-weight:500; font-family:var(--font-body);
+    transition:opacity .15s ease;
+  }
+  .settings-back-btn:active{opacity:0.6;}
+  .settings-back-btn .chev{font-size:20px; line-height:1;}
+  /* Plain neutral, not gold — this is a back button, not the brand
+     mark. Gold stays reserved for .wordmark/.nav-eyebrow, the actual
+     "DEVIALET" identifier. Whole control (chevron + label) goes
+     plain together so it doesn't read as half-styled. */
+  .phone.light .settings-back-btn{color:var(--text);}
+  .settings-title{
+    position:absolute; left:0; right:0; text-align:center; pointer-events:none;
+    font-family:var(--font-display); font-weight:600; font-size:16px; margin:0;
+  }
+  .settings-group{
+    background:var(--surface); border:1px solid var(--divider); box-shadow:var(--card-shadow); border-radius:16px;
+    overflow:hidden;
+  }
+  .settings-row{
+    display:flex; align-items:center; gap:10px;
+    padding:14px 16px; cursor:pointer;
+    transition:background .15s ease;
+  }
+  .settings-row:active{background:var(--surface-2);}
+  .settings-row.static{cursor:default;}
+  .settings-row.static:active{background:none;}
+  .settings-row-text{flex:1; min-width:0;}
+  .settings-row-label{font-size:14.5px; font-weight:600; margin:0; color:var(--text); font-family:var(--font-body);}
+  .settings-row-value{font-size:12px; color:var(--text-faint); margin:3px 0 0; font-family:var(--font-mono);}
+  .settings-row-trailing{font-size:13px; color:var(--text-dim); font-family:var(--font-mono); white-space:nowrap;}
+  .settings-divider{height:1px; background:var(--divider); margin-left:16px;}
+
+  /* Switch — copper accent instead of iOS's default green, to stay
+     inside the app's own palette rather than borrowing the system's. */
+  .switch{
+    width:44px; height:26px; border-radius:999px; flex-shrink:0; cursor:pointer;
+    background:var(--surface-3); border:1px solid var(--divider); position:relative;
+    transition:background .2s ease, border-color .2s ease;
+  }
+  .switch .switch-thumb{
+    position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%;
+    background:var(--text-faint);
+    transition:transform .2s cubic-bezier(.34,1.56,.64,1), background .2s ease;
+  }
+  .switch.on{background:rgba(var(--accent-rgb),0.28); border-color:var(--copper-dim);}
+  .switch.on .switch-thumb{transform:translateX(18px); background:var(--copper-bright);}
+
+  /* Stacked settings row — label/description on top, full-width
+     control underneath. Used instead of the KDE widget's side-by-side
+     layout (label left, control right) because at phone width there
+     isn't room for both a two-line description and a 3-way segmented
+     control or a slider on the same line. */
+  .settings-row-stack{padding:14px 16px;}
+  .settings-row-heading{margin-bottom:12px;}
+  .settings-row-heading .settings-row-label{margin:0 0 3px;}
+  .settings-row-heading .settings-row-value{margin:0; line-height:1.4;}
+
+  .segmented{
+    display:flex; background:var(--surface-3); border:1px solid var(--divider);
+    border-radius:12px; padding:3px; gap:2px;
+  }
+  .segmented-option{
+    flex:1; text-align:center; padding:9px 8px; border-radius:9px;
+    font-family:var(--font-mono); font-size:13px; color:var(--text-dim); cursor:pointer;
+    border:1px solid transparent;
+    transition:border-color .15s ease, color .15s ease;
+  }
+  .segmented-option.selected{
+    border-color:var(--copper-bright); color:var(--copper-bright); font-weight:600;
+  }
+
+  /* Stepper — back from a slider (see v8 note): at a 96 dB range
+     (-96..0), 1 dB notches are only a couple of px apart on a phone
+     width, well under a reliable touch target. A stepper sidesteps
+     that entirely since every tap is an exact ±1 dB move regardless
+     of precision; press-and-hold repeats with acceleration (JS) so
+     covering the full range doesn't mean dozens of individual taps. */
+  .settings-row-heading + .stepper{margin-top:2px;}
+  .stepper{display:flex; align-items:center; gap:10px;}
+  .stepper-btn{
+    width:40px; height:40px; border-radius:12px; flex-shrink:0;
+    background:var(--surface-3); border:1px solid var(--divider); box-shadow:var(--card-shadow);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-size:17px; font-weight:600; color:var(--text);
+    cursor:pointer; user-select:none; touch-action:manipulation;
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), background .15s ease;
+  }
+  .stepper-btn:active{background:var(--surface-2); transform:scale(0.92);}
+  .stepper-value{
+    flex:1; text-align:center; font-family:var(--font-mono); font-size:15px; font-weight:600;
+    color:var(--copper-bright); font-variant-numeric:tabular-nums; cursor:pointer;
+    border-bottom:1px dashed transparent; /* hints "tap to type" without a persistent line */
+  }
+  .stepper-value:active{border-bottom-color:var(--copper-dim);}
+  .stepper-input{
+    width:100%; text-align:center; background:transparent; border:none; outline:none;
+    border-bottom:1.5px solid var(--copper-bright);
+    font-family:var(--font-mono); font-size:15px; font-weight:600; color:var(--copper-bright);
+    -moz-appearance:textfield; padding:0;
+  }
+  .stepper-input::-webkit-outer-spin-button,
+  .stepper-input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+
+  /* Dial value keeps the wordmark-matching gradient — it's the one
+     hero readout on the main screen. Status bar moved to the flat
+     beige treatment below, same as the settings numbers. */
+  /* Dial value keeps a gradient — this was never meant to go flat,
+     that was my own unrequested call, not something asked for. The
+     wordmark's gradient range (dark amber to pale cream) is too wide
+     for 4-5 characters — each digit lands in a very different part
+     of it, showing as two distinct color blocks instead of a sweep.
+     A narrower range (medium gold to light gold, same hue family)
+     blends smoothly over that short a span instead. */
+  .phone.light .dial-value{
+    display:inline-block;
+    background:linear-gradient(90deg,#c17f0e 0%,#f0c873 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .phone.light .status-bar span{color:var(--text);}
+  /* Settings-page numbers: the same gradient repeated four times in
+     one screenful read as odd/patterned rather than premium, and a
+     flat gold wasn't a good look either. A quieter, flat beige avoids
+     both — no shine to repeat, no loud gold either. */
+  .phone.light .stepper-value .value-text,
+  .phone.light .stepper-input,
+  .phone.light .segmented-option.selected .value-text{
+    color:#c2924f;
+  }
+  .phone.light .segmented-option.selected{
+    border-color:#c2924f;
+  }
+  .phone.light .stepper-value:active{border-bottom-color:#c2924f;}
+  .phone.light .stepper-input{border-bottom-color:#c2924f;}
+</style>
+</head>
+<body>
+
+<div class="mockup-tag">APPLE-NATIVE VARIANT</div>
+<div class="phone">
+  <div class="island"></div>
+  <div class="status-bar">
+    <span>9:41</span>
+    <span>⚡ 100%</span>
+  </div>
+  <div class="viewport" id="viewport">
+   <div class="screens" id="screens">
+    <div class="screen">
+    <div class="content">
+
+    <div class="nav-header">
+      <div class="nav-header-text">
+        <p class="nav-eyebrow">Devialet</p>
+        <h1 class="nav-title">Expert Pro Remote</h1>
+      </div>
+      <div class="icon-btn" onclick="openSettings()">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="12" r="7"/>
+          <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
+          <line x1="19.2" y1="12" x2="21.6" y2="12" stroke-linecap="round" stroke-width="2.4"/>
+          <line x1="15.6" y1="18.24" x2="16.8" y2="20.31" stroke-linecap="round" stroke-width="2.4"/>
+          <line x1="8.4" y1="18.24" x2="7.2" y2="20.31" stroke-linecap="round" stroke-width="2.4"/>
+          <line x1="4.8" y1="12" x2="2.4" y2="12" stroke-linecap="round" stroke-width="2.4"/>
+          <line x1="8.4" y1="5.76" x2="7.2" y2="3.69" stroke-linecap="round" stroke-width="2.4"/>
+          <line x1="15.6" y1="5.76" x2="16.8" y2="3.69" stroke-linecap="round" stroke-width="2.4"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="device-card" onclick="openAmpSheet()">
+      <div class="device-dot" id="deviceDot"></div>
+      <div class="device-info" id="deviceInfo">
+        <p class="device-name" id="deviceName">Devialet Expert 140 Pro</p>
+        <p class="device-sub" id="deviceSub">192.168.0.22 · Connected</p>
+      </div>
+      <div class="device-chevron">Change ›</div>
+    </div>
+
+    <!-- No segmented control here — Control is the only tab in the iOS
+         v1, so the Android app's Control/Sound switcher is dropped
+         entirely rather than shown disabled. -->
+
+    <p class="section-label first">Volume</p>
+    <div class="dial-wrap" id="dialWrap">
+      <div class="dial">
+        <svg width="220" height="220" viewBox="0 0 220 220">
+          <circle cx="110" cy="110" r="96" fill="none" stroke="var(--dial-track)" stroke-width="10"/>
+          <path id="dialArc" class="dialArc" fill="none" stroke="url(#copperGrad)" stroke-width="10" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="copperGrad" gradientUnits="userSpaceOnUse" x1="14" y1="14" x2="206" y2="206">
+              <stop offset="0%" stop-color="var(--copper-dim)"/>
+              <stop offset="100%" stop-color="var(--copper-bright)"/>
+            </linearGradient>
+            <linearGradient id="goldGrad" gradientUnits="userSpaceOnUse" x1="14" y1="14" x2="206" y2="206">
+              <stop offset="0%" stop-color="#9c6a0c"/>
+              <stop offset="22%" stop-color="#f6d98a"/>
+              <stop offset="45%" stop-color="#e29a1a"/>
+              <stop offset="68%" stop-color="#fbe6ab"/>
+              <stop offset="100%" stop-color="#a8710b"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="dial-center">
+          <div class="dial-value" id="dialValue">−25.0</div>
+          <div class="dial-unit" id="dialUnit">dB</div>
+          <div class="dial-label" id="dialSourceLabel">Optical 1</div>
+        </div>
+      </div>
+      <div class="vol-buttons" id="volButtons">
+        <div class="vol-btn">−</div>
+        <div class="vol-btn">+</div>
+      </div>
+    </div>
+
+    <div class="action-row" id="actionRow">
+      <div class="action-btn" id="muteBtn" onclick="toggleMute()">
+        <svg class="icon" id="muteIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+        <svg class="icon" id="muteIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+        <span id="muteLabel">Mute</span>
+      </div>
+      <div class="action-btn power-btn state-on" id="powerBtn" onclick="togglePower()">
+        <svg class="icon" id="powerIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+        <div class="spinner" id="powerSpinner" style="display:none;"></div>
+        <span id="powerLabel">Power Off</span>
+      </div>
+    </div>
+
+    <p class="section-label">Source</p>
+    <div class="source-trigger" id="sourceTrigger" onclick="openSheet()">
+      <div class="source-icon" id="triggerIcon">◉</div>
+      <div class="source-current">
+        <p class="source-current-label">Active source</p>
+        <p class="source-current-name" id="triggerName">Optical 1</p>
+      </div>
+      <div class="chevron-r">›</div>
+    </div>
+
+    <p class="footer-note" id="controlFooterNote">Tap the device card to switch amplifiers on your network</p>
+  </div>
+    </div>
+
+    <div class="screen">
+    <div class="content">
+
+      <div class="settings-topbar">
+        <div class="settings-back-btn" onclick="closeSettings()">
+          <span class="chev">‹</span><span class="label">Remote</span>
+        </div>
+        <h2 class="settings-title">Settings</h2>
+      </div>
+
+      <p class="section-label first">Volume</p>
+      <div class="settings-group">
+        <div class="settings-row-stack">
+          <div class="settings-row-heading">
+            <p class="settings-row-label">Volume Step Size</p>
+          </div>
+          <div class="segmented">
+            <div class="segmented-option" onclick="selectSegment(this)"><span class="value-text">0.5 dB</span></div>
+            <div class="segmented-option selected" onclick="selectSegment(this)"><span class="value-text">1 dB</span></div>
+            <div class="segmented-option" onclick="selectSegment(this)"><span class="value-text">2 dB</span></div>
+          </div>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-row-stack">
+          <div class="settings-row-heading">
+            <p class="settings-row-label">Startup / Source-Switch Volume</p>
+            <p class="settings-row-value">Default volume on startup/ source switch</p>
+          </div>
+          <div class="stepper" data-min="-96" data-max="0" data-value="-40">
+            <div class="stepper-btn stepper-minus">−</div>
+            <div class="stepper-value" onclick="editStepperValue(this)"><span class="value-text">−40 dB</span></div>
+            <div class="stepper-btn stepper-plus">+</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-label">Volume Limits</p>
+      <div class="settings-group">
+        <div class="settings-row-stack">
+          <div class="settings-row-heading">
+            <p class="settings-row-label">Volume Floor</p>
+            <p class="settings-row-value">Lowest volume possible to set</p>
+          </div>
+          <div class="stepper" data-min="-96" data-max="0" data-value="-50">
+            <div class="stepper-btn stepper-minus">−</div>
+            <div class="stepper-value" onclick="editStepperValue(this)"><span class="value-text">−50 dB</span></div>
+            <div class="stepper-btn stepper-plus">+</div>
+          </div>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-row-stack">
+          <div class="settings-row-heading">
+            <p class="settings-row-label">Volume Ceiling</p>
+            <p class="settings-row-value">Highest volume possible to set</p>
+          </div>
+          <div class="stepper" data-min="-96" data-max="0" data-value="-10">
+            <div class="stepper-btn stepper-minus">−</div>
+            <div class="stepper-value" onclick="editStepperValue(this)"><span class="value-text">−10 dB</span></div>
+            <div class="stepper-btn stepper-plus">+</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-label">Appearance</p>
+      <div class="settings-group">
+        <div class="settings-row" onclick="openThemeSheet()">
+          <div class="settings-row-text"><p class="settings-row-label">Theme</p></div>
+          <span class="settings-row-trailing" id="themeTrailing">System</span>
+          <span class="chevron-r">›</span>
+        </div>
+      </div>
+
+      <p class="section-label">About</p>
+      <div class="settings-group">
+        <div class="settings-row static">
+          <div class="settings-row-text"><p class="settings-row-label">Version</p></div>
+          <span class="settings-row-trailing">1.0.0</span>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-row">
+          <div class="settings-row-text"><p class="settings-row-label">View on GitHub</p></div>
+          <span class="chevron-r">›</span>
+        </div>
+      </div>
+
+      <p class="footer-note">Devialet Expert Pro Remote</p>
+    </div>
+    </div>
+
+   </div>
+  </div>
+
+  <div class="home-indicator"></div>
+
+  <!-- ============ SOURCE BOTTOM SHEET ============ -->
+  <div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet(event)">
+    <div class="sheet-panel" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <p class="sheet-title">Select source</p>
+      <p class="sheet-sub" id="sourceSheetSub">Devialet Expert 140 Pro</p>
+      <div class="sheet-list" id="sourceList"></div>
+      <div class="empty-state" id="sourceEmptyState" style="display:none; padding:20px 20px 8px;">
+        <div class="empty-state-icon">◉</div>
+        <p class="empty-state-title">No sources available</p>
+        <p class="empty-state-sub">Connect to an amplifier to see its sources.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AMPLIFIER BOTTOM SHEET ============ -->
+  <div class="sheet-overlay" id="ampSheetOverlay" onclick="closeAmpSheet(event)">
+    <div class="sheet-panel" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+
+      <div id="ampListView">
+        <p class="sheet-title">Choose Amplifier</p>
+        <p class="sheet-sub">Amplifiers found on your network</p>
+        <div class="sheet-list" id="ampList"></div>
+        <div class="sheet-divider"></div>
+        <div class="source-option manual-entry-row" onclick="showManualEntry()">
+          <div class="source-icon">⌨</div>
+          <div class="source-current" style="flex:1;">
+            <p class="source-current-name" style="margin:0;">Enter IP Manually</p>
+          </div>
+          <span class="chevron-r">›</span>
+        </div>
+      </div>
+
+      <div id="ampManualView" style="display:none;">
+        <div class="sheet-header-row">
+          <div class="sheet-back" onclick="showAmpList()">‹</div>
+          <div>
+            <p class="sheet-title" style="margin:0;">Enter IP Address</p>
+          </div>
+        </div>
+        <div class="ip-field-wrap">
+          <input class="ip-input" id="manualIpInput" type="text" inputmode="numeric" placeholder="192.168.0.1" autocomplete="off">
+          <p class="ip-hint">Find this in your router's device list or the Devialet app.</p>
+          <button class="primary-btn" onclick="connectManualIp()">Connect</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ THEME BOTTOM SHEET ============ -->
+  <div class="sheet-overlay" id="themeSheetOverlay" onclick="closeThemeSheet(event)">
+    <div class="sheet-panel" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <p class="sheet-title">Choose Theme</p>
+      <p class="sheet-sub">Applies across the app</p>
+      <div class="sheet-list">
+        <div class="source-option selected" id="themeOptionSystem" onclick="chooseTheme('system')">
+          <div class="source-icon">◐</div>
+          <span>Follow System</span>
+          <span class="source-check">✓</span>
+        </div>
+        <div class="source-option" id="themeOptionDark" onclick="chooseTheme('dark')">
+          <div class="source-icon">☾</div>
+          <span>Dark</span>
+          <span class="source-check">✓</span>
+        </div>
+        <div class="source-option" id="themeOptionLight" onclick="chooseTheme('light')">
+          <div class="source-icon">☀</div>
+          <span>Light</span>
+          <span class="source-check">✓</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const START_ANGLE = -225;
+  const MAX_SWEEP = 270;
+  const MIN_DB = -60, MAX_DB = -15;
+  const vol = -25.0;
+
+  function polarToXY(cx, cy, r, angleDeg){
+    const rad = angleDeg * Math.PI / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+  function describeArc(cx, cy, r, startAngle, sweepDeg){
+    const endAngle = startAngle + sweepDeg;
+    const start = polarToXY(cx, cy, r, startAngle);
+    const end = polarToXY(cx, cy, r, endAngle);
+    const largeArcFlag = sweepDeg > 180 ? 1 : 0;
+    return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
+  }
+  function renderVol(){
+    const arc = document.getElementById('dialArc');
+    if (!ampConnected){
+      arc.setAttribute('d','');
+      return;
+    }
+    const fraction = ((vol - MIN_DB) / (MAX_DB - MIN_DB)).toFixed(4);
+    const sweep = MAX_SWEEP * Math.max(0, Math.min(1, fraction));
+    if (sweep <= 0){ arc.setAttribute('d',''); return; }
+    arc.setAttribute('d', describeArc(110, 110, 96, START_ANGLE, sweep));
+  }
+
+  // ---- Source bottom sheet ----
+  const sources = [
+    {name:'Optical 1', icon:'◉'},
+    {name:'UPnP', icon:'◫'},
+    {name:'Roon Ready', icon:'◍'},
+    {name:'AirPlay', icon:'◈'},
+    {name:'Spotify', icon:'◐'},
+    {name:'AIR', icon:'◇'}
+  ];
+  let currentSource = 'Optical 1';
+  function renderSources(){
+    const list = document.getElementById('sourceList');
+    const empty = document.getElementById('sourceEmptyState');
+    if (!ampConnected){
+      list.style.display = 'none';
+      empty.style.display = 'flex';
+      return;
+    }
+    list.style.display = 'block';
+    empty.style.display = 'none';
+    list.innerHTML = '';
+    sources.forEach(s=>{
+      const div = document.createElement('div');
+      div.className = 'source-option' + (s.name===currentSource ? ' selected' : '');
+      div.innerHTML = `<div class="source-icon">${s.icon}</div><span>${s.name}</span><span class="source-check">✓</span>`;
+      div.onclick = ()=> selectSource(s);
+      list.appendChild(div);
+    });
+  }
+  function selectSource(s){
+    currentSource = s.name;
+    document.getElementById('triggerName').textContent = s.name;
+    document.getElementById('triggerIcon').textContent = s.icon;
+    document.getElementById('dialSourceLabel').textContent = s.name;
+    renderSources();
+    closeSheet();
+  }
+  function openSheet(){
+    renderSources();
+    document.getElementById('sheetOverlay').classList.add('open');
+  }
+  function closeSheet(){
+    document.getElementById('sheetOverlay').classList.remove('open');
+  }
+
+  // ---- Amplifier bottom sheet ----
+  const NONE_AMP = {name:'None', modelName:null, ip:null, connected:false, isNone:true};
+  const amplifiers = [
+    {name:'My Devialet', modelName:'Devialet Expert 140 Pro', ip:'192.168.0.22', connected:true},
+    {name:'Living Room Expert', modelName:'Devialet Expert 220 Pro', ip:'192.168.0.31', connected:false},
+    {name:'Studio Phantom', modelName:null, ip:'192.168.0.44', connected:false} // mDNS unresolved - falls back to UDP name
+  ];
+  let ampConnected = true;
+
+  function renderAmps(){
+    const list = document.getElementById('ampList');
+    list.innerHTML = '';
+
+    const noneDiv = document.createElement('div');
+    noneDiv.className = 'amp-option none-option' + (!ampConnected ? ' connected' : '');
+    noneDiv.innerHTML = `<div class="amp-dot"></div>
+      <div class="amp-info">
+        <p class="amp-name">None</p>
+        <p class="amp-sub">Don't connect to any amplifier</p>
+      </div>
+      <span class="amp-check">✓</span>`;
+    noneDiv.onclick = ()=> selectAmp(NONE_AMP);
+    list.appendChild(noneDiv);
+
+    const divider = document.createElement('div');
+    divider.className = 'sheet-divider';
+    list.appendChild(divider);
+
+    amplifiers.forEach(a=>{
+      const div = document.createElement('div');
+      div.className = 'amp-option' + (ampConnected && a.connected ? ' connected' : '');
+      const sub = a.modelName ? `${a.name} · ${a.ip}` : a.ip;
+      div.innerHTML = `<div class="amp-dot"></div>
+        <div class="amp-info">
+          <p class="amp-name">${a.modelName || a.name}</p>
+          <p class="amp-sub">${sub}</p>
+        </div>
+        <span class="amp-check">✓</span>`;
+      div.onclick = ()=> selectAmp(a);
+      list.appendChild(div);
+    });
+  }
+
+  function selectAmp(a){
+    if (a.isNone){
+      ampConnected = false;
+    } else {
+      ampConnected = true;
+      amplifiers.forEach(x=> x.connected = (x===a));
+    }
+    applyConnectionState();
+    renderAmps();
+    setTimeout(closeAmpSheet, 180);
+  }
+
+  // ---- Mute / Power — ported from the KDE flyout mockup (v14) ----
+  // Real behavior this mirrors:
+  //  - Mute is a simple toggle reflected in the amp's status broadcast.
+  //  - Power-off is fast on the real amp, so the UI flips immediately.
+  //  - Power-on takes real time on the amp, so the UI shows an
+  //    intermediate "Booting…" state (pulsing dot + spinner) instead
+  //    of jumping straight from Off to On.
+  const BOOT_DURATION_MS = 3200; // mockup only — real duration comes from actual amp status, not a timer
+  let muted = false;
+  let poweredOn = true;
+
+  function toggleMute(){
+    muted = !muted;
+    document.getElementById('muteBtn').classList.toggle('active', muted);
+    document.getElementById('muteIconOn').style.display = muted ? 'none' : '';
+    document.getElementById('muteIconOff').style.display = muted ? '' : 'none';
+    document.getElementById('muteLabel').textContent = muted ? 'Unmute' : 'Mute';
+  }
+
+  function resetMuteState(){
+    muted = false;
+    document.getElementById('muteBtn').classList.remove('active');
+    document.getElementById('muteIconOn').style.display = '';
+    document.getElementById('muteIconOff').style.display = 'none';
+    document.getElementById('muteLabel').textContent = 'Mute';
+  }
+
+  function setPowerVisualState(state){
+    // state: 'on' | 'off' | 'booting'
+    const btn = document.getElementById('powerBtn');
+    const dot = document.getElementById('deviceDot');
+    const sub = document.getElementById('deviceSub');
+    const icon = document.getElementById('powerIcon');
+    const spinner = document.getElementById('powerSpinner');
+    const label = document.getElementById('powerLabel');
+    const active = amplifiers.find(a=>a.connected);
+
+    btn.classList.remove('state-on','state-off','state-booting');
+    dot.classList.remove('booting','off');
+
+    if (state === 'on'){
+      btn.classList.add('state-on');
+      label.textContent = 'Power Off';
+      icon.style.display = '';
+      spinner.style.display = 'none';
+      if (active) sub.textContent = active.ip + ' · Connected';
+    } else if (state === 'off'){
+      btn.classList.add('state-off');
+      label.textContent = 'Power On';
+      icon.style.display = '';
+      spinner.style.display = 'none';
+      dot.classList.add('off');
+      // The remote is still reachable over UDP while the amp itself is
+      // powered down — "Connected" describes that link, not the amp's
+      // power state, so it stays even though the amp is off.
+      if (active) sub.textContent = active.ip + ' · Connected';
+    } else if (state === 'booting'){
+      btn.classList.add('state-booting');
+      label.textContent = 'Powering on…';
+      icon.style.display = 'none';
+      spinner.style.display = '';
+      dot.classList.add('booting');
+      sub.textContent = 'Booting…';
+    }
+
+    updateControlAvailability();
+  }
+
+  // Volume, mute, and source can't be changed while the amp itself is
+  // off or still booting — only the power control stays live so the
+  // user can turn it on. This is separate from (and finer-grained
+  // than) the "no amplifier selected at all" disabled-overlay applied
+  // in applyConnectionState.
+  function updateControlAvailability(){
+    const noAmp = !ampConnected;
+    const ampOffOrBooting = ampConnected && !poweredOn;
+
+    document.getElementById('dialWrap').classList.toggle('disabled-overlay', noAmp || ampOffOrBooting);
+
+    const source = document.getElementById('sourceTrigger');
+    source.classList.toggle('dim', noAmp);
+    source.classList.toggle('disabled-overlay', ampOffOrBooting);
+
+    document.getElementById('muteBtn').classList.toggle('disabled-overlay', ampOffOrBooting);
+  }
+
+  function togglePower(){
+    if (!ampConnected) return;
+    if (poweredOn){
+      // Power-off is fast on the real amp — reflect it immediately.
+      poweredOn = false;
+      setPowerVisualState('off');
+    } else {
+      // Power-on takes real time on the amp — show an intermediate
+      // "booting" state rather than jumping straight to "on".
+      setPowerVisualState('booting');
+      setTimeout(()=>{
+        poweredOn = true;
+        setPowerVisualState('on');
+      }, BOOT_DURATION_MS);
+    }
+  }
+
+  function applyConnectionState(){
+    const active = amplifiers.find(a=>a.connected);
+
+    document.getElementById('deviceDot').classList.remove('booting','off');
+    document.getElementById('deviceDot').classList.toggle('none', !ampConnected);
+    document.getElementById('deviceInfo').classList.toggle('dim', !ampConnected);
+    document.getElementById('deviceName').textContent = ampConnected ? (active.modelName || active.name) : 'No Amplifier';
+    document.getElementById('deviceSub').textContent = ampConnected ? (active.ip + ' · Connected') : 'Tap to connect';
+    document.getElementById('sourceSheetSub').textContent = ampConnected ? (active.modelName || active.name) : 'No amplifier connected';
+
+    document.getElementById('actionRow').classList.toggle('disabled-overlay', !ampConnected);
+    document.getElementById('dialValue').textContent = ampConnected ? '−25.0' : '—';
+    document.getElementById('dialUnit').style.visibility = ampConnected ? 'visible' : 'hidden';
+    document.getElementById('dialSourceLabel').textContent = ampConnected ? currentSource : 'No source';
+
+    document.getElementById('triggerName').textContent = ampConnected ? currentSource : 'No source';
+    document.getElementById('triggerIcon').textContent = ampConnected ? '◉' : '–';
+
+    document.getElementById('controlFooterNote').textContent = ampConnected
+      ? 'Tap the device card to switch amplifiers on your network'
+      : 'Tap the device card to connect to an amplifier';
+
+    // Switching amplifiers (or disconnecting) always lands on a known
+    // "on, unmuted" state in this mockup — the real app would reflect
+    // whatever the newly-selected amp's status broadcast reports.
+    resetMuteState();
+    poweredOn = true;
+    if (ampConnected){
+      setPowerVisualState('on');
+    } else {
+      const btn = document.getElementById('powerBtn');
+      btn.classList.remove('state-on','state-off','state-booting');
+      document.getElementById('powerIcon').style.display = '';
+      document.getElementById('powerSpinner').style.display = 'none';
+      document.getElementById('powerLabel').textContent = 'Power Off';
+    }
+
+    updateControlAvailability();
+    renderVol();
+  }
+
+  function openAmpSheet(){
+    showAmpList();
+    renderAmps();
+    document.getElementById('ampSheetOverlay').classList.add('open');
+  }
+  function closeAmpSheet(){
+    document.getElementById('ampSheetOverlay').classList.remove('open');
+  }
+  function showManualEntry(){
+    document.getElementById('ampListView').style.display = 'none';
+    document.getElementById('ampManualView').style.display = 'block';
+    setTimeout(()=> document.getElementById('manualIpInput').focus(), 250);
+  }
+  function showAmpList(){
+    document.getElementById('ampManualView').style.display = 'none';
+    document.getElementById('ampListView').style.display = 'block';
+  }
+  function connectManualIp(){
+    const val = document.getElementById('manualIpInput').value.trim();
+    if(!val) return;
+    amplifiers.forEach(x=> x.connected = false);
+    amplifiers.unshift({name:'New Amplifier', modelName:null, ip:val, connected:true});
+    ampConnected = true;
+    document.getElementById('manualIpInput').value = '';
+    applyConnectionState();
+    showAmpList();
+    renderAmps();
+    setTimeout(closeAmpSheet, 180);
+  }
+
+  renderSources();
+  applyConnectionState();
+  syncViewportHeight();
+
+  // ---- Settings screen (push navigation, Control ⇄ Settings) ----
+  // The two screens sit side-by-side in a flex row so they can slide
+  // horizontally — but a flex row's height defaults to its TALLEST
+  // child regardless of which one is scrolled into view. Settings has
+  // more content than Control, so Control was inheriting that extra
+  // height as blank space below its own footer. Sizing the viewport
+  // to whichever screen is actually showing fixes it.
+  function syncViewportHeight(){
+    const screens = document.querySelectorAll('.screen');
+    const active = document.getElementById('screens').classList.contains('settings-open') ? screens[1] : screens[0];
+    document.getElementById('viewport').style.height = active.offsetHeight + 'px';
+  }
+  function openSettings(){
+    document.getElementById('screens').classList.add('settings-open');
+    syncViewportHeight();
+  }
+  function closeSettings(){
+    document.getElementById('screens').classList.remove('settings-open');
+    syncViewportHeight();
+  }
+  function toggleSwitch(el){
+    el.classList.toggle('on');
+  }
+  function selectSegment(el){
+    el.parentElement.querySelectorAll('.segmented-option').forEach(o=> o.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+  function openThemeSheet(){
+    document.getElementById('themeSheetOverlay').classList.add('open');
+  }
+  function closeThemeSheet(){
+    document.getElementById('themeSheetOverlay').classList.remove('open');
+  }
+  function chooseTheme(theme){
+    document.getElementById('themeOptionSystem').classList.toggle('selected', theme === 'system');
+    document.getElementById('themeOptionDark').classList.toggle('selected', theme === 'dark');
+    document.getElementById('themeOptionLight').classList.toggle('selected', theme === 'light');
+    document.getElementById('themeTrailing').textContent =
+      theme === 'system' ? 'System' : (theme === 'dark' ? 'Dark' : 'Light');
+    // 'system' follows the OS setting; this mockup assumes the OS is
+    // set to Dark, so it renders the same as choosing Dark explicitly.
+    document.querySelector('.phone').classList.toggle('light', theme === 'light');
+    setTimeout(closeThemeSheet, 180);
+  }
+
+  // ---- Settings steppers (Startup Volume, Volume Floor, Volume Ceiling) ----
+  // A tap moves 1 dB exactly, every time — precision that a slider
+  // can't guarantee at a 96-step range on a phone-width control (see
+  // the CSS comment above). Press-and-hold repeats and accelerates so
+  // covering the full range doesn't mean dozens of taps.
+  function formatDb(v){
+    return (v === 0 ? '0' : '−' + Math.abs(v)) + '\u2009dB';
+  }
+  function clamp(v, min, max){
+    return Math.max(min, Math.min(max, v));
+  }
+  function stepperNudge(stepperEl, direction){
+    const min = parseFloat(stepperEl.dataset.min);
+    const max = parseFloat(stepperEl.dataset.max);
+    const value = clamp(parseFloat(stepperEl.dataset.value) + direction, min, max);
+    stepperEl.dataset.value = value;
+    stepperEl.querySelector('.stepper-value .value-text').textContent = formatDb(value);
+  }
+  function wireStepperHold(btnEl, stepperEl, direction){
+    const HOLD_DELAY_MS = 420;   // pause before auto-repeat kicks in
+    const REPEAT_FLOOR_MS = 45;  // fastest the repeat is allowed to get
+    let holdTimeout = null, repeatInterval = null, intervalMs = 140;
+    function tick(){
+      stepperNudge(stepperEl, direction);
+      intervalMs = Math.max(REPEAT_FLOOR_MS, intervalMs - 12); // accelerate
+      clearInterval(repeatInterval);
+      repeatInterval = setInterval(tick, intervalMs);
+    }
+    function start(e){
+      e.preventDefault();
+      stepperNudge(stepperEl, direction); // immediate first move on tap
+      intervalMs = 140;
+      holdTimeout = setTimeout(()=>{ repeatInterval = setInterval(tick, intervalMs); }, HOLD_DELAY_MS);
+    }
+    function stop(){
+      clearTimeout(holdTimeout);
+      clearInterval(repeatInterval);
+    }
+    btnEl.addEventListener('pointerdown', start);
+    btnEl.addEventListener('pointerup', stop);
+    btnEl.addEventListener('pointerleave', stop);
+    btnEl.addEventListener('pointercancel', stop);
+  }
+  // Tapping the value itself opens direct numeric entry — closes the
+  // one real gap in hold-to-repeat (overshoot while accelerating) for
+  // when the user already knows the exact dB they want.
+  function editStepperValue(valueEl){
+    const stepperEl = valueEl.closest('.stepper');
+    if (stepperEl.classList.contains('editing')) return;
+    stepperEl.classList.add('editing');
+    const min = parseFloat(stepperEl.dataset.min);
+    const max = parseFloat(stepperEl.dataset.max);
+    const original = stepperEl.dataset.value;
+    valueEl.innerHTML = '';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.pattern = '[0-9]*';
+    input.className = 'stepper-input';
+    input.value = Math.abs(parseFloat(original)); // magnitude only — no minus to type or delete
+    valueEl.appendChild(input);
+    input.focus();
+    input.select();
+    function commit(){
+      // Every value in this range is 0 dB or below, so a typed "40"
+      // means −40 — the app supplies the minus rather than asking for
+      // it. Stripping non-digits also means a stray "-" typed on a
+      // physical keyboard is simply ignored rather than producing a
+      // double-negative.
+      const digits = input.value.replace(/[^0-9]/g, '');
+      const magnitude = digits === '' ? Math.abs(Math.round(parseFloat(original))) : parseInt(digits, 10);
+      const val = clamp(magnitude === 0 ? 0 : -magnitude, min, max);
+      stepperEl.dataset.value = val;
+      stepperEl.classList.remove('editing');
+      valueEl.innerHTML = '<span class="value-text">' + formatDb(val) + '</span>';
+    }
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e=>{
+      if (e.key === 'Enter') input.blur();
+      if (e.key === 'Escape'){ input.value = Math.abs(parseFloat(original)); input.blur(); }
+    });
+  }
+  document.querySelectorAll('.stepper').forEach(stepperEl=>{
+    wireStepperHold(stepperEl.querySelector('.stepper-minus'), stepperEl, -1);
+    wireStepperHold(stepperEl.querySelector('.stepper-plus'), stepperEl, 1);
+  });
+</script>
+
+</body>
+</html>
