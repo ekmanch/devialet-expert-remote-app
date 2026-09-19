@@ -62,7 +62,7 @@ void main() {
       final transport = FakeUdpTransport();
       final client = DevialetClient(transport: transport, deviceIp: '192.168.1.50');
 
-      await client.selectSource(4); // AirPlay
+      await client.selectSource(4);
 
       expect(transport.sentPairs, hasLength(2));
 

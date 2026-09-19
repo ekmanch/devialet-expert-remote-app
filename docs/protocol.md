@@ -199,10 +199,11 @@ Two layers of indirection, both load-bearing:
    only authoritative name for an index is that amp's own live broadcast**
    (the source-name field at `53 + i·17`). Never key anything on a name
    assumed for an index, and never hardcode a per-index name in code.
-   **⚠ Dart:** `source_mapping.dart` and `command_payloads.dart` still
-   carry the Kotlin-era names as trailing comments and the identifier
-   `phonoStatusIndex`. Nothing is keyed by them, but they mislead; rename
-   to index-based wording on the next touch of that file (TODO.md).
+   **Dart:** `source_mapping.dart` and `command_payloads.dart` carry
+   numbers only since Task 1.1.2 (2026-09-19); the index-1 special case is
+   `CommandPayloads.hardcodedSelectStatusIndex`. The only names left in
+   `test/` are `status_packet_test.dart` fixtures written into a synthetic
+   broadcast and read back, which is exactly the live-name path.
 
    **Raw-index fallback finding** (Galaxy S25, 2026-08-20; unchanged by the
    KDE work): sending status index 9 (unmapped, `cmdValue = 9`, bytes
@@ -430,6 +431,6 @@ TODO.md; nothing changed in code during the doc pass):
 | 1 | Volume ceiling | Setting, default **−10.0**, required constructor parameter (owner decision 2026-09-14) | `VolumeCodec.defaultSafetyMaxDb = -15.0`, optional defaulted parameter, test pins −15 | Volume-limits phase: change constant, UI range and test together |
 | 2 | `dbConvert` on non-half-step input | Round to **nearest** 0.5 dB, integer step recursion | ~~Rounded **up** (15.2 and 15.0000001 → the 15.5 word)~~ | **Resolved, Task 1.1.0** (2026-09-19) |
 | 3 | Post-switch volume | Startup-volume setting (default −40) | Hardcoded `sourceSwitchVolumeDb = -40.0` | Volume-limits phase |
-| 4 | Source names in code comments | Per-unit, never assume a name for an index | Kotlin-era names in comments; `phonoStatusIndex` identifier | Rename on next touch |
+| 4 | Source names in code comments | Per-unit, never assume a name for an index | ~~Kotlin-era names in comments; `phonoStatusIndex` identifier~~ | **Resolved, Task 1.1.2** (2026-09-19) |
 | 5 | Golden vectors in tests | `"123456789" → 0x29B1`, power-on → `A0 BD`, `1.0/15.0/40.0 → 3F80/4170/4220`, status `111 → −42.0`, all seven source byte pairs | ~~Only `0x84F9` (12 zeros) and structural checks were in the suite~~ | **Resolved, Task 1.1.1** (2026-09-19); power-off `E5 1D` added from the KDE suite |
 | 6 | Send failure | Domain layer must roll back optimistic state | No domain layer yet; `sendTwice` just propagates | State-owner phase |

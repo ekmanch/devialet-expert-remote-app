@@ -15,16 +15,18 @@ abstract final class CommandPayloads {
     return CommandPayload(byte6: 0x00, byte7: 0x04, byte8: (word >> 8) & 0xFF, byte9: word & 0xFF);
   }
 
-  /// Status-broadcast index of Phono — hardcoded bytes below, not this table.
-  static const int phonoStatusIndex = 1;
+  /// Status index 1 uses hardcoded bytes (confirmed on two amps), not the
+  /// mapping table. Its name is per-unit (`docs/protocol.md`, "Names are
+  /// per-unit") and deliberately not recorded here.
+  static const int hardcodedSelectStatusIndex = 1;
 
   /// Bytes found via Wireshark (per `gnulabis/devimote` issue #2, per code
   /// comment cited in protocol.md) — doesn't follow the general bit-packing
   /// formula, so it's special-cased rather than forced through it.
-  static const _phonoPayload = CommandPayload(byte6: 0x00, byte7: 0x05, byte8: 0x3F, byte9: 0x80);
+  static const _hardcodedSelectPayload = CommandPayload(byte6: 0x00, byte7: 0x05, byte8: 0x3F, byte9: 0x80);
 
   static CommandPayload selectSource(int statusIndex) {
-    if (statusIndex == phonoStatusIndex) return _phonoPayload;
+    if (statusIndex == hardcodedSelectStatusIndex) return _hardcodedSelectPayload;
     final cmdValue = SourceMapping.commandValueForStatusIndex(statusIndex);
     final (hi, lo) = SourceMapping.encodeSelectPayload(cmdValue);
     return CommandPayload(byte6: 0x00, byte7: 0x05, byte8: hi, byte9: lo);

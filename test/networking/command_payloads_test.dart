@@ -32,7 +32,7 @@ void main() {
       expect(payload.byte7, 0x04);
     });
 
-    test('Select source Phono (status index 1) = byte6 0x00, byte7 0x05, payload 0x3F 0x80', () {
+    test('Select source status index 1 (hardcoded case) = byte6 0x00, byte7 0x05, payload 0x3F 0x80', () {
       final payload = CommandPayloads.selectSource(1);
       expect(payload.byte6, 0x00);
       expect(payload.byte7, 0x05);
@@ -41,7 +41,7 @@ void main() {
     });
 
     test('Select source (other inputs) = byte6 0x00, byte7 0x05', () {
-      final payload = CommandPayloads.selectSource(4); // AirPlay
+      final payload = CommandPayloads.selectSource(4);
       expect(payload.byte6, 0x00);
       expect(payload.byte7, 0x05);
     });
@@ -77,12 +77,13 @@ void main() {
 
   group('SourceMapping — status index -> command value table from docs/protocol.md', () {
     test('known indices map to their documented command values', () {
-      expect(SourceMapping.commandValueForStatusIndex(0), -1); // Optical 1
-      expect(SourceMapping.commandValueForStatusIndex(2), 0); // UPnP
-      expect(SourceMapping.commandValueForStatusIndex(3), 3); // Roon Ready
-      expect(SourceMapping.commandValueForStatusIndex(4), 4); // AirPlay
-      expect(SourceMapping.commandValueForStatusIndex(5), 5); // Spotify
-      expect(SourceMapping.commandValueForStatusIndex(14), 14); // Air (Bluetooth)
+      // Numbers only — names are per-unit (docs/protocol.md).
+      expect(SourceMapping.commandValueForStatusIndex(0), -1);
+      expect(SourceMapping.commandValueForStatusIndex(2), 0);
+      expect(SourceMapping.commandValueForStatusIndex(3), 3);
+      expect(SourceMapping.commandValueForStatusIndex(4), 4);
+      expect(SourceMapping.commandValueForStatusIndex(5), 5);
+      expect(SourceMapping.commandValueForStatusIndex(14), 14);
     });
 
     test('unmapped indices fall back to the raw status index (unverified per protocol.md)', () {
@@ -90,7 +91,7 @@ void main() {
     });
 
     test('bit-packing formula: outVal = 0x4000 | (cmdValue << 5)', () {
-      // cmdValue = 4 (AirPlay), <= 7 so no extra >>1 on lo.
+      // cmdValue = 4, <= 7 so no extra >>1 on lo.
       final (hi, lo) = SourceMapping.encodeSelectPayload(4);
       final outVal = 0x4000 | (4 << 5);
       expect(hi, (outVal >> 8) & 0xFF);
@@ -98,14 +99,14 @@ void main() {
     });
 
     test('cmdValue > 7 applies the extra >>1 shift on lo (inferred, not confirmed)', () {
-      // cmdValue = 14 (Air/Bluetooth), > 7 so lo gets an extra >>1.
+      // cmdValue = 14, > 7 so lo gets an extra >>1.
       final (hi, lo) = SourceMapping.encodeSelectPayload(14);
       final outVal = 0x4000 | (14 << 5);
       expect(hi, (outVal >> 8) & 0xFF);
       expect(lo, (outVal & 0xFF) >> 1);
     });
 
-    test('negative cmdValue (Optical 1 = -1) encodes without throwing', () {
+    test('negative cmdValue (status index 0 = -1) encodes without throwing', () {
       final (hi, lo) = SourceMapping.encodeSelectPayload(-1);
       expect(hi, 0xFF);
       expect(lo, 0xE0);

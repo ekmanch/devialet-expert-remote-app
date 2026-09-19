@@ -118,9 +118,12 @@ Small, wire-level, unit-testable; no domain layer needed. Details in
       2026-09-19 as literal-byte tests in `test/networking/` (plus
       power-off `E5 1D` and the raw-fallback index 9 → `41 10`, the latter
       still unverified on a real amp).
-- [ ] **1.1.2** — **Drop the per-index source names from `source_mapping.dart` /
+- [x] **1.1.2** — **Drop the per-index source names from `source_mapping.dart` /
       `command_payloads.dart` comments and rename `phonoStatusIndex`** —
-      names are per-unit (`docs/protocol.md`, "Names are per-unit").
+      names are per-unit (`docs/protocol.md`, "Names are per-unit"). Done
+      2026-09-19 (`hardcodedSelectStatusIndex`; debug-screen label and test
+      comments de-named too; `status_packet_test.dart` fixture names kept
+      on purpose).
 - [ ] **1.1.3** — **Make the ceiling a required parameter** on `setVolume` /
       `encodeCommandWord` with an explicit "none" value (checklist item
       28). Do this together with Task 3.4.7 & 3.4.8 so

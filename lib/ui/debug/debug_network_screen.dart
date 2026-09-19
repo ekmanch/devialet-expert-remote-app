@@ -120,7 +120,7 @@ class _DebugNetworkScreenState extends ConsumerState<DebugNetworkScreen> {
           onChangeEnd: (v) => _guard('Set volume $v dB', () => _client.setVolumeDb(v)),
         ),
         const Divider(height: 32),
-        const Text('Source status index (0-14; 1 = Phono hardcoded case):'),
+        const Text('Source status index (0-14; 1 = hardcoded special case):'),
         Row(
           children: [
             Expanded(
