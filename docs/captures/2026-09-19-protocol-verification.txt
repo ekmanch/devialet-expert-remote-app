@@ -1,0 +1,164 @@
+   0.000 === RUN 1: baseline, control, counters, duplicates, CRC, mute, Wi-Fi ===
+   0.000 ENVELOPE: volume only in {-41.0,-40.5,-40.0} (ceiling arg -35), no power cmds, mute restored off, no source cmds in this run
+   1.000 start state (0.9733427560131531, 'eno1', True, 0, False, -40.0)
+  31.000 baseline 30 s: eno1=150 wlan0=74 other=0; eno1 gap ms min/med/max = 197/200/204
+  31.001 wlan0 copy delay after eno1 copy (ms): min/med/max = 8/66/164  (n=73); wlan0 loss vs eno1 = 51%
+  31.182 E0 control: double send, contiguous ctr, vol -40.5      -> OK  172 ms   (state src=0 mute=False vol=-40.5)
+  31.373 E0 control: double send, contiguous ctr, vol -40.0      -> OK  190 ms   (state src=0 mute=False vol=-40.0)
+  31.575 E1 single send #01 contiguous ctr (4,4) vol -40.5       -> OK  200 ms   (state src=0 mute=False vol=-40.5)
+  31.976 E1 single send #02 contiguous ctr (5,5) vol -40.0       -> OK   98 ms   (state src=0 mute=False vol=-40.0)
+  32.376 E1 single send #03 contiguous ctr (6,6) vol -40.5       -> OK   97 ms   (state src=0 mute=False vol=-40.5)
+  32.777 E1 single send #04 contiguous ctr (7,7) vol -40.0       -> OK   96 ms   (state src=0 mute=False vol=-40.0)
+  33.178 E1 single send #05 contiguous ctr (8,8) vol -40.5       -> OK   96 ms   (state src=0 mute=False vol=-40.5)
+  33.579 E1 single send #06 contiguous ctr (9,9) vol -40.0       -> OK   95 ms   (state src=0 mute=False vol=-40.0)
+  33.979 E1 single send #07 contiguous ctr (10,10) vol -40.5     -> OK   94 ms   (state src=0 mute=False vol=-40.5)
+  34.380 E1 single send #08 contiguous ctr (11,11) vol -40.0     -> OK   93 ms   (state src=0 mute=False vol=-40.0)
+  34.781 E1 single send #09 contiguous ctr (12,12) vol -40.5     -> OK   93 ms   (state src=0 mute=False vol=-40.5)
+  35.182 E1 single send #10 contiguous ctr (13,13) vol -40.0     -> OK   92 ms   (state src=0 mute=False vol=-40.0)
+  35.583 E1 single send #11 contiguous ctr (14,14) vol -40.5     -> OK   91 ms   (state src=0 mute=False vol=-40.5)
+  35.983 E1 single send #12 contiguous ctr (15,15) vol -40.0     -> OK   91 ms   (state src=0 mute=False vol=-40.0)
+  36.374 E1 single send #13 contiguous ctr (16,16) vol -40.5     -> OK   89 ms   (state src=0 mute=False vol=-40.5)
+  36.775 E1 single send #14 contiguous ctr (17,17) vol -40.0     -> OK   99 ms   (state src=0 mute=False vol=-40.0)
+  37.176 E1 single send #15 contiguous ctr (18,18) vol -40.5     -> OK   98 ms   (state src=0 mute=False vol=-40.5)
+  37.576 E1 single send #16 contiguous ctr (19,19) vol -40.0     -> OK   98 ms   (state src=0 mute=False vol=-40.0)
+  37.977 E1 single send #17 contiguous ctr (20,20) vol -40.5     -> OK   96 ms   (state src=0 mute=False vol=-40.5)
+  38.378 E1 single send #18 contiguous ctr (21,21) vol -40.0     -> OK   96 ms   (state src=0 mute=False vol=-40.0)
+  38.779 E1 single send #19 contiguous ctr (22,22) vol -40.5     -> OK   95 ms   (state src=0 mute=False vol=-40.5)
+  39.180 E1 single send #20 contiguous ctr (23,23) vol -40.0     -> OK   95 ms   (state src=0 mute=False vol=-40.0)
+  39.480 E1 SUMMARY single-send eno1: 20/20 applied; latency ms min/med/max = 89/96/200
+  39.580 E2 single send, counters frozen (0,0), vol -40.5        -> OK   93 ms   (state src=0 mute=False vol=-40.5)
+  39.981 E2 single send, counters frozen (0,0), vol -40.0        -> OK   92 ms   (state src=0 mute=False vol=-40.0)
+  40.382 E2 single send, counters frozen (0,0), vol -40.5        -> OK   92 ms   (state src=0 mute=False vol=-40.5)
+  40.773 E2 single send, counters frozen (0,0), vol -40.0        -> OK   91 ms   (state src=0 mute=False vol=-40.0)
+  41.174 E2 single send, counters frozen (0,0), vol -40.5        -> OK  100 ms   (state src=0 mute=False vol=-40.5)
+  41.574 E2 single send, counters frozen (0,0), vol -40.0        -> OK   99 ms   (state src=0 mute=False vol=-40.0)
+  41.874 E2 SUMMARY frozen (0,0): 6/6 applied
+  41.975 E3 single send, counters (0xffff,0xffff), vol -40.5     -> OK   99 ms   (state src=0 mute=False vol=-40.5)
+  42.376 E3 single send, counters (0x1234,0x9abc), vol -40.0     -> OK   97 ms   (state src=0 mute=False vol=-40.0)
+  42.777 E3 single send, counters (0x0005,0x0001), vol -40.5     -> OK   98 ms   (state src=0 mute=False vol=-40.5)
+  43.178 E3 single send, counters (0x0002,0x0000), vol -40.0     -> OK   96 ms   (state src=0 mute=False vol=-40.0)
+  43.578 E3 single send, counters (0x8000,0x0000), vol -40.5     -> OK   95 ms   (state src=0 mute=False vol=-40.5)
+  43.979 E3 single send, counters (0x0000,0x8000), vol -40.0     -> OK   95 ms   (state src=0 mute=False vol=-40.0)
+  44.279 E3 SUMMARY arbitrary counters: 6/6 applied
+  44.380 E4 identical bytes x2, vol -40.5                        -> OK   94 ms   (state src=0 mute=False vol=-40.5)
+  44.781 E4 identical bytes x2, vol -40.0                        -> OK   93 ms   (state src=0 mute=False vol=-40.0)
+  45.182 E4 identical bytes x5, vol -40.5                        -> OK   92 ms   (state src=0 mute=False vol=-40.5)
+  45.582 E4 identical bytes x5, vol -40.0                        -> OK   91 ms   (state src=0 mute=False vol=-40.0)
+  45.882 E4 SUMMARY identical duplicates: 4/4 applied
+  46.889 E5 BAD CRC single send, vol -40.5                       -> NOT APPLIED   (state src=0 mute=False vol=-40.0)
+  47.380 E5 BAD CRC single send, vol -40.0                       -> OK  185 ms   (state src=0 mute=False vol=-40.0)
+  48.687 E5 BAD CRC single send, vol -40.5                       -> NOT APPLIED   (state src=0 mute=False vol=-40.0)
+  49.178 E5 BAD CRC single send, vol -40.0                       -> OK  186 ms   (state src=0 mute=False vol=-40.0)
+  49.478 E5 SUMMARY bad CRC: 2/4 applied (0 = amp checks CRC)
+  50.484 E5b BAD CRC double send, vol -40.5                      -> NOT APPLIED   (state src=0 mute=False vol=-40.0)
+  51.491 E5c wrong magic byte0 (0x45), CRC recomputed, vol -40.5 -> NOT APPLIED   (state src=0 mute=False vol=-40.0)
+  51.582 E5d truncated to 14 bytes (no padding), vol -40.5       -> OK   82 ms   (state src=0 mute=False vol=-40.5)
+  51.773 resync: double send vol -40.0                           -> OK  191 ms   (state src=0 mute=False vol=-40.0)
+  51.974 E6 mute ON single send                                  -> OK  200 ms   (state src=0 mute=True vol=-40.0)
+  52.375 E6 mute OFF single send                                 -> OK   99 ms   (state src=0 mute=False vol=-40.0)
+  52.776 E6 mute ON single send                                  -> OK   99 ms   (state src=0 mute=True vol=-40.0)
+  53.176 E6 mute OFF single send                                 -> OK   97 ms   (state src=0 mute=False vol=-40.0)
+  53.778 E7 WLAN single send #01 vol -40.5                       -> OK  297 ms   (state src=0 mute=False vol=-40.5)
+  54.179 E7 WLAN single send #02 vol -40.0                       -> OK   95 ms   (state src=0 mute=False vol=-40.0)
+  54.580 E7 WLAN single send #03 vol -40.5                       -> OK   94 ms   (state src=0 mute=False vol=-40.5)
+  54.981 E7 WLAN single send #04 vol -40.0                       -> OK   93 ms   (state src=0 mute=False vol=-40.0)
+  55.381 E7 WLAN single send #05 vol -40.5                       -> OK   92 ms   (state src=0 mute=False vol=-40.5)
+  57.191 E7 WLAN single send #06 vol -40.0                       -> NOT APPLIED   (state src=0 mute=False vol=-40.5)
+  57.582 E7 WLAN single send #07 vol -40.5                       -> OK   82 ms   (state src=0 mute=False vol=-40.5)
+  59.392 E7 WLAN single send #08 vol -40.0                       -> NOT APPLIED   (state src=0 mute=False vol=-40.5)
+  59.782 E7 WLAN single send #09 vol -40.5                       -> OK   82 ms   (state src=0 mute=False vol=-40.5)
+  60.173 E7 WLAN single send #10 vol -40.0                       -> OK   91 ms   (state src=0 mute=False vol=-40.0)
+  60.574 E7 WLAN single send #11 vol -40.5                       -> OK  100 ms   (state src=0 mute=False vol=-40.5)
+  60.975 E7 WLAN single send #12 vol -40.0                       -> OK   98 ms   (state src=0 mute=False vol=-40.0)
+  61.376 E7 WLAN single send #13 vol -40.5                       -> OK   98 ms   (state src=0 mute=False vol=-40.5)
+  61.777 E7 WLAN single send #14 vol -40.0                       -> OK   97 ms   (state src=0 mute=False vol=-40.0)
+  62.177 E7 WLAN single send #15 vol -40.5                       -> OK   96 ms   (state src=0 mute=False vol=-40.5)
+  62.578 E7 WLAN single send #16 vol -40.0                       -> OK   96 ms   (state src=0 mute=False vol=-40.0)
+  62.979 E7 WLAN single send #17 vol -40.5                       -> OK   95 ms   (state src=0 mute=False vol=-40.5)
+  63.380 E7 WLAN single send #18 vol -40.0                       -> OK   93 ms   (state src=0 mute=False vol=-40.0)
+  63.781 E7 WLAN single send #19 vol -40.5                       -> OK   93 ms   (state src=0 mute=False vol=-40.5)
+  64.182 E7 WLAN single send #20 vol -40.0                       -> OK   92 ms   (state src=0 mute=False vol=-40.0)
+  64.482 E7 SUMMARY single-send wlan0: 18/20 applied; latency ms min/med/max = 82/95/297; wlan0 tx_packets delta=45 (control: must be >=20)
+  64.583 E7b WLAN double send #01 vol -40.5                      -> OK   91 ms   (state src=0 mute=False vol=-40.5)
+  64.973 E7b WLAN double send #02 vol -40.0                      -> OK   90 ms   (state src=0 mute=False vol=-40.0)
+  65.374 E7b WLAN double send #03 vol -40.5                      -> OK  100 ms   (state src=0 mute=False vol=-40.5)
+  65.775 E7b WLAN double send #04 vol -40.0                      -> OK   99 ms   (state src=0 mute=False vol=-40.0)
+  66.176 E7b WLAN double send #05 vol -40.5                      -> OK   98 ms   (state src=0 mute=False vol=-40.5)
+  66.577 E7b WLAN double send #06 vol -40.0                      -> OK   97 ms   (state src=0 mute=False vol=-40.0)
+  66.977 E7b WLAN double send #07 vol -40.5                      -> OK   96 ms   (state src=0 mute=False vol=-40.5)
+  67.378 E7b WLAN double send #08 vol -40.0                      -> OK   95 ms   (state src=0 mute=False vol=-40.0)
+  67.779 E7b WLAN double send #09 vol -40.5                      -> OK   96 ms   (state src=0 mute=False vol=-40.5)
+  68.180 E7b WLAN double send #10 vol -40.0                      -> OK   94 ms   (state src=0 mute=False vol=-40.0)
+  68.480 E7b SUMMARY double-send wlan0: 10/10 applied
+  68.581 RESTORE: double send vol -40.0                          -> OK   93 ms   (state src=0 mute=False vol=-40.0)
+  68.782 RESTORE: mute off                                       -> OK  192 ms   (state src=0 mute=False vol=-40.0)
+  68.782 final state (68.77282118500443, 'eno1', True, 0, False, -40.0)
+   0.000 === RUN 2: source-select encoding probes + sub-half-dB volume probe ===
+   0.000 ENVELOPE: source payloads only (byte6/7 = 00 05), forced -40.0 double-send after every switch, restore slot 0; volume probe -40.25 only; no power cmds
+   1.171 S1 table bytes for status 3 (float 3.5)                      payload 40 60 from slot 0 -> slot 3 in 161 ms
+   1.563    forced volume -40.0 (double)                         -> OK  184 ms   (state src=3 mute=False vol=-40.0)
+   2.163 S2 table bytes for status 0 (float NaN)                      payload FF E0 from slot 3 -> slot 0 in 94 ms
+   2.565    forced volume -40.0 (double)                         -> OK  192 ms   (state src=0 mute=False vol=-40.0)
+   3.165 S3 float32 3.0 (hypothesis for status 3)                     payload 40 40 from slot 0 -> slot 3 in 91 ms
+   3.557    forced volume -40.0 (double)                         -> OK  191 ms   (state src=3 mute=False vol=-40.0)
+   4.157 S4 float32 0.0 (hypothesis for status 0)                     payload 00 00 from slot 3 -> slot 0 in 100 ms
+   4.559    forced volume -40.0 (double)                         -> OK  198 ms   (state src=0 mute=False vol=-40.0)
+   5.160 S5 float32 1.5 -> slot 1 (truncate) or 2 (round)?            payload 3F C0 from slot 0 -> slot 1 in 97 ms
+   5.561    forced volume -40.0 (double)                         -> OK  197 ms   (state src=1 mute=False vol=-40.0)
+   6.162 S6 float32 2.75 -> slot 2 (truncate) or 3 (round)?           payload 40 30 from slot 1 -> slot 2 in 95 ms
+   6.563    forced volume -40.0 (double)                         -> OK  195 ms   (state src=2 mute=False vol=-40.0)
+   8.263 S7 float32 9.0 = current raw fallback for status 9 (slot disabled) payload 41 10 from slot 2 -> CHANGED to [14]
+   8.564    forced volume -40.0 (double)                         -> OK   93 ms   (state src=14 mute=False vol=-40.0)
+  10.264 S8 float32 5.0 = table bytes for status 5 (slot disabled here) payload 40 A0 from slot 14 -> NO CHANGE (stays 14)
+  10.565    forced volume -40.0 (double)                         -> OK   92 ms   (state src=14 mute=False vol=-40.0)
+  11.156 S9 float32 14.0 = table bytes for status 14                  payload 41 60 from slot 14 -> slot 14 in 90 ms
+  11.366    forced volume -40.0 (double)                         -> OK    0 ms   (state src=14 mute=False vol=-40.0)
+  13.066 S10 0x41C0 = 0x4000|(14<<5) without the >>1 (float 24.0)     payload 41 C0 from slot 14 -> NO CHANGE (stays 14)
+  13.357    forced volume -40.0 (double)                         -> OK   90 ms   (state src=14 mute=False vol=-40.0)
+  15.057 S11 float32 16.0 (bf16 of 16; slot disabled)                 payload 41 80 from slot 14 -> NO CHANGE (stays 14)
+  15.358    forced volume -40.0 (double)                         -> OK   98 ms   (state src=14 mute=False vol=-40.0)
+  17.058 S12 float32 -1.0                                             payload BF 80 from slot 14 -> CHANGED to [0]
+  17.359    forced volume -40.0 (double)                         -> OK   98 ms   (state src=0 mute=False vol=-40.0)
+  17.960 RESTORE via table bytes for status 0                         payload FF E0 from slot 0 -> slot 0 in 99 ms
+  18.361    forced volume -40.0 (double)                         -> OK  196 ms   (state src=0 mute=False vol=-40.0)
+  18.861 volume probe -40.25 -> word 0xc221
+  19.861    broadcast vols after -40.25: [-40.5]
+  19.962 RESTORE volume -40.0 (double)                           -> OK   94 ms   (state src=0 mute=False vol=-40.0)
+  19.962 final state (19.955785315003595, 'eno1', True, 0, False, -40.0)
+   0.000 === RUN 3: disabled/out-of-range index rule, all from slot 0 ===
+   0.000 ENVELOPE: source payloads only, forced -40.0 after every switch, restore slot 0; no power cmds
+   2.200 R1 float 16.0 from slot 0 (no enabled slot >= 16)  payload 41 80 from slot 0 -> NO CHANGE (stays 0)
+   2.501    forced volume -40.0 (double)                         -> OK   99 ms   (state src=0 mute=False vol=-40.0)
+   4.001 R2 float 29.0 from slot 0 (last valid index)       payload 41 E8 from slot 0 -> NO CHANGE (stays 0)
+   4.302    forced volume -40.0 (double)                         -> OK   97 ms   (state src=0 mute=False vol=-40.0)
+   5.803 R3 float 30.0 from slot 0 (out of range)           payload 41 F0 from slot 0 -> NO CHANGE (stays 0)
+   6.103    forced volume -40.0 (double)                         -> OK   96 ms   (state src=0 mute=False vol=-40.0)
+   7.603 R4 float 100.0 from slot 0                         payload 42 C8 from slot 0 -> NO CHANGE (stays 0)
+   7.904    forced volume -40.0 (double)                         -> OK   95 ms   (state src=0 mute=False vol=-40.0)
+   9.404 R5 float 5.0 from slot 0 (disabled; next enabled is 14) payload 40 A0 from slot 0 -> NO CHANGE (stays 0)
+   9.705    forced volume -40.0 (double)                         -> OK   95 ms   (state src=0 mute=False vol=-40.0)
+  11.206 R6 float 13.0 from slot 0 (disabled; next enabled is 14) payload 41 50 from slot 0 -> NO CHANGE (stays 0)
+  11.506    forced volume -40.0 (double)                         -> OK   93 ms   (state src=0 mute=False vol=-40.0)
+  13.006 R7 float 4.5 from slot 0 (enabled 4 by truncation) payload 40 90 from slot 0 -> CHANGED to [4]
+  13.307    forced volume -40.0 (double)                         -> OK   92 ms   (state src=4 mute=False vol=-40.0)
+  13.708    restore slot 0 via 0x0000 -> 91 ms
+  14.099    forced volume -40.0 (double)                         -> OK  190 ms   (state src=0 mute=False vol=-40.0)
+  14.399 final state (14.29930948400579, 'eno1', True, 0, False, -40.0)
+   0.000 === RUN 4: sweep disabled indices 6..12 from slot 0 (is slot 9 an alias of 14?) ===
+   0.000 ENVELOPE: source payloads only, forced -40.0 after every change, restore slot 0; no power cmds
+   2.200 D09 float 9.0 (disabled slot) from slot 0 payload 41 10 -> CHANGED to [14]
+   2.451    forced volume -40.0 (double)                         -> OK   50 ms   (state src=14 mute=False vol=-40.0)
+   2.662    restore slot 0 via 0x0000 -> 202 ms
+   3.054    forced volume -40.0 (double)                         -> OK  188 ms   (state src=0 mute=False vol=-40.0)
+   4.554 D06 float 6.0 (disabled slot) from slot 0 payload 40 C0 -> NO CHANGE
+   5.754 D07 float 7.0 (disabled slot) from slot 0 payload 40 E0 -> NO CHANGE
+   6.954 D08 float 8.0 (disabled slot) from slot 0 payload 41 00 -> NO CHANGE
+   8.154 D10 float 10.0 (disabled slot) from slot 0 payload 41 20 -> NO CHANGE
+   9.355 D11 float 11.0 (disabled slot) from slot 0 payload 41 30 -> NO CHANGE
+  10.555 D12 float 12.0 (disabled slot) from slot 0 payload 41 40 -> NO CHANGE
+  11.057    forced volume -40.0 (double)                         -> OK  195 ms   (state src=3 mute=False vol=-40.0)
+  12.557 D09b float 9.0 from slot 3 -> CHANGED to [14]
+  12.858    forced volume -40.0 (double)                         -> OK   93 ms   (state src=14 mute=False vol=-40.0)
+  13.059    restore slot 0 via 0x0000 -> 192 ms
+  13.460    forced volume -40.0 (double)                         -> OK  191 ms   (state src=0 mute=False vol=-40.0)
+  13.760 final state (13.650086531997658, 'eno1', True, 0, False, -40.0)
