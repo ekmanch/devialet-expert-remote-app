@@ -45,21 +45,29 @@ via that URL.
   app, including a section on Android-specific behavior that needs an
   iOS-equivalent design decision in Flutter.
 - `TODO.md` — tracks deferred work (features, bugs, UI updates, pending
-  protocol verification). Check before starting new work in case it's
-  already listed; update it (check off completed items, add newly
-  discovered ones) as part of your work rather than leaving it stale.
+  protocol verification), numbered as Tasks. Treat its "## Numbering"
+  section as the authoritative task order and ordering rationale — don't
+  maintain a second copy of the plan elsewhere in this file. Check before
+  starting new work in case it's already listed; update it (check off
+  completed items, add newly discovered ones) as part of your work rather
+  than leaving it stale.
 
 ## Platforms
 
-- Targets: Android and iOS, both first-class.
+- Targets: Android and iOS, both first-class. Phones and tablets are both
+  first-class on both platforms (owner decision 2026-09-19) — layout is
+  chosen by window width class, never by device type.
 - UI intentionally diverges by platform: Material conventions on Android,
   more iOS-native conventions (navigation, back behavior, settings layout)
   on iOS. Don't default to a single shared UI "that looks fine on both" —
   check which platform's conventions apply per screen.
-- Primary dev/test device: Samsung Galaxy S25, via Android Studio. iOS
-  builds/testing happen less frequently, so the app must support previewing
-  the iOS UI variant while running on Android — see "Runtime UI variant"
-  below. Don't assume a physical iOS device is available for quick iteration.
+- Primary dev/test devices: Samsung Galaxy S25 (phone, via Android Studio)
+  and an iPad (tablet). Android tablet coverage is emulator/resizable-window
+  only until a physical Android tablet exists — say so explicitly in any
+  verification report. iOS builds/testing happen less frequently, so the
+  app must support previewing the iOS UI variant while running on Android —
+  see "Runtime UI variant" below. Don't assume a physical iOS device is
+  available for quick iteration.
 
 ## Runtime UI variant switching
 
@@ -242,12 +250,33 @@ platform-specific.
 
 ## Working style
 
-- This is a phased port (scaffold+networking → domain/state → Android UI →
-  iOS UI → polish). Don't jump ahead to UI work before the networking layer
-  is verified against the real amp.
-- Prefer flagging ambiguity over guessing, especially for protocol/state
-  behavior — ask rather than assume if `docs/` doesn't cover it.
-- Keep commits scoped to one phase/concern at a time.
+- This is a task-scoped port: Task 1 scaffold+networking (done), Task 2
+  Control-screen UI, Task 3 architecture + wiring, Task 4 iOS-specific,
+  Task 5 polish. This ordering lives in `TODO.md`'s "## Numbering" section —
+  that file is authoritative; don't re-derive or duplicate the plan here.
+  Don't jump ahead to UI work before the networking layer is verified
+  against the real amp (satisfied as of Task 1).
+- Mockups before code: a new screen, dialog, or visual state gets a pass in
+  the existing HTML mockups (`design/mockups/`) before it's built in
+  Flutter, unless it's a trivial variant of something already mocked. Bump
+  the mockup's version number for each round of changes (`_v19` → `_v20`,
+  etc.); only overwrite an existing version number when explicitly told to.
+- Prefer flagging ambiguity over guessing — protocol/state behavior,
+  task dependencies, numbering, or design decisions not covered by `docs/`
+  or `TODO.md`. Ask rather than assume.
+- When a task is restructuring or rewriting `TODO.md`, `docs/`, or this
+  file rather than implementation, report the resulting structure (or a
+  summary of what changed) before doing any actual implementation work in
+  the same session.
+- Keep commits scoped to one task/concern at a time, referencing the
+  `TODO.md` task number in the commit message where one exists (e.g.
+  "fix(networking): quantize dbConvert to the nearest 0.5 dB (Task 1.1.0)").
+- **Do not run `git commit` (or stage changes with intent to commit)
+  unless explicitly asked to in that specific prompt.** Make the file
+  changes, then stop and report what changed — list modified/created/
+  deleted files — so Christian can review the diff and commit it himself.
+  This applies even across multi-step work touching several files: report
+  at the end, don't commit along the way unless told to.
 
 ## Environment
 
