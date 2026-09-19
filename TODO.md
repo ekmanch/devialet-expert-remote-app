@@ -98,8 +98,8 @@ answers, and the implementation work reappears as task items below.
   KDE for a static "Connected / Not responding / Not connected".
 - **Sound tab (SAM / Night Mode / Bass / Treble)** — no wire commands exist
   (`docs/protocol.md`, "Known-unimplemented commands"); the v19 mockups
-  drop the Control/Sound switcher entirely. Reopen only if the tcpdump
-  workstream below finds the bytes.
+  drop the Control/Sound switcher entirely. Reopen only if a capture ever
+  finds the bytes (the 2026-09-19 run did not look for them).
 
 ## Task 1.1.x — Networking follow-ups (from the 2026-09-15 reconciliation)
 
@@ -116,8 +116,8 @@ Small, wire-level, unit-testable; no domain layer needed. Details in
       `dbConvert` 1.0/15.0/40.0 → `3F80`/`4170`/`4220`; status raw 111 →
       −42.0; all seven source byte pairs from the protocol table. Done
       2026-09-19 as literal-byte tests in `test/networking/` (plus
-      power-off `E5 1D` and the raw-fallback index 9 → `41 10`, the latter
-      still unverified on a real amp).
+      power-off `E5 1D` and the raw-fallback index 9 → `41 10`; the latter's
+      meaning was settled on 2026-09-19 — see "Protocol verification").
 - [x] **1.1.2** — **Drop the per-index source names from `source_mapping.dart` /
       `command_payloads.dart` comments and rename `phonoStatusIndex`** —
       names are per-unit (`docs/protocol.md`, "Names are per-unit"). Done
@@ -130,21 +130,54 @@ Small, wire-level, unit-testable; no domain layer needed. Details in
       `VolumeCodec.defaultSafetyMaxDb`, the UI range and the −15 pinning
       test change **once**; listed here so it isn't forgotten if 3.4.x is
       split.
+- [ ] **1.1.4** — **Encode the select-source fallback as `bfloat16(index)`.**
+      ✔ 2026-09-19 (`docs/protocol-verification-2026-09-19.md`): the
+      payload is the top 16 bits of `float32(index)`, truncated by the
+      amp; the current `0x4000 | (i << 5)` + `>> 1` formula only
+      coincides with that for 6–15, and indices 16–29 encode as 32.0,
+      36.0, … — silent no-ops. Keep the seven pinned table byte pairs
+      (confirmed on two amps) and the index-1 literal; replace only
+      `SourceMapping.encodeSelectPayload`'s general case, pin
+      `16 → 41 80` and `29 → 41 E8`, and retire the `>> 1` comment. Not
+      confirmable on the owner's unit (no enabled slot ≥ 6) — say so in
+      the test name.
 
-## Protocol verification (tcpdump workstream — unnumbered, runs alongside)
+## Protocol verification (unnumbered, runs alongside)
 
-- [ ] **Confirm counter-caveat behavior via tcpdump.** Both counters
-      advance on every wire send and restart at (0,0) per process in the
-      Kotlin app, the Dart layer and the KDE CLI; the amp accepts all of
-      them, which is weak evidence it ignores counters but not a capture.
-      Capture real traffic and settle whether the amp needs contiguity or
-      the duplicate send at all.
-- [ ] **Confirm fallback-to-raw-index behavior for unmapped sources.**
-      Still unverified on both sides (index 9 vs 14 both showed "Air",
-      judged a no-op). Needs a distinct starting source plus a capture.
-- [ ] **Adaptive retry under Wi-Fi loss.** Not solved anywhere; fixed
-      double-send is all that exists. Decide after the capture above says
-      whether the duplicate matters.
+Live run done 2026-09-19 against the owner's amp from the dev machine —
+method, safety envelope, per-trial results and raw log in
+`docs/protocol-verification-2026-09-19.md` (+ `docs/captures/`,
+`tool/protocol_probe/`). No root pcap was possible; the listener read
+the raw datagrams directly, which covers the inbound side.
+
+- [x] **Confirm counter-caveat behavior.** ✔ The amp ignores both counters
+      entirely: frozen (0,0) 6/6, arbitrary/decreasing/mismatched 6/6,
+      byte-identical duplicates 4/4. No contiguity, no de-duplication, no
+      persisted counter needed. The double send is not needed on Ethernet
+      (20/20 single sends). Also found: CRC and magic bytes *are* checked
+      (bad CRC 0/5), the zero padding is not (14-byte packet applied).
+- [x] **Confirm fallback-to-raw-index behavior for unmapped sources.** ✔
+      The payload is `float32(index)` truncated by the amp (3.0 → 3,
+      1.5 → 1, 2.75 → 2, NaN/−1.0 → 0). "Index 9 showed Air" was a
+      per-unit alias slot 9 → 14 (3/3 from three start slots); every other
+      disabled/out-of-range index was a no-op (12/12). The general
+      formula is wrong for indices ≥ 16 → Task 1.1.4. The enabled-but-
+      unmapped case remains untestable on this unit (only 0–4, 14 enabled).
+- [x] **Adaptive retry under Wi-Fi loss.** Decided 2026-09-19: **keep the
+      fixed double send, no adaptive retry.** Wi-Fi dropped 2/20 single
+      sends and 0/10 double sends; the confirmation channel (3.1.x) is the
+      recovery path for the residual case.
+- [ ] **Measure broadcast delivery over Wi-Fi on the phones.** The
+      desktop's Wi-Fi adapter received only 49 % of the amp's 5 Hz
+      broadcasts, 8–164 ms behind the wired copy. If the Galaxy S25 / iPad
+      see anything like that, Task 3.1.x's 400 ms window must assume a
+      confirmation can simply never arrive (fall back to the optimistic
+      value, don't wait forever) and the 8 s staleness rule is fine.
+      Method: `tool/protocol_probe/listen.py` ported to a debug screen, or
+      just the Task 1 debug scaffold counting packets per 30 s.
+- [ ] **Re-run the source probes on a second unit** if one is ever on the
+      LAN: an enabled slot ≥ 6 confirms the float fallback; sending 9.0
+      tells whether the 9 → 14 alias is firmware-wide or per-unit.
 
 ## Task 2.0.x — Control screen UI from the v19 mockups (UI only)
 
@@ -596,9 +629,12 @@ via both UI variants; the real-iPad check is Task 4.4.0.
 
 ## Docs (unnumbered)
 
-- [ ] Once the tcpdump items above are resolved, update `docs/protocol.md`
+- [x] Once the tcpdump items above are resolved, update `docs/protocol.md`
       to flip their status from "inferred, not confirmed" to confirmed (or
       correct them if the capture reveals different behavior than assumed).
+      Done 2026-09-19 (✔ marks; broadcast rate corrected from "~1 Hz" to a
+      steady 5 Hz; counters, CRC, padding, select encoding, volume word as
+      `bfloat16`, latency 82–200 ms; gotcha #3 guidance updated).
 - [ ] `docs/protocol.md` and `docs/known-gotchas.md` still point into this
       file with the old wording ("state owner / pending-command mask
       phases"). Retarget those pointers to Task 3.0.x-3.1.x on the next
