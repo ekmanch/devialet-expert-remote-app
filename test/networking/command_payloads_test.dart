@@ -69,7 +69,7 @@ void main() {
       }
     });
 
-    test('raw-fallback index 9 -> 41 10 (unverified on a real amp per docs/protocol.md)', () {
+    test('raw-fallback index 9 -> 41 10 (float32 9.0; on the owner\'s unit slot 9 aliases to 14, verified 2026-09-19)', () {
       final payload = CommandPayloads.selectSource(9);
       expect((payload.byte8, payload.byte9), (0x41, 0x10));
     });
@@ -86,7 +86,7 @@ void main() {
       expect(SourceMapping.commandValueForStatusIndex(14), 14);
     });
 
-    test('unmapped indices fall back to the raw status index (unverified per protocol.md)', () {
+    test('unmapped indices fall back to the raw status index (correct for 6-15 only, Task 1.1.4)', () {
       expect(SourceMapping.commandValueForStatusIndex(9), 9);
     });
 
@@ -98,7 +98,7 @@ void main() {
       expect(lo, outVal & 0xFF);
     });
 
-    test('cmdValue > 7 applies the extra >>1 shift on lo (inferred, not confirmed)', () {
+    test('cmdValue > 7 applies the extra >>1 shift on lo (lands on float32(v) for 8-15, verified 2026-09-19)', () {
       // cmdValue = 14, > 7 so lo gets an extra >>1.
       final (hi, lo) = SourceMapping.encodeSelectPayload(14);
       final outVal = 0x4000 | (14 << 5);

@@ -21,8 +21,9 @@ abstract final class CommandPayloads {
   static const int hardcodedSelectStatusIndex = 1;
 
   /// Bytes found via Wireshark (per `gnulabis/devimote` issue #2, per code
-  /// comment cited in protocol.md) — doesn't follow the general bit-packing
-  /// formula, so it's special-cased rather than forced through it.
+  /// comment cited in protocol.md). They are `float32(1.0)`'s top half
+  /// (verified 2026-09-19), which the general bit-packing formula does not
+  /// produce for cmdValue 1, so it stays special-cased.
   static const _hardcodedSelectPayload = CommandPayload(byte6: 0x00, byte7: 0x05, byte8: 0x3F, byte9: 0x80);
 
   static CommandPayload selectSource(int statusIndex) {

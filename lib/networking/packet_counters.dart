@@ -5,11 +5,13 @@
 /// `buildCommand()` advances *both* counters on every call — so a single
 /// logical action (e.g. one mute toggle) consumes two packet-counter values
 /// and two command-counter values, not one shared pair. This is preserved
-/// here deliberately, not "cleaned up", since whether the amp requires
-/// counter continuity is unconfirmed (see protocol.md's open questions).
+/// for wire fidelity with the original app, not because anything depends
+/// on it: the amp ignores both counters entirely (verified on the real amp
+/// 2026-09-19 — frozen, arbitrary, decreasing and byte-identical duplicate
+/// values were all applied; `docs/protocol-verification-2026-09-19.md`).
 ///
-/// Starting value (0 for both counters) is an assumption — protocol.md does
-/// not document what the amp expects the very first counter value to be.
+/// Starting at (0, 0) per process is therefore fine; no persisted counter
+/// is needed across app restarts.
 class PacketCounters {
   int _packetCounter = 0;
   int _commandCounter = 0;
