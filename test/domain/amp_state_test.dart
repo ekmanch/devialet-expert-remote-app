@@ -64,20 +64,22 @@ void main() {
 
     test('power: booting while a boot deadline is pending, cleared by a late On', () {
       var s = AmpState.initial.ingest(reportFrom(amp1, power: false), ms(0));
-      s = arm(s, amp1, (a) => a.copyWith(bootDeadline: ms(0) + kBootTimeout));
+      s = arm(s, amp1, (a) => a.copyWith(boot: BootInProgress(deadline: ms(0) + kBootTimeout, target: -40)));
       expect(deriveControlView(s).power, PowerPhase.booting);
       s = s.ingest(reportFrom(amp1, power: false), ms(5000));
       expect(deriveControlView(s).power, PowerPhase.booting, reason: 'an Off broadcast mid-boot is normal');
       s = s.ingest(reportFrom(amp1, power: true), ms(16000));
       expect(deriveControlView(s).power, PowerPhase.on);
-      expect(s.amps[amp1]!.bootDeadline, isNull);
+      expect(s.amps[amp1]!.boot!.confirmedAt, ms(16000));
+      expect(s.amps[amp1]!.pendingVolumeDb, PendingValue(-40.0, ms(16000) + kBootHold), reason: 'hold armed');
     });
 
     test('power: boot deadline expiring with no On falls back to Off', () {
       var s = AmpState.initial.ingest(reportFrom(amp1, power: false), ms(0));
-      s = arm(s, amp1, (a) => a.copyWith(bootDeadline: ms(0) + kBootTimeout));
+      s = arm(s, amp1, (a) => a.copyWith(boot: BootInProgress(deadline: ms(0) + kBootTimeout, target: -40)));
       s = s.tick(ms(0) + kBootTimeout);
       expect(deriveControlView(s).power, PowerPhase.off);
+      expect(s.amps[amp1]!.boot, isNull);
     });
 
     test('confirmed channel mirrors the raw report, never a pending value', () {
@@ -217,6 +219,82 @@ void main() {
       var s = setVolume(s0, -24, ms(0));
       s = s.ingest(reportFrom(amp1, volumeDb: -25), ms(50));
       expect(s.amps[amp1]!.pendingVolumeDb, const PendingValue(-24.0, Duration(milliseconds: 400)));
+    });
+  });
+
+  group('post-boot hold (3.2.3) and startup target (3.2.2)', () {
+    // A self-initiated boot: Off at 0, the amp confirms On at 16 s with the
+    // pre-shutdown byte (−25), then misreports −42.0 (raw 111) at +200 ms.
+    AmpState booted() {
+      var s = AmpState.initial.ingest(reportFrom(amp1, power: false, volumeDb: -25), ms(0))
+          .copyWith(selectedIp: amp1, hasExplicitSelection: true);
+      s = arm(s, amp1, (a) => a.copyWith(boot: BootInProgress(deadline: ms(0) + kBootTimeout, target: -40)));
+      return s.ingest(reportFrom(amp1, power: true, volumeDb: -25), ms(16000));
+    }
+
+    /// The Kotlin/KDE-era bug: confirm the boot but do not hold — every push
+    /// is displayed as it arrives. Used to prove the held assertions have
+    /// teeth (checklist item 20).
+    AmpState applyUnheld(AmpState s, AmpStatusReport r, Duration now) =>
+        s.ingest(r, now).updateAmp(r.senderIp, (a) => a.copyWith(pendingVolumeDb: null));
+
+    test('gotcha #8: the target shows at once and the −42 misreport is recorded, not displayed', () {
+      var s = booted();
+      expect(deriveControlView(s).volumeDb, -40.0, reason: 'shown immediately, not the pre-shutdown byte');
+      expect(deriveControlView(s).power, PowerPhase.on);
+      s = s.ingest(reportFrom(amp1, power: true, volumeDb: -42), ms(16200));
+      expect(deriveControlView(s).volumeDb, -40.0);
+      expect(deriveConfirmed(s)!.volumeDb, -42.0);
+      expect(deriveConfirmed(s)!.volumeRaw, 111);
+    });
+
+    test('proof the hold assertion catches the bug: the same pushes applied unheld display −42', () {
+      var s = booted();
+      s = applyUnheld(s, reportFrom(amp1, power: true, volumeDb: -42), ms(16200));
+      expect(deriveControlView(s).volumeDb, -42.0, reason: 'exactly the leak the held test forbids');
+    });
+
+    test('the hold releases on a confirming push equal to the target', () {
+      var s = booted().ingest(reportFrom(amp1, power: true, volumeDb: -42), ms(16200));
+      s = s.ingest(reportFrom(amp1, power: true, volumeDb: -40), ms(16800));
+      expect(s.amps[amp1]!.pendingVolumeDb, isNull);
+      s = s.ingest(reportFrom(amp1, power: true, volumeDb: -41), ms(17000));
+      expect(deriveControlView(s).volumeDb, -41.0, reason: 'pushes apply again once released');
+    });
+
+    test('the hold releases at 1500 ms without a confirmation and the misreport then shows honestly', () {
+      var s = booted().ingest(reportFrom(amp1, power: true, volumeDb: -42), ms(16200));
+      s = s.tick(ms(17499));
+      expect(deriveControlView(s).volumeDb, -40.0);
+      s = s.tick(ms(17500));
+      expect(deriveControlView(s).volumeDb, -42.0);
+    });
+
+    test('the boot record is dropped only once the startup send is done and the hold has elapsed', () {
+      var s = booted();
+      s = s.tick(ms(17500));
+      expect(s.amps[amp1]!.boot, isNotNull, reason: 'send not marked done yet');
+      s = arm(s, amp1, (a) => a.copyWith(boot: a.boot!.copyWith(startupSent: true)));
+      s = s.tick(ms(17499));
+      expect(s.amps[amp1]!.boot, isNotNull);
+      s = s.tick(ms(17500));
+      expect(s.amps[amp1]!.boot, isNull);
+    });
+
+    test('a late On after the timeout is plain On: no record, no hold', () {
+      var s = AmpState.initial.ingest(reportFrom(amp1, power: false), ms(0)).copyWith(selectedIp: amp1, hasExplicitSelection: true);
+      s = arm(s, amp1, (a) => a.copyWith(boot: BootInProgress(deadline: ms(0) + kBootTimeout, target: -40)));
+      s = s.tick(ms(20000));
+      s = s.ingest(reportFrom(amp1, power: true, volumeDb: -42), ms(25000));
+      expect(deriveControlView(s).power, PowerPhase.on);
+      expect(deriveControlView(s).volumeDb, -42.0);
+      expect(s.amps[amp1]!.boot, isNull);
+    });
+
+    test('startupVolumeTarget is the −40 constant clamped to the range', () {
+      expect(AmpState.initial.startupVolumeTarget, -40.0);
+      expect(AmpState.initial.copyWith(floorDb: -35).startupVolumeTarget, -35.0);
+      expect(AmpState.initial.copyWith(ceilingDb: -45).startupVolumeTarget, -45.0);
     });
   });
 

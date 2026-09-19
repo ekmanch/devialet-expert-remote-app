@@ -45,9 +45,40 @@ class AmpStateOwner extends Notifier<AmpState> {
 
   /// The single entry point for broadcasts: the socket, the debug
   /// simulated amp and test seeding all come through here.
-  void ingest(AmpStatusReport report) => state = state.ingest(report, _now);
+  void ingest(AmpStatusReport report) {
+    state = state.ingest(report, _now);
+    _runBootFollowUps();
+  }
 
-  void _onTick() => state = state.tick(_now);
+  void _onTick() {
+    state = state.tick(_now);
+    _runBootFollowUps();
+  }
+
+  /// Task 3.2.2: for every amp whose self-initiated boot has been
+  /// confirmed for at least [kStartupVolumeDelay], send the startup volume
+  /// once. Runs after every ingest and tick (≤ 200 ms slack at 5 Hz, on
+  /// the safe side of gotcha #9). Per amp, not per selection: the amp the
+  /// user booted gets its correction even if the selection moved. Not a
+  /// user entry point, so not gated by `commandsAllowed`; a failed send
+  /// drops the record and the hold so the amp's own value shows honestly —
+  /// no retry.
+  void _runBootFollowUps() {
+    final now = _now;
+    for (final amp in state.amps.values.toList()) {
+      final boot = amp.boot;
+      if (boot == null || !boot.isConfirmed || boot.startupSent || now < boot.sendAt!) continue;
+      final target = boot.target;
+      _arm(amp.ip, (a) => a.copyWith(boot: a.boot?.copyWith(startupSent: true)));
+      unawaited(
+        _send(
+          amp.ip,
+          (s) => s.sendStartupVolume(amp.ip, target),
+          (a) => a.copyWith(boot: null, pendingVolumeDb: null),
+        ),
+      );
+    }
+  }
 
   // ---- Selection (checklist 4: "chose None" ≠ "never chose")
 
@@ -65,11 +96,19 @@ class AmpStateOwner extends Notifier<AmpState> {
   void setModelName(String ip, String? model) =>
       state = state.updateAmp(ip, (a) => a.copyWith(modelName: model));
 
-  /// Task 3.2.0 enters Booting through this on a self-initiated power-on;
-  /// a boot already in progress is not extended (repeated taps don't move
-  /// the deadline).
-  void markBooting(String ip, {Duration timeout = kBootTimeout}) =>
-      state = state.updateAmp(ip, (a) => a.bootDeadline != null ? a : a.copyWith(bootDeadline: _now + timeout));
+  /// Enters Booting for a self-initiated power-on (Task 3.2.0). A boot
+  /// already in progress is not extended (repeated taps don't move the
+  /// deadline), and an amp still *reporting* On gets no record: an
+  /// unconfirmed optimistic Off must not be "confirmed" by a stale On.
+  void markBooting(String ip, {Duration timeout = kBootTimeout}) {
+    final target = state.startupVolumeTarget;
+    state = state.updateAmp(
+      ip,
+      (a) => (a.boot != null || a.status.isPoweredOn)
+          ? a
+          : a.copyWith(boot: BootInProgress(deadline: _now + timeout, target: target)),
+    );
+  }
 
   /// Task 3.4.x settings plug in here.
   void setVolumeRange({double? floorDb, double? ceilingDb}) =>
@@ -95,11 +134,22 @@ class AmpStateOwner extends Notifier<AmpState> {
 
   static double _quantizeHalfDb(double db) => (db * 2).round() / 2;
 
+  /// Inside a confirmed post-boot hold a user value re-targets **both** the
+  /// hold (its deadline is kept) and the deferred startup send, so the
+  /// user is never overridden by the default (gotcha #9, 4/4 measured).
   Future<void> setVolumeDb(double db) async {
     final ip = state.effectiveIp;
-    if (ip == null || !_view.volumeGroupEnabled) return;
+    if (ip == null || !_view.commandsAllowed) return;
     final target = _quantizeHalfDb(db).clamp(state.floorDb, state.ceilingDb);
-    _arm(ip, (a) => a.copyWith(pendingVolumeDb: _pending(target)));
+    final now = _now;
+    _arm(ip, (a) {
+      final boot = a.boot;
+      final held = boot != null && boot.isConfirmed && now < boot.holdDeadline!;
+      final deadline = held && boot.holdDeadline! > now + kPendingWindow ? boot.holdDeadline! : now + kPendingWindow;
+      var next = a.copyWith(pendingVolumeDb: PendingValue(target, deadline));
+      if (held && !boot.startupSent) next = next.copyWith(boot: boot.copyWith(target: target));
+      return next;
+    });
     await _send(ip, (s) => s.setVolumeDb(ip, target), (a) => a.copyWith(pendingVolumeDb: null));
   }
 
@@ -114,26 +164,37 @@ class AmpStateOwner extends Notifier<AmpState> {
   Future<void> toggleMute() async {
     final ip = state.effectiveIp;
     final amp = state.selectedAmp;
-    if (ip == null || amp == null || !_view.volumeGroupEnabled) return;
+    if (ip == null || amp == null || !_view.commandsAllowed) return;
     final target = !amp.displayedMuted;
     _arm(ip, (a) => a.copyWith(pendingMuted: _pending(target)));
     await _send(ip, (s) => s.setMute(ip, target), (a) => a.copyWith(pendingMuted: null));
   }
 
-  /// Plain on/off this session; Task 3.2.0 routes the off→on edge through
-  /// [markBooting] instead of an optimistic On.
+  /// Task 3.2.0. On → Off is immediate and optimistic (and cancels any
+  /// boot follow-ups). Off → On enters Booting through [markBooting] with
+  /// no optimistic On; the amp's broadcast confirms it, or the 20 s
+  /// timeout falls back to Off. Booting → no-op, so repeated taps don't
+  /// extend the deadline. An Off that is only optimistic (the amp still
+  /// reports On) is simply cancelled: a stale On must not "confirm" a boot.
   Future<void> togglePower() async {
     final ip = state.effectiveIp;
     final amp = state.selectedAmp;
-    if (ip == null || amp == null || !_view.powerEnabled) return;
-    final target = !amp.displayedPower;
-    _arm(ip, (a) => a.copyWith(pendingPower: _pending(target)));
-    await _send(ip, (s) => s.setPower(ip, target), (a) => a.copyWith(pendingPower: null));
+    if (ip == null || amp == null || !_view.powerCommandAllowed) return;
+    if (amp.displayedPower) {
+      _arm(ip, (a) => a.copyWith(pendingPower: _pending(false), boot: null));
+      await _send(ip, (s) => s.setPower(ip, false), (a) => a.copyWith(pendingPower: null));
+    } else if (amp.status.isPoweredOn) {
+      _arm(ip, (a) => a.copyWith(pendingPower: null));
+      await _send(ip, (s) => s.setPower(ip, true), (a) => a);
+    } else {
+      markBooting(ip);
+      await _send(ip, (s) => s.setPower(ip, true), (a) => a.copyWith(boot: null));
+    }
   }
 
   Future<void> selectSource(int statusIndex) async {
     final ip = state.effectiveIp;
-    if (ip == null || !_view.volumeGroupEnabled) return;
+    if (ip == null || !_view.commandsAllowed) return;
     if (!_view.sources.any((s) => s.index == statusIndex)) return;
     _arm(ip, (a) => a.copyWith(pendingSource: _pending(statusIndex)));
     await _send(ip, (s) => s.selectSource(ip, statusIndex), (a) => a.copyWith(pendingSource: null));

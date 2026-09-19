@@ -3,6 +3,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
 
 void main() {
+  group('command predicates (3.2.1)', () {
+    test('commandsAllowed only when connected and On; power also while Off, never while Booting', () {
+      final on = ControlViewState.forScenario(DebugScenario.connected);
+      final off = ControlViewState.forScenario(DebugScenario.off);
+      final booting = ControlViewState.forScenario(DebugScenario.booting);
+      final none = ControlViewState.forScenario(DebugScenario.notConnected);
+      expect([on, off, booting, none].map((s) => s.commandsAllowed), [true, false, false, false]);
+      expect([on, off, booting, none].map((s) => s.powerCommandAllowed), [true, true, false, false]);
+      expect(on.volumeGroupEnabled, on.commandsAllowed);
+      expect(booting.powerEnabled, booting.powerCommandAllowed);
+    });
+  });
+
   group('scenario fixtures', () {
     test('connected: amp, on, unmuted, −25 in −60..−15, six sources', () {
       final s = ControlViewState.forScenario(DebugScenario.connected);

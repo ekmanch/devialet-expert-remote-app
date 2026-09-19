@@ -7,6 +7,13 @@ import 'control_view_state.dart';
 const double kDefaultFloorDb = -50.0;
 const double kDefaultCeilingDb = VolumeCodec.defaultSafetyMaxDb;
 
+/// Startup volume sent 500 ms after a self-initiated boot confirms
+/// (Task 3.2.2). The same number `DevialetClient.sourceSwitchVolumeDb`
+/// forces after a source switch; Task 3.4.8 replaces both with the
+/// persisted startup setting. Always read through
+/// [AmpState.startupVolumeTarget], which clamps it.
+const double kStartupVolumeDb = -40.0;
+
 const Object _unset = Object();
 
 /// The owner's raw model (port of the KDE daemon's `AmpState`): every amp
@@ -61,6 +68,9 @@ class AmpState {
 
   bool get selectedOnline => selectedAmp?.isOnlineAt(now) ?? false;
 
+  /// The one seam for the post-boot volume (Task 3.4.8 supplies the value).
+  double get startupVolumeTarget => kStartupVolumeDb.clamp(floorDb, ceilingDb);
+
   /// Every broadcast feeds the map; pending slots, boot deadline and model
   /// name are carried forward (a broadcast must not wipe an armed mask),
   /// then resolved against the new report.
@@ -71,7 +81,7 @@ class AmpState {
       status: report.status,
       lastSeen: now,
       modelName: previous?.modelName,
-      bootDeadline: previous?.bootDeadline,
+      boot: previous?.boot,
       pendingVolumeDb: previous?.pendingVolumeDb,
       pendingMuted: previous?.pendingMuted,
       pendingPower: previous?.pendingPower,

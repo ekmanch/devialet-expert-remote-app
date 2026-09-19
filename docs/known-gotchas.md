@@ -210,6 +210,12 @@ and the numbering is shared across both repos and referenced by
   value. If the app needs a trustworthy post-boot volume, it has to set
   one (and see #9 for when that set is honored). Don't conflate this
   with #9: same amp-side event, two distinct consequences.
+  **Implemented 2026-09-19 (Task 3.2.x):** on a self-initiated boot
+  `AmpStateOwner._runBootFollowUps` sends the startup volume and the
+  1500 ms display hold (the pending mask armed at confirmation) hides the
+  misreport meanwhile; an external power-on stays exposed by decision.
+  `test/domain/amp_state_test.dart` proves the hold with an `applyUnheld`
+  counter-test that shows −42 leaking without it.
 
 ## 9. Volume commands that reach the amp before its own post-boot startup-volume application are dropped — [Control]
 
@@ -255,6 +261,13 @@ and the numbering is shared across both repos and referenced by
   rather than re-measuring from scratch, and re-measure before shrinking
   the delay below 500 ms: the +200 ms figure is not a safety margin,
   it is the middle of the observed spread.
+  **Implemented 2026-09-19 (Task 3.2.2):** `kStartupVolumeDelay = 500 ms`,
+  evaluated on every ingest (5 Hz) and the 1 s tick, so the effective
+  send is at +500…+700 ms after the confirming packet and never earlier.
+  A user volume change inside the window re-targets the deferred send. The
+  debug simulated amp drops volume commands within 200 ms of its first On
+  packet, which is how the early-send failure mode is kept visible in
+  tests.
 
 ## Non-bugs worth knowing about (deliberate behavior, not defects)
 

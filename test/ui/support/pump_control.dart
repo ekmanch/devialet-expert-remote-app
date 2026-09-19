@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:devialet_expert_remote_app/config/ui_variant.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
 import 'package:devialet_expert_remote_app/domain/amp_state_owner.dart';
+import 'package:devialet_expert_remote_app/domain/debug/simulated_amp.dart';
 import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
 import 'package:devialet_expert_remote_app/domain/devialet_client_provider.dart';
 import 'package:devialet_expert_remote_app/domain/monotonic_clock.dart';
@@ -31,6 +32,9 @@ Widget hermeticApp({UiVariant? variant, FakeClock? clock, Stream<void>? ticks}) 
       devialetTransportProvider.overrideWithValue(FakeUdpTransport()),
       monotonicClockProvider.overrideWithValue(clock ?? FakeClock()),
       staleTickProvider.overrideWithValue(ticks ?? const Stream<void>.empty()),
+      // The hermetic app is the debug app: TEST-NET commands go to the
+      // (inactive) simulated amp, real IPs would go to the fake socket.
+      debugCommandSinkOverride,
     ],
     child: const DevialetRemoteApp(),
   );

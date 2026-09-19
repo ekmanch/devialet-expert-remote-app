@@ -328,9 +328,11 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
       eyeballed on the Galaxy S25 without an amp. Done: in-flow bar under
       the footer, `kDebugMode` only, ◀ / ▶ plus a "Net" button that pushes
       the Task 1 network test screen. **Since 3.0.x the bar drives a
-      simulated amp** (`lib/ui/debug/simulated_amp.dart`, TEST-NET IPs,
-      real ingest path, opt-in on first tap); Booting reverts after the
-      20 s deadline until 3.2.x, "Not responding" takes the real 8 s.
+      simulated amp** (`lib/domain/debug/simulated_amp.dart`, TEST-NET IPs,
+      real ingest path, opt-in on first tap); **since 3.2.x it is
+      command-aware** (boots in 16 s, misreports −42 until a volume command,
+      drops early volume commands), so the whole boot loop can be soaked
+      without hardware. "Not responding" takes the real 8 s.
 - [ ] **2.0.13** — **Hands-on check on the Galaxy S25** in both UI variants, report
       recorded here (checklist item 23), before the task is called done.
       The interim expanded column is checked on an Android tablet
@@ -477,24 +479,44 @@ gotchas #1/#2 one input at a time.
 
 ### 3.2.x — Power / boot state machine
 
-- [ ] **3.2.0** — *(seam ready since 3.0.x: `TrackedAmp.bootDeadline`,
-      `AmpStateOwner.markBooting`, `powerPhaseAt` renders Booting and
-      `resolvePending` clears it on On or timeout; wire `togglePower`'s
-      off→on edge and the confirmation rules)* States Off / Booting / On. Booting starts on a local power-on, ends on
+- [x] **3.2.0** — States Off / Booting / On. Booting starts on a local power-on, ends on
       the amp's confirmation or a **20 s** timeout that silently falls
       back to Off; a late confirmation still corrects to On; repeated
       power-on taps don't extend the deadline. Power-off stays immediate.
-- [ ] **3.2.1** — A "commands allowed" predicate derived from the machine (On and
+      Done 2026-09-19: `BootInProgress` on `TrackedAmp` (its existence is
+      the "self-initiated" flag), `togglePower`'s three branches,
+      `docs/architecture.md` §9. **Power is sent for real** through
+      `DevialetClientCommandSink` (owner decision). A late On after the
+      timeout is plain On — no send, no hold. An on-tap while an optimistic
+      Off is unconfirmed cancels the Off without a boot record (a stale On
+      must not "confirm" a boot).
+- [x] **3.2.1** — A "commands allowed" predicate derived from the machine (On and
       connected only), exposed so Task 3.5.1 can gate **every** entry point
-      through the same function (checklist items 6, 28).
-- [ ] **3.2.2** — **Startup volume on a self-initiated power-on:** 500 ms after the
+      through the same function (checklist items 6, 28). Done 2026-09-19:
+      `ControlViewState.commandsAllowed` / `powerCommandAllowed`; the owner's
+      intents use them; `volumeGroupEnabled` / `powerEnabled` are aliases.
+- [x] **3.2.2** — **Startup volume on a self-initiated power-on:** 500 ms after the
       confirming broadcast, send the configured startup volume
       (gotcha #9). Not on an externally triggered power-on (owner decision;
-      that path stays exposed to gotcha #8; checklist item 7).
-- [ ] **3.2.3** — **Post-boot display hold:** hold the shown volume at the target,
+      that path stays exposed to gotcha #8; checklist item 7). Done
+      2026-09-19: `_runBootFollowUps` after every ingest/tick (effective
+      +500…+700 ms, never earlier — no one-shot timers), sent once per
+      booted amp even if the selection moved, **for real** via
+      `sendStartupVolume`. Value: `kStartupVolumeDb = −40.0` clamped to the
+      range (`AmpState.startupVolumeTarget`) until 3.4.8 supplies the setting.
+- [x] **3.2.3** — **Post-boot display hold:** hold the shown volume at the target,
       record but don't apply incoming pushes, release on a *confirmed* value
       equal to the target or after 1500 ms. A user change inside the window
-      re-targets both the hold and the deferred send.
+      re-targets both the hold and the deferred send. Done 2026-09-19: the
+      hold *is* the pending mask armed at confirmation with a 1500 ms
+      deadline (`resolvePending`); `setVolumeDb` inside the window keeps that
+      deadline and re-targets `BootInProgress.target`. Proven with an
+      `applyUnheld` counter-test (checklist 20).
+
+- **S25 soak 2026-09-19 (owner):** the full boot loop works on the simulated
+  amp — Off → Power → Booting (16 s) → On with the −40 hold while the sim
+  misreports → corrected by the startup send. The real-amp capture (≥ 3
+  boots) is Task 3.5.2.
 
 ### 3.3.x — Settings persistence layer
 
@@ -573,8 +595,9 @@ from the KDE widget's settings page.
       object (gotcha #6, checklist item 28; the required-parameter part is Task 1.1.3).
 - [ ] **3.4.8** — Ceiling enforced inside the command constructor as a required
       parameter with explicit "none"; floor is UI-only and never reaches
-      the wire. `DevialetClient.sourceSwitchVolumeDb` becomes the startup
-      setting.
+      the wire. `DevialetClient.sourceSwitchVolumeDb` **and**
+      `kStartupVolumeDb` (`lib/domain/amp_state.dart`, read through
+      `AmpState.startupVolumeTarget`) become the startup setting.
 - [ ] **3.4.9** — Step size setting: 0.5 / 1 / 2 dB, default **1.0**.
 - [ ] **3.4.10** — Floor and ceiling mutually constrained at the point of interaction,
       **1 dB minimum gap**. Self-heal an invalid stored pair on load to
@@ -591,12 +614,17 @@ from the KDE widget's settings page.
 
 - [ ] **3.5.0** — Power button → owner → `powerOn` / `powerOff`; Booting presentation
       from Task 2.0.0 driven by the machine; Booting is entered only on a
-      self-initiated power-on.
+      self-initiated power-on. *(Already true since 3.2.0 — the button calls
+      `togglePower`, which sends for real; what remains here is a UI pass:
+      label/dot states verified against the real amp.)*
 - [ ] **3.5.1** — Every control except power is disabled while Off or Booting (the amp
       drops commands in those states); power is live while Off, disabled
       while Booting. **Enumerate every entry point** (buttons, dial drag,
       mute, source sheet, amp sheet, any hardware-key passthrough) and
-      route each through the one predicate (checklist item 6).
+      route each through the one predicate (checklist item 6). *(The
+      predicates are `ControlViewState.commandsAllowed` /
+      `powerCommandAllowed` since 3.2.1; the owner already gates its
+      intents on them, so this task is about the widgets' own enabling.)*
 - [ ] **3.5.2** — Startup-volume send and post-boot display hold observed end-to-end
       on the real amp: raw UDP capture next to the app, ≥ 3 boots, report
       recorded here (checklist item 22).

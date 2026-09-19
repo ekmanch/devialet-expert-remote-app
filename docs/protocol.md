@@ -339,8 +339,8 @@ literal transcriptions.
 
 ## Timing facts — [Shared] (★ all measured on the real amp)
 
-None of these exist in the Dart layer yet; `DevialetClient` deliberately
-stops at the wire. They are the spec for the domain/state phase (TODO.md).
+`DevialetClient` deliberately stops at the wire; these live in the state
+owner (`lib/domain/amp_tracker.dart` constants, `docs/architecture.md`).
 All timers must run on a **monotonic clock** (Rust uses `Instant`; Kotlin
 `SystemClock.elapsedRealtime()`), never wall-clock time.
 

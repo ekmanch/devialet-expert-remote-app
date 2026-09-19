@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:devialet_expert_remote_app/config/ui_variant.dart';
+import 'package:devialet_expert_remote_app/domain/amp_state_owner.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
+import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
 import 'package:devialet_expert_remote_app/ui/control/device_card.dart';
 import 'package:devialet_expert_remote_app/ui/widgets/ring_spinner.dart';
@@ -196,17 +198,21 @@ void main() {
       expect(readState(tester).power, PowerPhase.booting);
     });
 
-    testWidgets('power flips on → off → on optimistically from the button', (tester) async {
+    testWidgets('power flips on → off, then the off → on edge enters Booting (3.2.0)', (tester) async {
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
       await tester.tap(find.byKey(ControlKeys.powerButton));
       await tester.pump(const Duration(milliseconds: 200));
       expect(textAt(tester, ControlKeys.powerLabel), 'Power On');
       expect(tester.widget<DeviceDot>(find.byKey(ControlKeys.deviceDot)).state, DeviceDotState.off);
+      // The optimistic Off must be confirmed before a boot can start.
+      seedFromControlView(containerOf(tester).read(ampStateProvider.notifier), ControlViewState.forScenario(DebugScenario.off));
+      await tester.pump();
       await tester.tap(find.byKey(ControlKeys.powerButton));
       await tester.pump(const Duration(milliseconds: 200));
-      // Task 3.2.0 turns this edge into 'Powering on…' via markBooting.
-      expect(textAt(tester, ControlKeys.powerLabel), 'Power Off');
-      expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.22 \u00b7 Connected');
+      expect(textAt(tester, ControlKeys.powerLabel), 'Powering on\u2026');
+      expect(textAt(tester, ControlKeys.deviceSub), 'Booting\u2026');
+      expect(tester.widget<DeviceDot>(find.byKey(ControlKeys.deviceDot)).state, DeviceDotState.booting);
+      expect(find.descendant(of: find.byKey(ControlKeys.powerIcon), matching: find.byType(RingSpinner)), findsOneWidget);
     });
 
     testWidgets('no amp: power and volume inert, source trigger still opens the empty state', (tester) async {

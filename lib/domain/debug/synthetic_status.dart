@@ -14,6 +14,7 @@ AmpStatusReport syntheticReport({
   bool isPoweredOn = true,
   bool isMuted = false,
   double volumeDb = -25.0,
+  int? volumeRaw,
   List<SourceItem> sources = ControlViewState.fixtureSources,
   int activeSourceIndex = 0,
 }) {
@@ -24,7 +25,7 @@ AmpStatusReport syntheticReport({
       isPoweredOn: isPoweredOn,
       isMuted: isMuted,
       activeSourceIndex: activeSourceIndex,
-      volumeRaw: (volumeDb * 2 + 195).round(),
+      volumeRaw: volumeRaw ?? (volumeDb * 2 + 195).round(),
     ),
   )!;
   return (senderIp: ip, status: status);
@@ -50,17 +51,25 @@ List<AmpStatusReport> reportsFor(ControlViewState shape) {
   ];
 }
 
-/// Drives [owner] to present [shape]: ingest every amp, resolve model
-/// names, set the selection and dial range, and mark a boot in progress.
-/// After this, `deriveControlView(owner.state)` equals [shape] (with the
-/// same `selectedIp`).
+/// Drives [owner] to present [shape]: ingest every amp, then
+/// [seedSelectionFromControlView]. After this,
+/// `deriveControlView(owner.state)` equals [shape] (with the same
+/// `selectedIp`).
 void seedFromControlView(AmpStateOwner owner, ControlViewState shape) {
   for (final report in reportsFor(shape)) {
     owner.ingest(report);
   }
+  seedSelectionFromControlView(owner, shape);
+}
+
+/// The owner-side half of seeding: model names, the dial range (before
+/// any boot record so the startup target uses the shape's range), a boot
+/// in progress for the booting shape, and the selection.
+void seedSelectionFromControlView(AmpStateOwner owner, ControlViewState shape) {
   for (final amp in shape.knownAmps) {
     if (amp.model != null) owner.setModelName(amp.ip, amp.model);
   }
+  owner.setVolumeRange(floorDb: shape.floorDb, ceilingDb: shape.ceilingDb);
   final selected = shape.selectedAmp;
   if (selected != null) {
     if (selected.model != null) owner.setModelName(selected.ip, selected.model);
@@ -69,5 +78,4 @@ void seedFromControlView(AmpStateOwner owner, ControlViewState shape) {
   } else {
     owner.selectIp(shape.selectedIp);
   }
-  owner.setVolumeRange(floorDb: shape.floorDb, ceilingDb: shape.ceilingDb);
 }

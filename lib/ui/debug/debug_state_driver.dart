@@ -7,8 +7,8 @@ import '../../domain/control_view_state.dart';
 import '../control/control_keys.dart';
 import '../platform/adaptive_page_route.dart';
 import '../theme/app_theme.dart';
+import '../../domain/debug/simulated_amp.dart';
 import 'debug_network_screen.dart';
-import 'simulated_amp.dart';
 
 /// Debug-only, visible (not a hidden gesture — TODO 2.0.12) bar under the
 /// Control column: drives the [SimulatedAmp] through every scenario so each

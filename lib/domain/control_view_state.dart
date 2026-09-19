@@ -121,9 +121,18 @@ class ControlViewState {
   /// power is inert.
   bool get ampInert => hasAmp && power != PowerPhase.on;
 
-  bool get volumeGroupEnabled => hasAmp && !ampInert;
+  /// Task 3.2.1: the one predicate every non-power entry point gates
+  /// through — the amp drops commands unless it is On and reachable.
+  /// Task 3.5.1 enumerates the UI entry points.
+  bool get commandsAllowed => hasAmp && power == PowerPhase.on;
 
-  bool get powerEnabled => hasAmp && power != PowerPhase.booting;
+  /// Power is live while Off or On and inert while Booting.
+  bool get powerCommandAllowed => hasAmp && power != PowerPhase.booting;
+
+  /// Presentation aliases of the predicates above (same truth table).
+  bool get volumeGroupEnabled => commandsAllowed;
+
+  bool get powerEnabled => powerCommandAllowed;
 
   SourceItem? get activeSource {
     for (final s in sources) {

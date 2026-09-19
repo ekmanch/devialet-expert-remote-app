@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'config/orientation_policy.dart';
+import 'domain/debug/simulated_amp.dart';
 import 'ui/app.dart';
 
 /// Bundled fonts (pubspec.yaml `fonts:`) are OFL-licensed; the licence
@@ -23,5 +24,11 @@ void main() {
       yield LicenseEntryWithLineBreaks([name], await rootBundle.loadString(asset));
     }
   });
-  runApp(const ProviderScope(child: DevialetRemoteApp()));
+  runApp(
+    ProviderScope(
+      // Debug builds route commands for TEST-NET IPs to the simulated amp.
+      overrides: [if (kDebugMode) debugCommandSinkOverride],
+      child: const DevialetRemoteApp(),
+    ),
+  );
 }
