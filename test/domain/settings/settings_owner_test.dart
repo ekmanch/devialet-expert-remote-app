@@ -107,5 +107,6 @@ void main() {
     await settle();
     expect(state(c).themeMode, AppThemeMode.dark);
     expect(owner(c).lastWriteError, isA<SettingsWriteException>());
+    expect(c.read(settingsWriteErrorProvider), isA<SettingsWriteException>(), reason: 'observable for the UI');
   });
 }

@@ -183,15 +183,18 @@ are real; `setVolumeDb` / `setMute` / `selectSource` are no-ops until Tasks
 
 ## 10. Seams
 
-- 3.4.x: the Settings screen edits `settingsProvider`
-  (`setVolumeLimits`, `setStartupVolumeDb`, `setStepDb`, `setThemeMode`,
-  `restoreDefaults`); the amp owner mirrors limits and startup through its
-  settings listener. Theme: `AppSettings.themeMode` is stored (default
-  system) and consumed in `app.dart::wrap` by 3.4.x. Surface
-  `SettingsNotifier.lastWriteError` / `HydratedSettings.storeUnavailable`
-  in Settings (checklist 26). 3.4.7 / 1.1.3: the wire ceiling
-  (`VolumeCodec.defaultSafetyMaxDb`, −15) comes from the settings
-  ceiling (default −10).
+- 3.4.x (done 2026-09-20): the Settings screen (`lib/ui/settings/`) edits
+  `settingsProvider` directly — **settings are effective immediately**,
+  the Android/iOS convention; the KDE widget's draft → Apply/OK follows
+  Plasma's dialog convention and the two deliberately differ. The amp
+  owner mirrors limits and startup through its settings listener; the
+  theme is consumed in `app.dart::wrap` (a `MediaQuery` brightness
+  override so Cupertino follows too, `MaterialApp.themeMode` mirrored);
+  persistence problems show as a note in the screen
+  (`settingsWriteErrorProvider`, `HydratedSettings.storeUnavailable`).
+  The wire ceiling is a **required** parameter (1.1.3) that
+  `DevialetClientCommandSink` reads from the settings ceiling at send time.
+  `restoreDefaults()` exists without a row (3.4.11 deferred).
 - 3.5.1: route every UI entry point through `commandsAllowed` /
   `powerCommandAllowed`. 3.6 / 3.7 / 3.8: flip the corresponding no-op
   method of `DevialetClientCommandSink`.
@@ -256,8 +259,9 @@ inverted pair bound unhealed leaks into the view) and the seeding seam
 - `settings_owner.dart`: `SettingsNotifier` — intents update state
   synchronously and persist the changed keys in a constraint-safe order
   (widen first when both limits move); refused writes return a reason;
-  a failed write keeps the value and sets `lastWriteError`;
-  `restoreDefaults` never touches the selection.
+  a failed write keeps the value, sets `lastWriteError` and records it in
+  `settingsWriteErrorProvider` for the UI; `restoreDefaults` never touches
+  the selection.
 
 | key | type | default | rule |
 |---|---|---|---|

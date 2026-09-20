@@ -129,12 +129,11 @@ Small, wire-level, unit-testable; no domain layer needed. Details in
       2026-09-19 (`hardcodedSelectStatusIndex`; debug-screen label and test
       comments de-named too; `status_packet_test.dart` fixture names kept
       on purpose).
-- [ ] **1.1.3** — **Make the ceiling a required parameter** on `setVolume` /
+- [x] **1.1.3** — **Make the ceiling a required parameter** on `setVolume` /
       `encodeCommandWord` with an explicit "none" value (checklist item
-      28). Do this together with Task 3.4.7 & 3.4.8 so
-      `VolumeCodec.defaultSafetyMaxDb`, the UI range and the −15 pinning
-      test change **once**; listed here so it isn't forgotten if 3.4.x is
-      split.
+      28). Done 2026-09-20 with 3.4.7 / 3.4.8 (the analyzer proves the
+      parameter is required; the probe tool's cross-check passes −15
+      explicitly to keep its golden bytes).
 - [ ] **1.1.4** — **Encode the select-source fallback as `bfloat16(index)`.**
       ✔ 2026-09-19 (`docs/protocol-verification-2026-09-19.md`): the
       payload is the top 16 bits of `float32(index)`, truncated by the
@@ -361,7 +360,11 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
         scroll performance; scrim tap dismisses; manual-IP keyboard type
         and the "Connect" enable rule;
       - light theme via the OS toggle (flat copper text where the mockup
-        has foil gradients — decide whether to port them);
+        has foil gradients — decide whether to port them). **Owner note
+        2026-09-20:** the dial's centre volume number is too dark in the
+        light theme; accepted for now, fix in a later polish pass (the
+        mockup's light dial value is a `#c17f0e → #f0c873` gradient, which
+        was not ported);
       - ✔ the phone must not rotate (portrait lock) — verified on the S25
         2026-09-19; a resize with a sheet open and mid-drag is checked on
         the tablet emulator instead;
@@ -622,36 +625,55 @@ from the KDE widget's settings page.
 
 ### UI
 
-- [ ] **3.4.0** — Settings screen per variant (Material list on Android; grouped
-      inset-style on iOS, native back behaviour), from the v19 mockup.
-- [ ] **3.4.1** — **Navigation per width class:** compact = push from the header gear
+- [x] **3.4.0** — Settings screen per variant (Material list on Android; grouped
+      inset-style on iOS, native back behaviour), from the v19 mockup. Done
+      2026-09-20: `lib/ui/settings/` — both variants use the mockup's
+      grouped cards; the top bar is custom per variant (Android icon back
+      + 22 px title, iOS "‹ Remote" + centred 16 px title); routes via
+      `adaptivePageRoute` so system back / swipe-back come free.
+- [x] **3.4.1** — **Navigation per width class:** compact = push from the header gear
       as in the mockup, and that is all this task builds. On the interim
       expanded column the same push is used. The two-pane variant
-      (Settings beside Control) is Task 3.11.x's; design the draft/Apply
-      flow now so it doesn't care whether Control is visible at the same
-      time: back behaviour, the dirty-draft "discard changes?" guard and
-      Restore Defaults must work identically in both, and a draft must
-      survive the layout switching between them mid-edit (rotation of an
-      iPad while Settings is open is the eventual test case).
-- [ ] **3.4.2** — Draft → Apply/OK, not written from the click handler; "Restore
-      Defaults" lives in the page and feeds normal dirty tracking.
-- [ ] **3.4.3** — Steppers: a tap moves exactly 1 dB; hold-to-repeat with
+      (Settings beside Control) is Task 3.11.x's. Done 2026-09-20 —
+      `SettingsBody` is separate from `SettingsScreen` so 3.11.x hosts it
+      in a pane. ~~The draft/Apply flow, dirty-draft guard and Restore
+      Defaults~~ are void: see 3.4.2.
+- [x] **3.4.2** — ~~Draft → Apply/OK, not written from the click handler; "Restore
+      Defaults" lives in the page and feeds normal dirty tracking.~~
+      **Void by owner decision 2026-09-20: settings are effective
+      immediately.** That is the Android/iOS platform convention (and the
+      v19 mockup has no Apply, Cancel or dirty state); the KDE widget's
+      draft → Apply/OK follows Plasma's config-dialog convention. The two
+      deliberately differ on this point, each following its own platform.
+      "Not written from the click handler" still holds in spirit: each
+      control emits an intent and `SettingsNotifier` writes and persists
+      (checklist 9). No Restore Defaults row for now (3.4.11).
+- [x] **3.4.3** — Steppers: a tap moves exactly 1 dB; hold-to-repeat with
       acceleration; tap the value for direct numeric entry. The mockup's
       420 ms / 140→45 ms timings are a guess until measured (checklist
-      item 14).
-- [ ] **3.4.4** — The blocked stepper (floor/ceiling at the 1 dB gap) dims to 0.4 and
-      refuses — no silent no-op, no flash.
-- [ ] **3.4.5** — Settings list for v1: floor, ceiling, startup volume, step size,
-      selected amp / manual IP. **Decision needed before adding:** the
-      mockup's Theme (system/dark/light) and About (version, GitHub link)
-      rows are not in this list; record the decision here either way.
-      *(Since 3.3.x `AppSettings.themeMode` is stored, default `system`,
-      not yet consumed — `app.dart::wrap` is the seam.)*
+      item 14). Done 2026-09-20 (`DbStepper`, `StepperRepeatController`:
+      step on press, first repeat at 420 + 140 = 560 ms as the mockup's
+      `setInterval`, then −12 ms per tick to 45 ms; tap-to-type is
+      magnitude-only with the minus supplied, clamped, empty/Escape
+      revert). **Timings still unmeasured** — record the S25 feel here.
+- [x] **3.4.4** — The blocked stepper (floor/ceiling at the 1 dB gap) dims to 0.4 and
+      refuses — no silent no-op, no flash. Done 2026-09-20: only the
+      blocked ± button dims (KDE), also at −96 / 0; counter-run: without the
+      bound the same tap moves the value.
+- [x] **3.4.5** — Settings list for v1: floor, ceiling, startup volume, step size.
+      **Decisions 2026-09-20 (owner):** Theme (system/dark/light) and About
+      (Version, View on GitHub) rows **included** as the mockup shows; the
+      selected-amp / manual-IP row **excluded** — the amp card on the
+      Control screen owns selection and a second entry point would only
+      confuse (manual IP stays in the amp sheet). Theme is consumed in
+      `app.dart::wrap`; Version is `kAppVersion` (pinned to `pubspec.yaml`
+      by a test); GitHub opens through `url_launcher`.
 - [ ] **3.4.6** — A setting that reflects external state (notification permission,
       local-network permission, background refresh) stores no bool: query
       on open, apply on Apply, re-query after every write, derive the
       control from the answer; if it can't be toggled, disable it and say
-      why in a visible note (checklist item 26).
+      why in a visible note (checklist item 26). *(None exist yet; the iOS
+      local-network permission arrives with Task 4.0.0.)*
 
 ### Values and rules (wired to Task 3.3.x)
 
@@ -659,24 +681,35 @@ from the KDE widget's settings page.
       **−10.0**, startup **−40.0** Change `VolumeCodec.defaultSafetyMaxDb`, the UI
       range and the −15 pinning test **together, once**, reading from the settings
       object (gotcha #6, checklist item 28; the required-parameter part is Task 1.1.3).
-      *(The three values are persisted with those defaults since 3.3.x;
-      the settings ceiling is −10 while the wire still clamps at −15 —
-      harmless until 3.6 sends user volume. Remaining here: the codec /
-      client side and the pinning test.)*
-- [ ] **3.4.8** — Ceiling enforced inside the command constructor as a required
+      Done 2026-09-20 with 1.1.3: `VolumeCodec.defaultSafetyMaxDb` is gone,
+      `encodeCommandWord` / `setVolume` / `setVolumeDb` / `selectSource`
+      take a **required** `maxDb` (`null` = explicitly unbounded),
+      `DevialetClientCommandSink` reads the settings ceiling at send time,
+      the −15 pinning test became "null passes through, −10 clamps" plus a
+      pin on `AppSettings.defaults.ceilingDb == −10`.
+- [x] **3.4.8** — Ceiling enforced inside the command constructor as a required
       parameter with explicit "none"; floor is UI-only and never reaches
-      the wire. `DevialetClient.sourceSwitchVolumeDb` becomes the startup
-      setting for 3.8.1 (`kStartupVolumeDb` is gone: the owner already
-      reads `AmpState.startupVolumeDb` from the persisted setting).
-- [ ] **3.4.9** — Step size setting: 0.5 / 1 / 2 dB, default **1.0**.
-- [ ] **3.4.10** — Floor and ceiling mutually constrained at the point of interaction,
+      the wire. Done 2026-09-20 (see 3.4.7). `DevialetClient.sourceSwitchVolumeDb`
+      stays a constant until 3.8.1 swaps it for the startup setting.
+- [x] **3.4.9** — Step size setting: 0.5 / 1 / 2 dB, default **1.0**. Done
+      2026-09-20 (segmented control → `setStepDb`; consumed by 3.6.0).
+- [x] **3.4.10** — Floor and ceiling mutually constrained at the point of interaction,
       **1 dB minimum gap**. Self-heal an invalid stored pair on load to
-      floor −40 / ceiling −39 before anything binds.
+      floor −40 / ceiling −39 before anything binds. Done 2026-09-20: by
+      bounds as KDE (`floor.max = ceiling − 1`, `ceiling.min = floor + 1`;
+      only the pressed value moves); the heal has been in 3.3.2 since 3.3.x.
 - [ ] **3.4.11** — "Restore Defaults" writes in constraint-safe order (**widen first**)
-      so every intermediate state is valid (checklist item 10).
-- [ ] **3.4.12** — Every control persists and is verified after a real restart
+      so every intermediate state is valid (checklist item 10). *(Deferred
+      by owner decision 2026-09-20 — no row for now; the owner-side
+      `restoreDefaults()` with widen-first ordering exists and is tested.)*
+- [x] **3.4.12** — Every control persists and is verified after a real restart
       (checklist items 8, 21). Also surface `SettingsNotifier.lastWriteError`
       and `HydratedSettings.storeUnavailable` in the screen (checklist 26).
+      Done 2026-09-20; **S25 soak (owner, 2026-09-20):** settings persist
+      across app sessions, light theme works, tap-to-type works, View on
+      GitHub opens the repo. Not yet reported: the stepper hold feel
+      (3.4.3 timings stay unmeasured) and the amp-selection restart
+      scenarios of 3.3.4.
 - [ ] **3.4.13** — The clamp that a limit change applies *to the amp* is Task 3.6.6's
       (it needs the pending mask and the power/boot re-trigger); this task
       only stores and validates.

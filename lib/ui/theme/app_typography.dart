@@ -80,6 +80,10 @@ class AppTypography {
   int get hashCode => bodyFamily.hashCode;
 }
 
+/// Settings steppers: whole dB with a real minus (U+2212) and a thin
+/// space (U+2009) before the unit — `−40 dB`, and `0 dB` without a sign.
+String formatWholeDb(int db) => '${db == 0 ? '0' : '\u2212${db.abs()}'}\u2009dB';
+
 /// `−25.0` with a real minus sign (U+2212), as every dB value in the
 /// mockups. One decimal, always.
 String formatDb(double db) {

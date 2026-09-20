@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../config/window_class.dart';
 import '../../domain/amp_state_owner.dart';
 import '../debug/debug_state_driver.dart';
+import '../platform/adaptive_page_route.dart';
 import '../platform/adaptive_sheet.dart';
+import '../settings/settings_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
 import '../widgets/dimmed_group.dart';
@@ -45,6 +47,9 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
 
   void _openSourceSheet() => showAdaptiveSheet<void>(context, builder: (_) => const SourceSheet());
 
+  void _openSettings() =>
+      Navigator.of(context).push(adaptivePageRoute<void>(context, (_) => const SettingsScreen()));
+
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
@@ -68,7 +73,7 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
       key: ControlKeys.column,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const ControlHeader(),
+        ControlHeader(onSettingsTap: _openSettings),
         DeviceCard(state: state, onTap: _openAmpSheet),
         const SectionLabel('Volume', first: true),
         DimmedGroup(

@@ -15,6 +15,7 @@ import 'package:devialet_expert_remote_app/domain/settings/settings_store.dart';
 import 'package:devialet_expert_remote_app/ui/app.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_screen.dart';
 import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
+import 'package:devialet_expert_remote_app/ui/settings/url_opener.dart';
 
 import '../../domain/support/fake_time.dart';
 import '../../domain/support/settings_support.dart';
@@ -35,6 +36,8 @@ Widget hermeticApp({
   Stream<void>? ticks,
   InMemorySettingsStore? settingsStore,
   AppSettings? initialSettings,
+  Object? storeError,
+  UrlOpener? urlOpener,
 }) {
   return ProviderScope(
     overrides: [
@@ -42,7 +45,10 @@ Widget hermeticApp({
       devialetTransportProvider.overrideWithValue(FakeUdpTransport()),
       monotonicClockProvider.overrideWithValue(clock ?? FakeClock()),
       staleTickProvider.overrideWithValue(ticks ?? const Stream<void>.empty()),
-      hydratedSettingsProvider.overrideWithValue(testHydrated(store: settingsStore, initial: initialSettings)),
+      hydratedSettingsProvider.overrideWithValue(
+        testHydrated(store: settingsStore, initial: initialSettings, storeError: storeError),
+      ),
+      if (urlOpener != null) urlOpenerProvider.overrideWithValue(urlOpener),
       // The hermetic app is the debug app: TEST-NET commands go to the
       // (inactive) simulated amp, real IPs would go to the fake socket.
       debugCommandSinkOverride,
@@ -74,8 +80,9 @@ Future<void> resizeWindow(WidgetTester tester, Size size) async {
   await tester.pump();
 }
 
+/// The Control screen stays mounted (offstage) under a pushed route.
 ProviderContainer containerOf(WidgetTester tester) =>
-    ProviderScope.containerOf(tester.element(find.byType(ControlScreen)));
+    ProviderScope.containerOf(tester.element(find.byType(ControlScreen, skipOffstage: false)));
 
 ControlViewState readState(WidgetTester tester) => containerOf(tester).read(controlViewStateProvider);
 

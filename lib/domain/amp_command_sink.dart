@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../networking/devialet_client.dart';
 import 'devialet_client_provider.dart';
+import 'settings/settings_owner.dart';
 
 /// Where the owner's intents send commands. The owner writes its
 /// optimistic value *before* calling this and rolls that value back if the
@@ -47,9 +48,14 @@ class NoopCommandSink implements AmpCommandSink {
 /// "set the IP, then call" in one synchronous run cannot interleave with
 /// another caller (an explicit-IP client API is a 3.5/3.6 follow-up).
 class DevialetClientCommandSink implements AmpCommandSink {
-  DevialetClientCommandSink(this._client);
+  DevialetClientCommandSink(this._client, {required this.ceilingDb});
 
   final DevialetClient _client;
+
+  /// The wire-side ceiling, read at send time so a Settings change applies
+  /// to the next command (Task 3.4.7 / 1.1.3). `null` would mean unbounded;
+  /// the app never passes that.
+  final double? Function() ceilingDb;
 
   @override
   Future<void> setPower(String ip, bool on) {
@@ -57,12 +63,12 @@ class DevialetClientCommandSink implements AmpCommandSink {
     return _client.setPower(on);
   }
 
-  /// The client's default −15 dB ceiling is a second, wire-side clamp on
-  /// top of the owner's (gotcha #6, defence in depth).
+  /// The settings ceiling is a second, wire-side clamp on top of
+  /// `AmpState.startupVolumeTarget`'s (gotcha #6, defence in depth).
   @override
   Future<void> sendStartupVolume(String ip, double db) {
     _client.deviceIp = ip;
-    return _client.setVolumeDb(db);
+    return _client.setVolumeDb(db, maxDb: ceilingDb());
   }
 
   /// Task 3.6.x — display-only until then.
@@ -79,5 +85,8 @@ class DevialetClientCommandSink implements AmpCommandSink {
 }
 
 final ampCommandSinkProvider = Provider<AmpCommandSink>(
-  (ref) => DevialetClientCommandSink(ref.watch(devialetClientProvider)),
+  (ref) => DevialetClientCommandSink(
+    ref.watch(devialetClientProvider),
+    ceilingDb: () => ref.read(settingsProvider).ceilingDb,
+  ),
 );

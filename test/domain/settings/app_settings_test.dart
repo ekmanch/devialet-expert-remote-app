@@ -112,6 +112,14 @@ void main() {
     });
   });
 
+  test('the default ceiling is −10 dB and is not silently regressed (gotcha #6, checklist 28)', () {
+    // The wire clamp reads this value through DevialetClientCommandSink;
+    // change it together with the mockup's range and the KDE widget's default.
+    expect(AppSettings.defaults.ceilingDb, -10.0);
+    expect(AppSettings.defaults.floorDb, -50.0);
+    expect(AppSettings.defaults.startupVolumeDb, -40.0);
+  });
+
   test('VolumeLimitRules.validPair truth table', () {
     expect(VolumeLimitRules.validPair(-50, -10), isTrue);
     expect(VolumeLimitRules.validPair(-30, -29), isTrue);

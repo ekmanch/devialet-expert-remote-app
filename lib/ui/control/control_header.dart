@@ -7,7 +7,7 @@ import '../widgets/stroke_icons.dart';
 import 'control_keys.dart';
 
 /// Wordmark + title (Android) or eyebrow + large title (iOS), with the
-/// settings gear. The gear is inert until Task 3.4.x builds Settings.
+/// settings gear, which pushes the Settings screen (Task 3.4.x).
 class ControlHeader extends StatelessWidget {
   const ControlHeader({super.key, this.onSettingsTap});
 

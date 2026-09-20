@@ -17,6 +17,7 @@ class AdaptivePressable extends StatefulWidget {
     this.enabled = true,
     this.pressedScale = 0.96,
     this.pressedOpacity = 1.0,
+    this.onPressedChanged,
   });
 
   final VoidCallback? onTap;
@@ -25,6 +26,10 @@ class AdaptivePressable extends StatefulWidget {
   final bool enabled;
   final double pressedScale;
   final double pressedOpacity;
+
+  /// Fires on press start / end (tap-down, tap-up, cancel) — the seam for
+  /// hold-to-repeat, which must step on press, not on tap.
+  final ValueChanged<bool>? onPressedChanged;
 
   @override
   State<AdaptivePressable> createState() => _AdaptivePressableState();
@@ -36,6 +41,7 @@ class _AdaptivePressableState extends State<AdaptivePressable> {
   void _setPressed(bool value) {
     if (_pressed == value || !mounted) return;
     setState(() => _pressed = value);
+    widget.onPressedChanged?.call(value);
   }
 
   @override

@@ -15,6 +15,18 @@ enum SetLimitsResult { applied, unchanged, refusedOutOfRange, refusedGap }
 /// 8). Each intent updates state synchronously, then persists the
 /// changed keys in a constraint-safe order (checklist 10); a failed write
 /// keeps the in-memory value and is recorded in [lastWriteError].
+/// The most recent persistence failure as observable state (Task 3.4.12):
+/// the Settings screen shows a note while it is set. Mirrors
+/// [SettingsNotifier.lastWriteError].
+class SettingsWriteError extends Notifier<Object?> {
+  @override
+  Object? build() => null;
+
+  void record(Object error) => state = error;
+}
+
+final settingsWriteErrorProvider = NotifierProvider<SettingsWriteError, Object?>(SettingsWriteError.new);
+
 class SettingsNotifier extends Notifier<AppSettings> {
   late SettingsStore _store;
 
@@ -120,6 +132,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
         await _store.write(key, value);
       } catch (e) {
         lastWriteError = e;
+        ref.read(settingsWriteErrorProvider.notifier).record(e);
       }
     }
   }

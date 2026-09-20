@@ -61,12 +61,12 @@ void main() {
       final transport = FakeUdpTransport();
       final client = DevialetClient(transport: transport, deviceIp: '192.168.1.50');
 
-      await client.selectSource(4);
+      await client.selectSource(4, maxDb: null);
 
       expect(transport.sentPairs, hasLength(2));
 
       final selectPayload = CommandPayloads.selectSource(4);
-      final expectedVolumePayload = CommandPayloads.setVolume(DevialetClient.sourceSwitchVolumeDb);
+      final expectedVolumePayload = CommandPayloads.setVolume(DevialetClient.sourceSwitchVolumeDb, maxDb: null);
 
       expect(transport.sentPairs[0].first.sublist(6, 10), [
         selectPayload.byte6,
@@ -86,7 +86,7 @@ void main() {
       for (final index in [0, 1, 2, 3, 4, 5, 14]) {
         final transport = FakeUdpTransport();
         final client = DevialetClient(transport: transport, deviceIp: '192.168.1.50');
-        await client.selectSource(index);
+        await client.selectSource(index, maxDb: null);
         expect(transport.sentPairs, hasLength(2), reason: 'source index $index must still force a volume set');
       }
     });
@@ -129,14 +129,14 @@ void main() {
   });
 
   group('DevialetClient — safety clamp (known-gotchas.md #6)', () {
-    test('setVolumeDb defaults to clamping at -15.0 dB even if a louder value is requested', () async {
+    test('setVolumeDb clamps at the given ceiling even if a louder value is requested', () async {
       final transport = FakeUdpTransport();
       final client = DevialetClient(transport: transport, deviceIp: '192.168.1.50');
 
-      await client.setVolumeDb(0.0); // "dangerously loud" per known-gotchas.md
+      await client.setVolumeDb(0.0, maxDb: -15.0); // "dangerously loud" per known-gotchas.md
 
       final sentPayload = transport.sentPairs.single.first.sublist(6, 10);
-      final expected = CommandPayloads.setVolume(0.0); // uses the same default clamp
+      final expected = CommandPayloads.setVolume(-15.0, maxDb: null);
       expect(sentPayload, [expected.byte6, expected.byte7, expected.byte8, expected.byte9]);
 
       final unclamped = CommandPacket(

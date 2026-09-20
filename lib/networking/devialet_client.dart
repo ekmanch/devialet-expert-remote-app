@@ -44,6 +44,7 @@ class DevialetClient {
   /// unconditionally after every source switch to compensate for the amp's
   /// own inconsistent per-input startup volume. This is a deliberate
   /// product decision, not a redundant network call — do not remove.
+  /// Task 3.8.1 replaces the constant with the persisted startup setting.
   static const double sourceSwitchVolumeDb = -40.0;
 
   Future<void> setPower(bool isOn) => _sendTwice(isOn ? CommandPayloads.powerOn : CommandPayloads.powerOff);
@@ -51,16 +52,19 @@ class DevialetClient {
   Future<void> setMute(bool isMuted) =>
       _sendTwice(isMuted ? CommandPayloads.muteOn : CommandPayloads.muteOff);
 
-  Future<void> setVolumeDb(double dbIn, {double maxDb = VolumeCodec.defaultSafetyMaxDb}) {
+  /// [maxDb] is the wire-side ceiling, required (Task 1.1.3); `null` is the
+  /// explicit "unbounded". See [VolumeCodec.encodeCommandWord].
+  Future<void> setVolumeDb(double dbIn, {required double? maxDb}) {
     return _sendTwice(CommandPayloads.setVolume(dbIn, maxDb: maxDb));
   }
 
   /// Sends the select-source command, then unconditionally forces the
   /// volume to [sourceSwitchVolumeDb] — see the field doc above. The two
-  /// sends happen in that order, sequentially.
-  Future<void> selectSource(int statusIndex) async {
+  /// sends happen in that order, sequentially; [maxDb] clamps the forced
+  /// volume like any other.
+  Future<void> selectSource(int statusIndex, {required double? maxDb}) async {
     await _sendTwice(CommandPayloads.selectSource(statusIndex));
-    await setVolumeDb(sourceSwitchVolumeDb);
+    await setVolumeDb(sourceSwitchVolumeDb, maxDb: maxDb);
   }
 
   Future<void> _sendTwice(CommandPayload payload) {

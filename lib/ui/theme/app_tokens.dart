@@ -37,6 +37,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.scrimMaterial,
     required this.scrimCupertino,
     required this.dotGlow,
+    required this.numericAccent,
   });
 
   final Brightness brightness;
@@ -72,6 +73,12 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// transparent in light, where the dot is a radial gradient instead.
   final Color dotGlow;
 
+  /// Settings-page numerics (stepper values, the selected step). The
+  /// mockup keeps the dial's copper gradient for the one hero readout but
+  /// uses a quieter flat beige in light mode where four numbers sit in a
+  /// cluster ("the same gradient repeated four times read as patterned").
+  final Color numericAccent;
+
   /// `rgba(var(--accent-rgb), alpha)` in the CSS.
   Color accentTint(double alpha) => copperBright.withValues(alpha: alpha);
 
@@ -105,6 +112,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     scrimMaterial: Color(0x8C000000),
     scrimCupertino: Color(0x6B08080A),
     dotGlow: Color(0x8CE3A06A),
+    numericAccent: Color(0xFFE3A06A),
   );
 
   static const AppTokens light = AppTokens(
@@ -144,6 +152,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     scrimMaterial: Color(0x8C000000),
     scrimCupertino: Color(0x6B08080A),
     dotGlow: Color(0x00000000),
+    numericAccent: Color(0xFFC2924F),
   );
 
   static AppTokens forBrightness(Brightness b) => b == Brightness.dark ? dark : light;

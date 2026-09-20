@@ -10,7 +10,8 @@ abstract final class CommandPayloads {
   static const muteOn = CommandPayload(byte6: 0x01, byte7: 0x07);
   static const muteOff = CommandPayload(byte6: 0x00, byte7: 0x07);
 
-  static CommandPayload setVolume(double dbIn, {double maxDb = VolumeCodec.defaultSafetyMaxDb}) {
+  /// [maxDb] is required — see [VolumeCodec.encodeCommandWord].
+  static CommandPayload setVolume(double dbIn, {required double? maxDb}) {
     final word = VolumeCodec.encodeCommandWord(dbIn, maxDb: maxDb);
     return CommandPayload(byte6: 0x00, byte7: 0x04, byte8: (word >> 8) & 0xFF, byte9: word & 0xFF);
   }

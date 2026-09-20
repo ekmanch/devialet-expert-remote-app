@@ -149,6 +149,9 @@ and the numbering is shared across both repos and referenced by
   the safety rationale with the user first. This is exactly the kind of thing
   that's easy to silently regress during a rewrite because it looks like a
   leftover/arbitrary constant.
+- **Done 2026-09-20 (Tasks 3.4.7 / 3.4.8 / 1.1.3):** `VolumeCodec.defaultSafetyMaxDb`
+  is gone; the ceiling is a required parameter on every volume send,
+  fed from the persisted settings ceiling (default −10) at send time.
 - **Decision update (owner, 2026-09-14):** the ceiling becomes a persisted
   setting with default **−10.0 dB** (the KDE widget's value), alongside a
   floor (−50.0) and a startup volume (−40.0), enforced inside the command

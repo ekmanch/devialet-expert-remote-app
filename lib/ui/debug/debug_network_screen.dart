@@ -1,11 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/ui_variant.dart';
 import '../../domain/devialet_client_provider.dart';
+import '../../domain/settings/settings_owner.dart';
 import '../../networking/devialet_client.dart';
-import '../../networking/volume_codec.dart';
 
 /// MANUAL TEST SCREEN — not a real feature screen.
 ///
@@ -66,6 +68,9 @@ class _DebugNetworkScreenState extends ConsumerState<DebugNetworkScreen> {
   @override
   Widget build(BuildContext context) {
     final statusAsync = ref.watch(ampStatusStreamProvider);
+    final ceiling = ref.watch(settingsProvider).ceilingDb;
+    final sliderMin = math.min(_minVolumeDb, ceiling - 0.5);
+    final shownVolume = _volumeDb.clamp(sliderMin, ceiling).toDouble();
 
     final body = ListView(
       padding: const EdgeInsets.all(16),
@@ -107,17 +112,17 @@ class _DebugNetworkScreenState extends ConsumerState<DebugNetworkScreen> {
         ),
         const Divider(height: 32),
         Text(
-          'Volume: ${_volumeDb.toStringAsFixed(1)} dB '
-          '(safety-clamped to ${VolumeCodec.defaultSafetyMaxDb} dB max — known-gotchas.md #6)',
+          'Volume: ${shownVolume.toStringAsFixed(1)} dB '
+          '(clamped to the Settings ceiling $ceiling dB — known-gotchas.md #6)',
         ),
         Slider(
-          value: _volumeDb,
-          min: _minVolumeDb,
-          max: VolumeCodec.defaultSafetyMaxDb,
-          divisions: ((VolumeCodec.defaultSafetyMaxDb - _minVolumeDb) / 0.5).round(),
-          label: '${_volumeDb.toStringAsFixed(1)} dB',
+          value: shownVolume,
+          min: sliderMin,
+          max: ceiling,
+          divisions: ((ceiling - sliderMin) / 0.5).round(),
+          label: '${shownVolume.toStringAsFixed(1)} dB',
           onChanged: (v) => setState(() => _volumeDb = v),
-          onChangeEnd: (v) => _guard('Set volume $v dB', () => _client.setVolumeDb(v)),
+          onChangeEnd: (v) => _guard('Set volume $v dB', () => _client.setVolumeDb(v, maxDb: ceiling)),
         ),
         const Divider(height: 32),
         const Text('Source status index (0-14; 1 = hardcoded special case):'),
@@ -134,7 +139,7 @@ class _DebugNetworkScreenState extends ConsumerState<DebugNetworkScreen> {
               ),
             ),
             ElevatedButton(
-              onPressed: () => _guard('Select source $_sourceIndex', () => _client.selectSource(_sourceIndex)),
+              onPressed: () => _guard('Select source $_sourceIndex', () => _client.selectSource(_sourceIndex, maxDb: ceiling)),
               child: const Text('Select'),
             ),
           ],

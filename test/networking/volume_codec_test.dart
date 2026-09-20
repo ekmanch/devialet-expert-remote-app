@@ -90,17 +90,22 @@ void main() {
     });
 
     test('values louder than maxDb are clamped down to maxDb (known-gotchas.md #6)', () {
-      final clampedWord = VolumeCodec.encodeCommandWord(-40.0, maxDb: VolumeCodec.defaultSafetyMaxDb);
-      final direct = VolumeCodec.encodeCommandWord(0.0, maxDb: VolumeCodec.defaultSafetyMaxDb);
+      const ceiling = -15.0;
+      final clampedWord = VolumeCodec.encodeCommandWord(-40.0, maxDb: ceiling);
+      final direct = VolumeCodec.encodeCommandWord(0.0, maxDb: ceiling);
       // Requesting 0dB (too loud) must clamp to exactly the same word as
-      // requesting the safety ceiling directly.
-      expect(direct, VolumeCodec.dbConvert(VolumeCodec.defaultSafetyMaxDb.abs()) | 0x8000);
+      // requesting the ceiling directly.
+      expect(direct, VolumeCodec.dbConvert(ceiling.abs()) | 0x8000);
       // A quieter request must NOT be clamped.
       expect(clampedWord, isNot(direct));
     });
 
-    test('default safety ceiling is -15.0 dB and is not silently regressed', () {
-      expect(VolumeCodec.defaultSafetyMaxDb, -15.0);
+    test('the ceiling is required; null is the explicit "unbounded" and passes everything through', () {
+      // The parameter being required is enforced by the analyzer (a call
+      // without `maxDb:` does not compile — Task 1.1.3, checklist 28).
+      expect(VolumeCodec.encodeCommandWord(0.0, maxDb: null), 0x0000);
+      expect(VolumeCodec.encodeCommandWord(30.0, maxDb: null), VolumeCodec.dbConvert(30.0));
+      expect(VolumeCodec.encodeCommandWord(-5.0, maxDb: -10.0), VolumeCodec.dbConvert(10.0) | 0x8000);
     });
   });
 

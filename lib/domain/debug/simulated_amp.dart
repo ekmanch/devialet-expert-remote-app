@@ -7,6 +7,7 @@ import '../amp_state_owner.dart';
 import '../control_view_state.dart';
 import '../devialet_client_provider.dart';
 import '../monotonic_clock.dart';
+import '../settings/settings_owner.dart';
 import 'synthetic_status.dart';
 
 /// Debug-only simulated amplifier(s) on TEST-NET-1 addresses (192.0.2.x,
@@ -278,7 +279,10 @@ class RoutingCommandSink implements AmpCommandSink {
 /// Installed by `main.dart` in debug builds and by the widget-test harness.
 final debugCommandSinkOverride = ampCommandSinkProvider.overrideWith(
   (ref) => RoutingCommandSink(
-    real: DevialetClientCommandSink(ref.watch(devialetClientProvider)),
+    real: DevialetClientCommandSink(
+      ref.watch(devialetClientProvider),
+      ceilingDb: () => ref.read(settingsProvider).ceilingDb,
+    ),
     simulated: () => ref.read(simulatedAmpProvider.notifier),
   ),
 );
