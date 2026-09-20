@@ -301,7 +301,8 @@ platform-specific.
 - Project structure: `lib/networking/` (protocol encode/decode + transport,
   pure Dart, zero Flutter imports — verified via
   `grep -rn "package:flutter" lib/networking/`), `lib/domain/` (Riverpod
-  providers wrapping the networking layer), `lib/config/` (cross-cutting
+  providers wrapping the networking layer; `settings/` the persisted
+  settings object and its store), `lib/config/` (cross-cutting
   app config: the UI variant switch, the window width/height class),
   `lib/ui/` (`theme/` tokens + typography, `platform/` the only widgets
   that branch on the variant, `widgets/` shared primitives, `control/` the

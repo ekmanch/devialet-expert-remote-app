@@ -31,8 +31,9 @@ import 'synthetic_status.dart';
 /// so tests drive it with a fake clock and [tick].
 ///
 /// Opt-in: nothing is simulated until the debug bar's first tap. Applying
-/// a scenario re-selects the simulated amp (a real one is shadowed until
-/// picked in the sheet). "Not responding" stops broadcasting and the view
+/// a scenario re-selects the simulated amp in memory only — never in the
+/// persisted settings (checklist 19) — so a real amp is shadowed until
+/// picked in the sheet, and the persisted choice returns on the next launch. "Not responding" stops broadcasting and the view
 /// flips after the real 8 s. User volume / mute / source intents still
 /// send nothing (Tasks 3.6–3.8), so those optimistic changes revert after
 /// 400 ms — power and the startup volume are real.
@@ -79,7 +80,7 @@ class SimulatedAmp extends Notifier<DebugScenario> implements AmpCommandSink {
     _timer ??= Timer.periodic(broadcastPeriod, (_) => tick());
     if (_silent) {
       // Keep the selection; the amp just goes quiet.
-      _owner.selectIp(ControlViewState.fixtureAmp.ip);
+      _owner.seedSelection(ControlViewState.fixtureAmp.ip);
       return;
     }
     final shape = ControlViewState.forScenario(scenario);

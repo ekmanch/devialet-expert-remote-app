@@ -48,11 +48,13 @@ class PendingValue<T> {
 
 const Object _unset = Object();
 
-/// A self-initiated power-on in progress (Task 3.2.x). Its existence *is*
-/// the "self-initiated" flag: only `AmpStateOwner.togglePower` creates
-/// one, so an On broadcast with no record (front panel, remote, late On
-/// after the timeout) gets neither the startup-volume send nor the display
-/// hold — that path stays exposed to gotcha #8 by decision.
+/// A power-on whose post-boot follow-ups (display hold, startup-volume
+/// send) are still owed (Task 3.2.x). Created *unconfirmed* by
+/// `AmpStateOwner.togglePower` for a self-initiated boot — only that path
+/// renders Booting — and created *already due for confirmation* by
+/// `AmpState.ingest` when an Off→On is observed on the selected amp that
+/// this app did not initiate (Task 3.2.5): both get the hold and the send,
+/// because the amp's own broadcast is wrong after any boot (gotcha #8).
 class BootInProgress {
   const BootInProgress({
     required this.deadline,
@@ -162,6 +164,13 @@ class TrackedAmp {
   ///   that packet's pre-shutdown byte is never shown.
   /// - unconfirmed past [BootInProgress.deadline] → dropped (silent Off).
   /// - confirmed, startup sent and the hold deadline passed → dropped.
+  /// - **a matching byte releases the hold only after the startup send
+  ///   went out** (KDE widget fix 2026-09-20, gotcha #8 "Watch out #2"):
+  ///   the first On packet carries the pre-shutdown byte, which equals
+  ///   the target whenever the amp was powered off at the startup volume
+  ///   — routine, since every source switch sets it. Until the send, the
+  ///   hold can only expire (fallback from arming); the owner re-arms the
+  ///   deadline from the send.
   TrackedAmp resolvePending(Duration now) {
     PendingValue<T>? keep<T>(PendingValue<T>? pending, T actual) {
       if (pending == null) return null;
@@ -185,9 +194,18 @@ class TrackedAmp {
       }
     }
 
+    final holdBeforeSend = nextBoot != null && nextBoot.isConfirmed && !nextBoot.startupSent;
+    final PendingValue<double>? resolvedVolume;
+    if (holdBeforeSend) {
+      resolvedVolume =
+          nextPendingVolume == null || nextPendingVolume.isExpiredAt(now) ? null : nextPendingVolume;
+    } else {
+      resolvedVolume = keep(nextPendingVolume, status.volumeDb);
+    }
+
     return copyWith(
       boot: nextBoot,
-      pendingVolumeDb: keep(nextPendingVolume, status.volumeDb),
+      pendingVolumeDb: resolvedVolume,
       pendingMuted: keep(pendingMuted, status.isMuted),
       pendingPower: keep(pendingPower, status.isPoweredOn),
       pendingSource: keep(pendingSource, status.activeSourceIndex),

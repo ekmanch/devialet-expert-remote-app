@@ -8,11 +8,16 @@ import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
 import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
 import 'package:devialet_expert_remote_app/domain/devialet_client_provider.dart';
 import 'package:devialet_expert_remote_app/domain/monotonic_clock.dart';
+import 'package:devialet_expert_remote_app/domain/settings/app_settings.dart';
+import 'package:devialet_expert_remote_app/domain/settings/hydrated_settings.dart';
+import 'package:devialet_expert_remote_app/domain/settings/settings_owner.dart';
+import 'package:devialet_expert_remote_app/domain/settings/settings_store.dart';
 import 'package:devialet_expert_remote_app/networking/devialet_client.dart';
 import 'package:devialet_expert_remote_app/networking/status_packet_builder.dart';
 
 import '../networking/fake_udp_transport.dart';
 import 'support/fake_time.dart';
+import 'support/settings_support.dart';
 
 class ThrowingCommandSink implements AmpCommandSink {
   @override
@@ -25,6 +30,16 @@ class ThrowingCommandSink implements AmpCommandSink {
   Future<void> selectSource(String ip, int statusIndex) async => throw StateError('no route to host');
   @override
   Future<void> sendStartupVolume(String ip, double db) async => throw StateError('no route to host');
+}
+
+/// The Android-era bug: only the ip is persisted, so "chose None" and
+/// "never chose" collapse into one state.
+class _DroppingFlagStore extends InMemorySettingsStore {
+  @override
+  Future<void> write(String key, Object? value) async {
+    if (key == SettingsKeys.hasExplicitSelection) return;
+    await super.write(key, value);
+  }
 }
 
 class RecordingCommandSink extends NoopCommandSink {
@@ -54,10 +69,17 @@ void main() {
   late ManualTicker ticker;
   late FakeUdpTransport transport;
 
-  ProviderContainer make({AmpCommandSink sink = const NoopCommandSink()}) {
+  late InMemorySettingsStore settingsStore;
+
+  ProviderContainer make({
+    AmpCommandSink sink = const NoopCommandSink(),
+    InMemorySettingsStore? store,
+    AppSettings? initialSettings,
+  }) {
     clock = FakeClock();
     ticker = ManualTicker();
     transport = FakeUdpTransport();
+    settingsStore = store ?? InMemorySettingsStore();
     addTearDown(ticker.close);
     return ProviderContainer.test(
       overrides: [
@@ -65,9 +87,15 @@ void main() {
         monotonicClockProvider.overrideWithValue(clock),
         staleTickProvider.overrideWithValue(ticker.stream),
         ampCommandSinkProvider.overrideWithValue(sink),
+        hydratedSettingsProvider.overrideWithValue(testHydrated(store: settingsStore, initial: initialSettings)),
       ],
     );
   }
+
+  /// "Kill and relaunch": a fresh container hydrated from the same store,
+  /// exactly as main() would do it.
+  Future<ProviderContainer> relaunch(InMemorySettingsStore store) async =>
+      make(store: store, initialSettings: AppSettings.load(await store.loadAll()).settings);
 
   Future<void> settle() => Future<void>.delayed(Duration.zero);
   ControlViewState view(ProviderContainer c) => c.read(controlViewStateProvider);
@@ -200,15 +228,40 @@ void main() {
       return sink;
     }
 
-    test('an external On (no self-initiated boot) gets no record, no send, no hold', () async {
+    test('an external power-on (widget, remote, front panel) on the selected amp gets the hold and the startup send (3.2.5)', () async {
+      final sink = RecordingCommandSink(clock: clock);
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off).copyWith(volumeDb: -40));
+      clock.set(s(1));
+      owner(c).ingest(on(volumeDb: -40)); // first On packet: pre-shutdown byte == target
+      expect(view(c).power, PowerPhase.on, reason: 'no Booting for a boot we did not start');
+      expect(view(c).volumeDb, -40.0);
+      clock.set(s(1, 200));
+      owner(c).ingest(on(volumeDb: -42));
+      expect(view(c).volumeDb, -40.0, reason: 'the misreport is held');
+      expect(sink.calls, isEmpty, reason: 'nothing before +500 ms');
+      clock.set(s(1, 600));
+      owner(c).ingest(on(volumeDb: -42));
+      await settle();
+      expect(sink.calls, ['startup $ip -40.0']);
+      clock.set(s(1, 800));
+      owner(c).ingest(on(volumeDb: -40));
+      expect(c.read(ampStateProvider).amps[ip]!.pendingVolumeDb, isNull, reason: 'released by the real confirmation');
+      expect(view(c).volumeDb, -40.0);
+    });
+
+    test('an external power-on on a non-selected amp gets nothing', () async {
       final sink = RecordingCommandSink();
       final c = make(sink: sink);
-      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off));
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
+      const other = '192.0.2.23';
+      owner(c).ingest(syntheticReport(ip: other, name: 'other', isPoweredOn: false));
       clock.set(s(1));
-      owner(c).ingest(on(volumeDb: -42));
-      expect(view(c).power, PowerPhase.on);
-      expect(view(c).volumeDb, -42.0);
-      expect(c.read(ampStateProvider).amps[ip]!.boot, isNull);
+      owner(c).ingest(syntheticReport(ip: other, name: 'other', isPoweredOn: true, volumeDb: -42));
+      clock.set(s(1, 600));
+      owner(c).ingest(syntheticReport(ip: other, name: 'other', isPoweredOn: true, volumeDb: -42));
+      await settle();
+      expect(c.read(ampStateProvider).amps[other]!.boot, isNull);
       expect(sink.calls, isEmpty);
     });
 
@@ -233,20 +286,21 @@ void main() {
       expect(view(c).hasAmp, isTrue);
     });
 
-    test('a late On after the timeout is plain On: no startup send, no hold', () async {
+    test('a late On after the timeout is plain On (no Booting) but still gets the follow-ups as an observed boot', () async {
       final sink = RecordingCommandSink();
       final c = make(sink: sink);
       await bootFromOff(c, sink);
       clock.set(s(20));
-      ticker.tick();
-      await settle();
+      owner(c).ingest(off());
+      expect(view(c).power, PowerPhase.off, reason: 'silent fallback at the deadline');
       clock.set(s(25));
       owner(c).ingest(on(volumeDb: -42));
-      clock.set(s(26));
-      owner(c).ingest(on(volumeDb: -42));
       expect(view(c).power, PowerPhase.on);
-      expect(view(c).volumeDb, -42.0);
-      expect(sink.calls, ['power $ip true']);
+      expect(view(c).volumeDb, -40.0, reason: 'held at the target');
+      clock.set(s(25, 600));
+      owner(c).ingest(on(volumeDb: -42));
+      await settle();
+      expect(sink.calls, ['power $ip true', 'startup $ip -40.0']);
     });
 
     test('self On: target shown at once, −42 recorded not displayed, exactly one startup send at ≥ 500 ms', () async {
@@ -276,7 +330,30 @@ void main() {
       expect(sink.calls.where((x) => x.startsWith('startup')).length, 1, reason: 'sent once');
     });
 
-    test('the hold releases on a confirming push, or at 1500 ms via ingest and via tick', () async {
+    test('regression (S25 2026-09-20): powered off at the target, no −42 flash through the whole boot', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off).copyWith(volumeDb: -40));
+      await owner(c).togglePower();
+      final shown = <double>[];
+      clock.set(s(16));
+      owner(c).ingest(on(volumeDb: -40)); // pre-shutdown byte == target
+      shown.add(view(c).volumeDb);
+      for (final t in [200, 400, 600]) {
+        clock.set(s(16, t));
+        owner(c).ingest(on(volumeDb: -42));
+        await settle();
+        shown.add(view(c).volumeDb);
+      }
+      clock.set(s(16, 800));
+      owner(c).ingest(on(volumeDb: -40)); // the amp applied the startup send
+      shown.add(view(c).volumeDb);
+      expect(shown, everyElement(-40.0), reason: 'never −42');
+      expect(sink.calls.where((x) => x.startsWith('startup')), ['startup $ip -40.0']);
+      expect(c.read(ampStateProvider).amps[ip]!.pendingVolumeDb, isNull, reason: 'released by the real confirmation');
+    });
+
+    test('the hold releases on a confirming push, or at 1500 ms after the send via tick', () async {
       for (final viaTick in [false, true]) {
         final sink = RecordingCommandSink();
         final c = make(sink: sink);
@@ -286,18 +363,25 @@ void main() {
         clock.set(s(16, 200));
         owner(c).ingest(on(volumeDb: -42));
         if (!viaTick) {
+          clock.set(s(16, 600));
+          owner(c).ingest(on(volumeDb: -42)); // the send goes out on this ingest
+          await settle();
           clock.set(s(16, 800));
-          owner(c).ingest(on(volumeDb: -40));
+          owner(c).ingest(on(volumeDb: -40)); // the amp applied it
           expect(c.read(ampStateProvider).amps[ip]!.pendingVolumeDb, isNull);
           clock.set(s(17));
           owner(c).ingest(on(volumeDb: -41));
           expect(view(c).volumeDb, -41.0);
         } else {
-          clock.set(s(17, 499));
+          // The send went out at +600 ms; the fallback runs 1500 ms from it.
+          clock.set(s(16, 600));
+          owner(c).ingest(on(volumeDb: -42));
+          await settle();
+          clock.set(s(18, 99));
           ticker.tick();
           await settle();
           expect(view(c).volumeDb, -40.0);
-          clock.set(s(17, 500));
+          clock.set(s(18, 100));
           ticker.tick();
           await settle();
           expect(view(c).volumeDb, -42.0, reason: 'bounded hold: the misreport shows honestly');
@@ -410,6 +494,119 @@ void main() {
       owner(c).ingest(on(volumeDb: -42));
       await settle();
       expect(sink.calls.last, 'startup $ip -35.0');
+    });
+  });
+
+  group('persisted settings (3.3.x / 3.9.1)', () {
+    const a = '192.0.2.22';
+    const b = '192.0.2.23';
+    Future<void> settle() => Future<void>.delayed(Duration.zero);
+    AmpStatusReport from(String ip) => syntheticReport(ip: ip, name: 'Amp $ip');
+
+    test('the owner starts from the persisted selection, range and startup volume', () {
+      final c = make(
+        initialSettings: AppSettings.defaults.copyWith(
+          selectedIp: a,
+          hasExplicitSelection: true,
+          floorDb: -60,
+          ceilingDb: -20,
+          startupVolumeDb: -30,
+        ),
+      );
+      final s = c.read(ampStateProvider);
+      expect((s.selectedIp, s.hasExplicitSelection), (a, true));
+      expect((s.floorDb, s.ceilingDb, s.startupVolumeTarget), (-60.0, -20.0, -30.0));
+      expect(view(c).selectedIp, a);
+    });
+
+    test('limit and startup changes on the settings owner reach the amp owner synchronously', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off));
+      c.read(settingsProvider.notifier).setVolumeLimits(floorDb: -70, ceilingDb: -20);
+      expect((view(c).floorDb, view(c).ceilingDb), (-70.0, -20.0));
+      c.read(settingsProvider.notifier).setStartupVolumeDb(-30);
+      await owner(c).togglePower();
+      clock.set(const Duration(seconds: 16));
+      owner(c).ingest(syntheticReport(ip: a, name: 'a', isPoweredOn: true));
+      expect(view(c).volumeDb, -30.0, reason: 'the hold uses the new startup value');
+      clock.set(const Duration(seconds: 16, milliseconds: 600));
+      owner(c).ingest(syntheticReport(ip: a, name: 'a', isPoweredOn: true, volumeDb: -42));
+      await settle();
+      expect(sink.calls.last, 'startup $a -30.0');
+    });
+
+    test('restart: a chosen amp reconnects after its first broadcast with no tap (3.0.8 end to end)', () async {
+      final c1 = make();
+      owner(c1).ingest(from(a));
+      owner(c1).ingest(from(b));
+      owner(c1).selectIp(b);
+      await settle();
+      final c2 = await relaunch(settingsStore);
+      expect(view(c2).hasAmp, isFalse);
+      expect(view(c2).selectedIp, b);
+      owner(c2).ingest(from(b));
+      expect(view(c2).selectedAmp?.ip, b);
+    });
+
+    test('restart: "chose None" is not resurrected by auto-select; "never chose" still auto-selects', () async {
+      final c1 = make();
+      owner(c1).ingest(from(a));
+      owner(c1).selectIp(null);
+      await settle();
+      final c2 = await relaunch(settingsStore);
+      owner(c2).ingest(from(a));
+      expect(view(c2).hasAmp, isFalse, reason: 'the user opted out; one lone amp must not be re-picked');
+
+      final fresh = make();
+      owner(fresh).ingest(from(a));
+      expect(view(fresh).hasAmp, isTrue, reason: 'never chosen + exactly one amp → auto-select');
+    });
+
+    test('restart: range and startup come back', () async {
+      final c1 = make();
+      c1.read(settingsProvider.notifier).setVolumeLimits(floorDb: -70, ceilingDb: -20);
+      c1.read(settingsProvider.notifier).setStartupVolumeDb(-30);
+      await settle();
+      final c2 = await relaunch(settingsStore);
+      final s = c2.read(ampStateProvider);
+      expect((s.floorDb, s.ceilingDb, s.startupVolumeDb), (-70.0, -20.0, -30.0));
+    });
+
+    test('seeding and the debug seams never write to the store (checklist 19)', () async {
+      final c = make();
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
+      owner(c).seedSelection(a);
+      owner(c).setVolumeRange(floorDb: -70);
+      await settle();
+      expect(settingsStore.writeLog, isEmpty);
+    });
+
+    test('proof the seam split is load-bearing: the user intent does persist the address', () async {
+      final c = make();
+      owner(c).selectIp(a);
+      await settle();
+      expect(settingsStore.values[SettingsKeys.selectedIp], a);
+    });
+
+    test('proof the flag protects "chose None": a store that drops it lets auto-select resurrect the amp', () async {
+      final dropping = _DroppingFlagStore();
+      final c1 = make(store: dropping);
+      owner(c1).ingest(from(a));
+      owner(c1).selectIp(null);
+      await settle();
+      final c2 = await relaunch(dropping);
+      owner(c2).ingest(from(a));
+      expect(view(c2).hasAmp, isTrue, reason: 'exactly the resurrection the flag prevents');
+    });
+
+    test('proof the heal is what catches an inverted pair', () async {
+      final raw = {SettingsKeys.volumeFloorDb: -10.0, SettingsKeys.volumeCeilingDb: -50.0};
+      final healed = make(initialSettings: AppSettings.load(raw).settings);
+      expect((view(healed).floorDb, view(healed).ceilingDb), (-40.0, -39.0));
+      // The same raw pair bound without healing leaks straight into the view.
+      final unhealed = make(initialSettings: AppSettings.defaults.copyWith(floorDb: -10, ceilingDb: -50));
+      expect((view(unhealed).floorDb, view(unhealed).ceilingDb), (-10.0, -50.0));
     });
   });
 

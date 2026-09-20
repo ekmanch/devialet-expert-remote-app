@@ -31,4 +31,5 @@ abstract final class ControlKeys {
   static const debugPrev = ValueKey('debug.prev');
   static const debugNext = ValueKey('debug.next');
   static const debugNet = ValueKey('debug.net');
+  static const debugPrefsOff = ValueKey('debug.prefsOff');
 }

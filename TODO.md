@@ -180,6 +180,14 @@ the raw datagrams directly, which covers the inbound side.
       value, don't wait forever) and the 8 s staleness rule is fine.
       Method: `tool/protocol_probe/listen.py` ported to a debug screen, or
       just the Task 1 debug scaffold counting packets per 30 s.
+- [x] **Accepted limitation (owner, 2026-09-20): a power-on started by
+      another client shows as "Off" until the amp reports On.** The phone
+      cannot see another client's unicast command, and the amp's broadcast
+      is not believed to signal a boot in progress, so there is nothing to
+      recognise; the display flips to On the moment the amp says so and
+      the post-boot follow-ups (3.2.5) still run. Reopen only if a raw
+      capture of the unexplored bytes around offsets 562–565 during a boot
+      ever shows a difference from idle Off.
 - [ ] **Re-run the source probes on a second unit** if one is ever on the
       LAN: an enabled slot ≥ 6 confirms the float fallback; sending 9.0
       tells whether the 9 → 14 alias is firmware-wide or per-unit.
@@ -497,8 +505,8 @@ gotchas #1/#2 one input at a time.
       intents use them; `volumeGroupEnabled` / `powerEnabled` are aliases.
 - [x] **3.2.2** — **Startup volume on a self-initiated power-on:** 500 ms after the
       confirming broadcast, send the configured startup volume
-      (gotcha #9). Not on an externally triggered power-on (owner decision;
-      that path stays exposed to gotcha #8; checklist item 7). Done
+      (gotcha #9). ~~Not on an externally triggered power-on~~ (reversed
+      2026-09-20 — see 3.2.5; checklist item 7). Done
       2026-09-19: `_runBootFollowUps` after every ingest/tick (effective
       +500…+700 ms, never earlier — no one-shot timers), sent once per
       booted amp even if the selection moved, **for real** via
@@ -518,29 +526,85 @@ gotchas #1/#2 one input at a time.
   misreports → corrected by the startup send. The real-amp capture (≥ 3
   boots) is Task 3.5.2.
 
+- [x] **3.2.4** — **Bug (S25 soak 2026-09-20, owner): −42 flashes for a split
+      second after a self-initiated boot before −40 shows.** Root cause,
+      reproduced on the code: the first On packet carries the *pre-shutdown*
+      byte, and when that equals the hold target (the owner's amp habitually
+      sits at −40) `resolvePending` armed the hold and treated the same
+      packet as its confirmation, releasing it before the −42 misreport
+      arrived. The gotcha #8 test used −25 as the pre-shutdown byte and so
+      never saw it. Fixed 2026-09-20 by porting the KDE widget's same-day
+      fix: a matching byte releases the hold **only after the startup send
+      went out**, and the 1500 ms fallback runs from the send (before it,
+      from arming). Regression tests with pre-shutdown == target at the
+      pure and owner levels; counter-run shows the flash back without the
+      rule. `docs/known-gotchas.md` #8 "Watch out #2". Verified on the S25
+      2026-09-20 (owner): an app-initiated boot settles on −40 at once.
+- [x] **3.2.5** — **Observed (external) power-ons get the same follow-ups**
+      (owner decision 2026-09-20, reversing 3.2.2's "not on an externally
+      triggered power-on"): the owner rebooted the amp from the KDE widget
+      and the app showed −42 until the *widget's* startup send re-synced
+      the broadcast — by the old rule the app had no hold and sent nothing.
+      Now an Off→On observed on the **selected** amp creates an
+      already-confirmed boot record (`AmpState.ingest`): the hold arms at
+      the target and the startup volume goes out at +500 ms; no Booting
+      presentation (we did not start it). Consequences, recorded: after a
+      remote / front-panel boot the app sets its startup volume, overriding
+      one configured in the amp itself if they ever differ; two clients
+      (widget + app) both send −40 — identical value, harmless, but if
+      their startup settings differ the last sender wins. Non-selected amps
+      get nothing. Counter-run: with the rule removed the external-boot
+      tests show −42 and no send. **Owner to re-check on the S25:** boot
+      from the widget and watch the phone stay at −40.
+
 ### 3.3.x — Settings persistence layer
 
-- [ ] **3.3.0** — **Decision (recorded here so it isn't relitigated):** app
+- [x] **3.3.0** — **Decision (recorded here so it isn't relitigated):** app
       preferences live in **app-local storage via the `shared_preferences`
       plugin** (`SharedPreferences` on Android, `UserDefaults` on iOS) —
       the same footprint the Kotlin app used for `amp_ip` / `amp_name`.
       Explicitly **not** Android `Settings.Panel` and **not** an iOS
       `Settings.bundle`: those are for OS-gatekept configuration
       (permissions, system toggles), not app preferences, and would split
-      the settings across two UIs with two persistence paths.
-- [ ] **3.3.1** — One typed settings object with named keys, defaults and validation
+      the settings across two UIs with two persistence paths. Done
+      2026-09-20: `shared_preferences 2.5.5`, legacy `SharedPreferences`
+      API (same Android footprint as the Kotlin app), confined to
+      `lib/domain/settings/settings_store.dart`.
+- [x] **3.3.1** — One typed settings object with named keys, defaults and validation
       in one place; controls are stateless and emit intents, the owner
       writes back (checklist item 9). Every value is stored on change and
-      read back on open (checklist item 8).
-- [ ] **3.3.2** — Self-heal on load: an invalid stored pair or out-of-range value is
+      read back on open (checklist item 8). Done 2026-09-20: `AppSettings`
+      + `SettingsNotifier` (`docs/architecture.md` §14). Consumed now
+      (owner decision): the amp selection (3.9.1's persistence half), the
+      volume limits and the startup volume; theme is stored with its
+      default and consumed by 3.4.x.
+- [x] **3.3.2** — Self-heal on load: an invalid stored pair or out-of-range value is
       repaired **before anything binds** (the specific rules are Task
-      3.4.x's; the hook lives here).
-- [ ] **3.3.3** — Testable against a disposable instance
+      3.4.x's; the hook lives here). Done 2026-09-20: `hydrateSettings()`
+      in `main()` before `runApp` — load, heal (3.4.7 ranges, 3.4.10 pair →
+      −40/−39, step, theme, selection consistency), write repairs back; an
+      unopenable store runs on defaults in memory and shows `PREFS OFF` in
+      the debug bar (checklist 26).
+- [x] **3.3.3** — Testable against a disposable instance
       (`SharedPreferences.setMockInitialValues`, `ProviderContainer`
       overrides); nothing writes the real store from a test (checklist
-      item 19).
+      item 19). Done 2026-09-20: `InMemorySettingsStore` everywhere; the
+      plugin is touched by exactly one adapter test. The simulated amp and
+      test seeding go through owner-local seams that never persist —
+      proven by a counter-test.
 - [ ] **3.3.4** — Verify persistence through a **real app restart** (kill, not
-      hot-reload) on the Galaxy S25 (checklist item 21).
+      hot-reload) on the Galaxy S25 (checklist item 21). Script:
+      1. pick the real amp in the sheet → `adb shell am force-stop
+         com.ekmanch.devialet_expert_remote_app` (or swipe it away) →
+         relaunch → it is connected without a tap once its first broadcast
+         lands;
+      2. choose "None" → force-stop → relaunch → the lone amp is **not**
+         auto-selected;
+      3. `adb shell pm clear …` (fresh install) → relaunch → the lone amp
+         auto-selects;
+      4. optional: `adb shell run-as … cat shared_prefs/FlutterSharedPreferences.xml`
+         shows `flutter.selected_ip` / `flutter.has_explicit_selection`.
+      A hot restart keeps the process's preferences and does not count.
 
 ## Task 3.4.x — Settings screen: UI + wiring to the persistence layer
 
@@ -581,6 +645,8 @@ from the KDE widget's settings page.
       selected amp / manual IP. **Decision needed before adding:** the
       mockup's Theme (system/dark/light) and About (version, GitHub link)
       rows are not in this list; record the decision here either way.
+      *(Since 3.3.x `AppSettings.themeMode` is stored, default `system`,
+      not yet consumed — `app.dart::wrap` is the seam.)*
 - [ ] **3.4.6** — A setting that reflects external state (notification permission,
       local-network permission, background refresh) stores no bool: query
       on open, apply on Apply, re-query after every write, derive the
@@ -593,11 +659,15 @@ from the KDE widget's settings page.
       **−10.0**, startup **−40.0** Change `VolumeCodec.defaultSafetyMaxDb`, the UI
       range and the −15 pinning test **together, once**, reading from the settings
       object (gotcha #6, checklist item 28; the required-parameter part is Task 1.1.3).
+      *(The three values are persisted with those defaults since 3.3.x;
+      the settings ceiling is −10 while the wire still clamps at −15 —
+      harmless until 3.6 sends user volume. Remaining here: the codec /
+      client side and the pinning test.)*
 - [ ] **3.4.8** — Ceiling enforced inside the command constructor as a required
       parameter with explicit "none"; floor is UI-only and never reaches
-      the wire. `DevialetClient.sourceSwitchVolumeDb` **and**
-      `kStartupVolumeDb` (`lib/domain/amp_state.dart`, read through
-      `AmpState.startupVolumeTarget`) become the startup setting.
+      the wire. `DevialetClient.sourceSwitchVolumeDb` becomes the startup
+      setting for 3.8.1 (`kStartupVolumeDb` is gone: the owner already
+      reads `AmpState.startupVolumeDb` from the persisted setting).
 - [ ] **3.4.9** — Step size setting: 0.5 / 1 / 2 dB, default **1.0**.
 - [ ] **3.4.10** — Floor and ceiling mutually constrained at the point of interaction,
       **1 dB minimum gap**. Self-heal an invalid stored pair on load to
@@ -605,7 +675,8 @@ from the KDE widget's settings page.
 - [ ] **3.4.11** — "Restore Defaults" writes in constraint-safe order (**widen first**)
       so every intermediate state is valid (checklist item 10).
 - [ ] **3.4.12** — Every control persists and is verified after a real restart
-      (checklist items 8, 21).
+      (checklist items 8, 21). Also surface `SettingsNotifier.lastWriteError`
+      and `HydratedSettings.storeUnavailable` in the screen (checklist 26).
 - [ ] **3.4.13** — The clamp that a limit change applies *to the amp* is Task 3.6.6's
       (it needs the pending mask and the power/boot re-trigger); this task
       only stores and validates.
@@ -642,6 +713,11 @@ from the KDE widget's settings page.
 - [ ] **3.6.4** — Exception, by design: an actively dragged dial displays its own
       local position, not the round-tripped value; block scroll/wheel-style
       deltas entirely while a drag is in progress.
+- [ ] **3.6.4b** — When user volume sends land here, a user re-target inside the
+      post-boot hold must count as the hold's "send" (KDE `notifyVolume`
+      sets `bootHoldSent`): flip `BootInProgress.startupSent` and restart
+      the fallback from that send, so the user's value can confirm the
+      hold. Today only the machine's startup send does (3.2.4).
 - [ ] **3.6.5** — Auto-unmute on a *user* volume change (±, dial) — a client decision;
       the wire does not unmute (`docs/protocol.md`, "Volume and mute are
       independent").
@@ -684,9 +760,11 @@ from the KDE widget's settings page.
       refreshes live while open. *(Map, eviction rule and staleness exist
       since 3.0.x; remaining: the sheet watches the live list, and the
       offline-row presentation vs. hidden — 3.0.8 chose hidden.)*
-- [ ] **3.9.1** — Persist selection with **two distinct states**: "chosen X" and
+- [x] **3.9.1** — Persist selection with **two distinct states**: "chosen X" and
       "chosen nothing (None)", plus a "user has chosen" flag, so restart
       never resurrects a default the user opted out of (checklist item 4).
+      Done 2026-09-20 in Task 3.3.x (`selected_ip` + `has_explicit_selection`,
+      restored in `AmpStateOwner.build()`; the S25 restart check is 3.3.4).
 - [ ] **3.9.2** — Auto-select-if-alone: nothing selected, never chosen, exactly one amp
       known → that amp; 0 or 2+ → not-connected, don't guess.
 - [ ] **3.9.3** — Manual-IP fallback: a never-heard IP is a valid selection; no

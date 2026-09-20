@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'config/orientation_policy.dart';
 import 'domain/debug/simulated_amp.dart';
+import 'domain/settings/hydrated_settings.dart';
+import 'domain/settings/settings_store.dart';
 import 'ui/app.dart';
 
 /// Bundled fonts (pubspec.yaml `fonts:`) are OFL-licensed; the licence
@@ -16,7 +18,7 @@ const List<(String, String)> _fontLicences = [
   ('Inter', 'assets/fonts/inter/OFL.txt'),
 ];
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   OrientationPolicy.apply();
   LicenseRegistry.addLicense(() async* {
@@ -24,10 +26,16 @@ void main() {
       yield LicenseEntryWithLineBreaks([name], await rootBundle.loadString(asset));
     }
   });
+  // Settings are loaded and self-healed before anything binds (Task
+  // 3.3.2); the native launch screen covers the one platform call.
+  final hydrated = await hydrateSettings(SharedPreferencesSettingsStore.open, log: debugPrint);
   runApp(
     ProviderScope(
-      // Debug builds route commands for TEST-NET IPs to the simulated amp.
-      overrides: [if (kDebugMode) debugCommandSinkOverride],
+      overrides: [
+        hydratedSettingsProvider.overrideWithValue(hydrated),
+        // Debug builds route commands for TEST-NET IPs to the simulated amp.
+        if (kDebugMode) debugCommandSinkOverride,
+      ],
       child: const DevialetRemoteApp(),
     ),
   );

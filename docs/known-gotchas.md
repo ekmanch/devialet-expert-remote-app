@@ -210,12 +210,25 @@ and the numbering is shared across both repos and referenced by
   value. If the app needs a trustworthy post-boot volume, it has to set
   one (and see #9 for when that set is honored). Don't conflate this
   with #9: same amp-side event, two distinct consequences.
-  **Implemented 2026-09-19 (Task 3.2.x):** on a self-initiated boot
+  **Implemented 2026-09-19 (Task 3.2.x):** after a boot
   `AmpStateOwner._runBootFollowUps` sends the startup volume and the
   1500 ms display hold (the pending mask armed at confirmation) hides the
-  misreport meanwhile; an external power-on stays exposed by decision.
+  misreport meanwhile — for app-initiated boots and, since 2026-09-20
+  (3.2.5), for any Off→On observed on the selected amp.
   `test/domain/amp_state_test.dart` proves the hold with an `applyUnheld`
   counter-test that shows −42 leaking without it.
+- **Watch out #2 (found on the KDE widget and on this app the same day,
+  2026-09-20):** if the client masks the post-boot value until its own
+  set is confirmed, do not treat "status now equals the value I intend
+  to set" as that confirmation. The *first* power-on packet carries the
+  pre-shutdown byte, so whenever the amp was powered off at exactly the
+  startup volume (routine after a source switch, which sets it) the very
+  first packet already matches, the mask is released before the
+  misreport arrives, and −42 shows for the ~300 ms until the set lands.
+  Both implementations now count a match only after the set has actually
+  been sent, and measure the fallback from the send
+  (`TrackedAmp.resolvePending`, `AmpStateOwner._runBootFollowUps`; KDE
+  `PendingAmpState.qml` `bootHoldSent`).
 
 ## 9. Volume commands that reach the amp before its own post-boot startup-volume application are dropped — [Control]
 

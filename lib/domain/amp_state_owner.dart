@@ -9,6 +9,8 @@ import 'amp_tracker.dart';
 import 'control_view_state.dart';
 import 'devialet_client_provider.dart';
 import 'monotonic_clock.dart';
+import 'settings/app_settings.dart';
+import 'settings/settings_owner.dart';
 
 /// The one owner of live amp state (TODO 3.0.0; `docs/architecture.md`).
 ///
@@ -25,6 +27,18 @@ class AmpStateOwner extends Notifier<AmpState> {
   AmpState build() {
     _clock = ref.watch(monotonicClockProvider);
     _sink = ref.watch(ampCommandSinkProvider);
+    // Persisted settings (Task 3.3.x): read once for the initial state,
+    // then *listen* — a watch would rebuild this notifier and drop its
+    // subscriptions. Only the volume fields are applied from the listener;
+    // the selection is written by this owner itself, so there is no loop.
+    final settings = ref.read(settingsProvider);
+    ref.listen(settingsProvider, (_, next) {
+      state = state.copyWith(
+        floorDb: next.floorDb,
+        ceilingDb: next.ceilingDb,
+        startupVolumeDb: next.startupVolumeDb,
+      );
+    });
     final client = ref.watch(devialetClientProvider);
     client.startListening();
     final reports = client.statusReports.listen(ingest);
@@ -34,7 +48,14 @@ class AmpStateOwner extends Notifier<AmpState> {
       ticks.cancel();
       client.stopListening();
     });
-    return AmpState.initial.copyWith(now: _clock.now());
+    return AmpState.initial.copyWith(
+      now: _clock.now(),
+      selectedIp: settings.selectedIp,
+      hasExplicitSelection: settings.hasExplicitSelection,
+      floorDb: settings.floorDb,
+      ceilingDb: settings.ceilingDb,
+      startupVolumeDb: settings.startupVolumeDb,
+    );
   }
 
   Duration get _now => _clock.now();
@@ -69,7 +90,16 @@ class AmpStateOwner extends Notifier<AmpState> {
       final boot = amp.boot;
       if (boot == null || !boot.isConfirmed || boot.startupSent || now < boot.sendAt!) continue;
       final target = boot.target;
-      _arm(amp.ip, (a) => a.copyWith(boot: a.boot?.copyWith(startupSent: true)));
+      // Flip `startupSent` and restart the hold's fallback from the send
+      // (500 send + ~200 confirm + the late-application allowance); from
+      // now on a matching broadcast is a real confirmation.
+      _arm(
+        amp.ip,
+        (a) => a.copyWith(
+          boot: a.boot?.copyWith(startupSent: true),
+          pendingVolumeDb: PendingValue(a.pendingVolumeDb?.value ?? target, now + kBootHold),
+        ),
+      );
       unawaited(
         _send(
           amp.ip,
@@ -82,7 +112,17 @@ class AmpStateOwner extends Notifier<AmpState> {
 
   // ---- Selection (checklist 4: "chose None" ≠ "never chose")
 
-  void selectIp(String? ip) => state = state.copyWith(selectedIp: ip, hasExplicitSelection: true);
+  /// User intent: selects and **persists** (Task 3.9.1). `null` == None.
+  void selectIp(String? ip) {
+    seedSelection(ip);
+    ref.read(settingsProvider.notifier).setSelection(ip: ip, explicit: true);
+  }
+
+  /// Seeding / debug seam: the same state change **without persisting**,
+  /// so the simulated amp and test fixtures never write a TEST-NET address
+  /// into the real store (checklist 19). The persisted path is [selectIp].
+  void seedSelection(String? ip, {bool explicit = true}) =>
+      state = state.copyWith(selectedIp: ip, hasExplicitSelection: explicit);
 
   void selectAmp(AmpRef? amp) => selectIp(amp?.ip);
 
@@ -110,9 +150,15 @@ class AmpStateOwner extends Notifier<AmpState> {
     );
   }
 
-  /// Task 3.4.x settings plug in here.
-  void setVolumeRange({double? floorDb, double? ceilingDb}) =>
-      state = state.copyWith(floorDb: floorDb, ceilingDb: ceilingDb);
+  /// Seeding / debug seam for the dial range, **not persisted**; the
+  /// persisted path is `SettingsNotifier.setVolumeLimits`, which this
+  /// owner mirrors through its settings listener. Same validity rule.
+  void setVolumeRange({double? floorDb, double? ceilingDb}) {
+    final floor = floorDb ?? state.floorDb;
+    final ceiling = ceilingDb ?? state.ceilingDb;
+    assert(VolumeLimitRules.validPair(floor, ceiling), 'invalid volume range $floor/$ceiling');
+    state = state.copyWith(floorDb: floor, ceilingDb: ceiling);
+  }
 
   // ---- Intents: synchronous optimistic write → send → rollback on failure
 

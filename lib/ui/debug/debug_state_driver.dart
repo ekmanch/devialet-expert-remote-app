@@ -8,6 +8,7 @@ import '../control/control_keys.dart';
 import '../platform/adaptive_page_route.dart';
 import '../theme/app_theme.dart';
 import '../../domain/debug/simulated_amp.dart';
+import '../../domain/settings/hydrated_settings.dart';
 import 'debug_network_screen.dart';
 
 /// Debug-only, visible (not a hidden gesture — TODO 2.0.12) bar under the
@@ -26,6 +27,7 @@ class DebugStateDriver extends ConsumerWidget {
     final scenario = ref.watch(simulatedAmpProvider);
     final sim = ref.read(simulatedAmpProvider.notifier);
     final variant = ref.watch(uiVariantProvider);
+    final prefsOff = ref.watch(hydratedSettingsProvider).storeUnavailable;
     final mono = theme.type.mono(size: 11, letterSpacingEm: 0.04, color: t.textDim);
 
     Widget chip(Key key, String text, VoidCallback onTap) {
@@ -68,6 +70,21 @@ class DebugStateDriver extends ConsumerWidget {
             ),
           ),
           chip(ControlKeys.debugNext, '›', () => sim.cycle()),
+          if (prefsOff) ...[
+            const SizedBox(width: 8),
+            // A broken store must look broken (checklist 26): nothing persists.
+            Container(
+              key: ControlKeys.debugPrefsOff,
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                border: Border.all(color: t.warningBright),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('PREFS OFF', style: mono.copyWith(color: t.warningBright)),
+            ),
+          ],
           const SizedBox(width: 8),
           chip(ControlKeys.debugNet, 'Net', () {
             Navigator.of(context).push(

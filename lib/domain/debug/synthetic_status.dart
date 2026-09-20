@@ -74,8 +74,8 @@ void seedSelectionFromControlView(AmpStateOwner owner, ControlViewState shape) {
   if (selected != null) {
     if (selected.model != null) owner.setModelName(selected.ip, selected.model);
     if (shape.power == PowerPhase.booting) owner.markBooting(selected.ip);
-    owner.selectIp(selected.ip);
+    owner.seedSelection(selected.ip);
   } else {
-    owner.selectIp(shape.selectedIp);
+    owner.seedSelection(shape.selectedIp);
   }
 }

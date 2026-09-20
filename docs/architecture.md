@@ -19,16 +19,21 @@ the `commandsAllowed` / `powerCommandAllowed` predicates, the 500 ms
 post-boot startup-volume send and the 1500 ms display hold; **power and
 the startup volume are sent for real** through `DevialetClientCommandSink`.
 
-Deferred: persistence (3.3.x — selection is in-memory), settings-driven
-volume range and startup value (3.4.x — `kStartupVolumeDb` is the seam),
-the user's volume / mute / source sends (3.6–3.8 — those sink methods are
-no-ops), mDNS names (3.9.5), feedback (3.10.x).
+Implemented (3.3.x): the persisted, self-healed settings object
+(`lib/domain/settings/`, §14) — the owner starts from the persisted
+selection, limits and startup volume, and user selections persist (3.9.1).
+
+Deferred: the Settings screen and theme consumption (3.4.x), the wire-side
+ceiling from settings (3.4.7 / 1.1.3), the user's volume / mute / source
+sends (3.6–3.8 — those sink methods are no-ops), mDNS names (3.9.5),
+feedback (3.10.x).
 
 ## 2. Layers
 
 ```
 lib/networking/   pure Dart, zero Flutter imports: packets, codecs, UdpTransport, DevialetClient
 lib/domain/       Riverpod owner + pure model/derivation (imports riverpod, not flutter)
+lib/domain/settings/ typed settings, store adapters, hydration, settings owner (§14)
 lib/domain/debug/ synthetic status packets + the command-aware simulated amp (debug builds)
 lib/ui/           widgets; read controlViewStateProvider, call ampStateProvider.notifier
 ```
@@ -100,6 +105,12 @@ safe side of gotcha #9's measured +394 ms. Tests inject `FakeClock` /
   (auto-select-if-alone). 0 or 2+ known: nothing, don't guess.
 - A never-heard manual IP is a valid selection, shown not-connected until
   a broadcast from it arrives; staleness alone governs connectedness.
+- **Persisted** (3.9.1, done in 3.3.x) as `selected_ip` +
+  `has_explicit_selection` and restored in `AmpStateOwner.build()`, so a
+  chosen amp reconnects after a restart with no tap and "chose None" is
+  never resurrected by auto-select. Only user intents (`selectIp`,
+  `selectAmp`, `addManualAmp`) persist; `seedSelection` / `setVolumeRange`
+  are the seeding and debug seams and never touch the store (checklist 19).
 - **Silent amp (owner decision 2026-09-19, TODO 3.0.8):** presented exactly
   as no amplifier — hidden from the list, `selectedAmp == null`, footer
   "Not connected" — while `selectedIp` is untouched, so the next broadcast
@@ -127,7 +138,7 @@ the control fields; every broadcast feeds the list (3.0.5).
 | mute   | `pendingMuted`    | `status.isMuted`            | same                  |
 | power  | `pendingPower`    | `status.isPoweredOn`        | same (+ Booting overlay) |
 | source | `pendingSource`   | `status.activeSourceIndex`  | same                  |
-| post-boot hold | `pendingVolumeDb` armed with `(boot.target, confirmedAt + 1500 ms)` | `status.volumeDb == target` | the target; the −42 misreport is recorded, not shown |
+| post-boot hold | `pendingVolumeDb` armed with `(boot.target, confirmedAt + 1500 ms)`, re-armed from the send | `status.volumeDb == target` **only after the startup send went out** (the first On packet's pre-shutdown byte is never a confirmation — gotcha #8 watch-out #2) | the target; the −42 misreport is recorded, not shown |
 
 Rules: a local write arms the slot with `now + 400 ms`; a broadcast that
 equals the value clears it (confirmed); a broadcast that differs is
@@ -158,11 +169,13 @@ deadline falls back to Off; Booting → no-op, so repeats don't extend; an Off
 that is only optimistic (the amp still reports On) is cancelled without a
 boot record, so a stale On cannot "confirm" a boot. `_runBootFollowUps`,
 after every ingest and tick, sends the startup volume once per confirmed
-boot at ≥ +500 ms (`startupSent` flipped before the await), for the amp
-that was booted even if the selection moved; a failed send drops record
-and hold, no retry. An external On (front panel, remote) or a late On
-after the timeout creates no record: no send, no hold — gotcha #8 stays
-visible by decision.
+boot at ≥ +500 ms (`startupSent` flipped before the await and the hold's
+fallback restarted from the send), for the amp that was booted even if
+the selection moved; a failed send drops record and hold, no retry. An Off→On observed on the *selected* amp that this
+app did not initiate (the KDE widget, the remote, the front panel, or a
+late On after the 20 s timeout) creates an already-confirmed record in
+`AmpState.ingest` (3.2.5, owner decision 2026-09-20): same hold, same
+send, no Booting presentation. Non-selected amps get nothing.
 
 The sink is `DevialetClientCommandSink`: `setPower` and `sendStartupVolume`
 are real; `setVolumeDb` / `setMute` / `selectSource` are no-ops until Tasks
@@ -170,11 +183,15 @@ are real; `setVolumeDb` / `setMute` / `selectSource` are no-ops until Tasks
 
 ## 10. Seams
 
-- 3.3.x: persist `selectedIp` + `hasExplicitSelection`; restore before the
-  owner builds.
-- 3.4.x: `setVolumeRange` replaces `kDefaultFloorDb` / `kDefaultCeilingDb`;
-  `kStartupVolumeDb` (read through `AmpState.startupVolumeTarget`) becomes
-  the persisted startup setting (3.4.8).
+- 3.4.x: the Settings screen edits `settingsProvider`
+  (`setVolumeLimits`, `setStartupVolumeDb`, `setStepDb`, `setThemeMode`,
+  `restoreDefaults`); the amp owner mirrors limits and startup through its
+  settings listener. Theme: `AppSettings.themeMode` is stored (default
+  system) and consumed in `app.dart::wrap` by 3.4.x. Surface
+  `SettingsNotifier.lastWriteError` / `HydratedSettings.storeUnavailable`
+  in Settings (checklist 26). 3.4.7 / 1.1.3: the wire ceiling
+  (`VolumeCodec.defaultSafetyMaxDb`, −15) comes from the settings
+  ceiling (default −10).
 - 3.5.1: route every UI entry point through `commandsAllowed` /
   `powerCommandAllowed`. 3.6 / 3.7 / 3.8: flip the corresponding no-op
   method of `DevialetClientCommandSink`.
@@ -201,7 +218,10 @@ raw 111 (−42.0) until any volume command lands; volume commands within
 completes, the owner sends the startup volume to the sim, and the misreport
 is held and corrected — the whole loop without hardware. "Not responding"
 stops broadcasting and the view flips after the real 8 s; the user's
-volume / mute / source changes still revert after 400 ms (3.6–3.8).
+volume / mute / source changes still revert after 400 ms (3.6–3.8). The
+sim selects and sets the dial range through the owner's seeding seams, so
+nothing it does reaches the persisted settings; the user's choice returns
+on the next launch.
 
 ## 12. Testing
 
@@ -213,16 +233,57 @@ is pinned to the fixtures the widget state table already uses and driven
 with `tick()`. Every protective mechanism has a counter-test proving the
 positive assertion fails without it (checklist 20): the mask (`applyUnmasked`
 shows the stale broadcast leaking), the hold (`applyUnheld` shows −42
-leaking), and the startup delay (an early volume command is dropped by the
-simulated amp, as measured on the real one).
+leaking), the startup delay (an early volume command is dropped by the
+simulated amp, as measured on the real one), the explicit-selection flag
+(a store that drops it lets auto-select resurrect a "None"), the heal (an
+inverted pair bound unhealed leaks into the view) and the seeding seam
+(the user intent, unlike the seam, lands in the store).
+
+## 14. Settings (`lib/domain/settings/`)
+
+- `app_settings.dart`: `AppSettings` (one typed object, 3.3.1), keys,
+  defaults, `load(Map)` (typed read: a mistyped or unknown value is the
+  default plus a repair; an int for a dB key is accepted), `healed()`.
+- `settings_store.dart`: `SettingsStore` interface; `InMemorySettingsStore`
+  (tests, and the fallback); `SharedPreferencesSettingsStore` (3.3.0:
+  `SharedPreferences` on Android, `UserDefaults` on iOS) — the only file
+  importing the plugin.
+- `hydrated_settings.dart`: `hydrateSettings()` runs in `main()` before
+  `runApp`: open → load → heal → write repairs back; an unopenable store
+  falls back to defaults on an in-memory store with `storeUnavailable`
+  set (the debug bar shows `PREFS OFF`; Settings surfaces it in 3.4.x).
+  `hydratedSettingsProvider` throws unless overridden (required injection).
+- `settings_owner.dart`: `SettingsNotifier` — intents update state
+  synchronously and persist the changed keys in a constraint-safe order
+  (widen first when both limits move); refused writes return a reason;
+  a failed write keeps the value and sets `lastWriteError`;
+  `restoreDefaults` never touches the selection.
+
+| key | type | default | rule |
+|---|---|---|---|
+| `volume_floor_db` | double | −50 | −96..0 |
+| `volume_ceiling_db` | double | −10 | −96..0; `ceiling − floor ≥ 1`, else the pair heals to −40/−39 |
+| `startup_volume_db` | double | −40 | −96..0; clamped to the limits at use, never rewritten |
+| `volume_step_db` | double | 1.0 | 0.5 / 1 / 2 |
+| `theme_mode` | string | system | system / dark / light |
+| `selected_ip` | string | absent | non-empty; removed when the flag is false |
+| `has_explicit_selection` | bool | false | "chose X" / "chose None" / "never chose" |
+
+Each dB value is brought into range before the pair is judged (checklist
+10). The settings ceiling default is −10 while `VolumeCodec` still clamps
+the wire at −15 (until 3.4.7 / 1.1.3).
 
 ## 13. Checklist mapping
 
 1 mask in the owner keyed on send time (§8) · 2 one owner, no view copies
 (§3) · 3 synchronous write + rollback (§9) · 4 explicit-selection flag (§6)
 · 5 `hasAmp` before any reading (§7) · 6 gate from one predicate (§9) ·
-7 confirmed channel + boot seam (§3, §10) · 12/13 re-derive from the whole
-status on every ingest (§4, §7) · 19 fakes against disposable containers
-(§12) · 20 the unmasked counter-test (§8) · 27 TEST-NET fixtures (§11) ·
-28 the mask and the gate live in the one function everything passes
-through (§8, §9).
+7 confirmed channel + boot seam (§3, §10) · 8 every setting stored on
+change, read back on open (§14) · 9 stateless intents, the owner writes
+back (§14) · 10 widen-first writes and in-range-before-pair healing (§14)
+· 12/13 re-derive from the whole status on every ingest (§4, §7) · 19
+fakes against disposable containers, seeding never persists (§12, §6) ·
+20 the counter-tests (§12) · 21 the S25 kill-and-relaunch script (TODO
+3.3.4) · 26 a broken store looks broken (§14) · 27 TEST-NET fixtures (§11)
+· 28 the mask, the gate and the heal live in one function each (§8, §9,
+§14).

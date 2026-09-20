@@ -5,9 +5,11 @@ import 'package:devialet_expert_remote_app/domain/amp_state_owner.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
 import 'package:devialet_expert_remote_app/domain/devialet_client_provider.dart';
 import 'package:devialet_expert_remote_app/domain/monotonic_clock.dart';
+import 'package:devialet_expert_remote_app/domain/settings/hydrated_settings.dart';
 import 'package:devialet_expert_remote_app/domain/debug/simulated_amp.dart';
 
 import '../../domain/support/fake_time.dart';
+import '../../domain/support/settings_support.dart';
 import '../../networking/fake_udp_transport.dart';
 
 void main() {
@@ -23,6 +25,7 @@ void main() {
         devialetTransportProvider.overrideWithValue(FakeUdpTransport()),
         monotonicClockProvider.overrideWithValue(clock),
         staleTickProvider.overrideWithValue(ticker.stream),
+        hydratedSettingsProvider.overrideWithValue(testHydrated()),
         debugCommandSinkOverride,
       ],
     );

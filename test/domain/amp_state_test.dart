@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:devialet_expert_remote_app/domain/amp_state.dart';
 import 'package:devialet_expert_remote_app/domain/amp_tracker.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
+import 'package:devialet_expert_remote_app/domain/settings/app_settings.dart';
 import 'package:devialet_expert_remote_app/networking/devialet_client.dart';
 
 import 'support/status_fixtures.dart';
@@ -36,7 +37,7 @@ void main() {
       expect(v.volumeDb, -25.0);
       expect(v.sources, const [SourceItem(index: 0, name: 'Optical 1'), SourceItem(index: 3, name: 'AirPlay')]);
       expect(v.activeSourceIndex, 3);
-      expect((v.floorDb, v.ceilingDb), (kDefaultFloorDb, kDefaultCeilingDb));
+      expect((v.floorDb, v.ceilingDb), (AppSettings.defaults.floorDb, AppSettings.defaults.ceilingDb));
       expect(v.hasAmp, isTrue);
     });
 
@@ -254,8 +255,27 @@ void main() {
       expect(deriveControlView(s).volumeDb, -42.0, reason: 'exactly the leak the held test forbids');
     });
 
-    test('the hold releases on a confirming push equal to the target', () {
+    test('regression (S25 2026-09-20): a first On packet already at the target does not release the hold', () {
+      // The amp was powered off at −40, so the pre-shutdown byte equals the target.
+      var s = AmpState.initial.ingest(reportFrom(amp1, power: false, volumeDb: -40), ms(0))
+          .copyWith(selectedIp: amp1, hasExplicitSelection: true);
+      s = arm(s, amp1, (a) => a.copyWith(boot: BootInProgress(deadline: ms(0) + kBootTimeout, target: -40)));
+      s = s.ingest(reportFrom(amp1, power: true, volumeDb: -40), ms(16000));
+      expect(s.amps[amp1]!.pendingVolumeDb, isNotNull, reason: 'the stale byte is not a confirmation');
+      s = s.ingest(reportFrom(amp1, power: true, volumeDb: -42), ms(16200));
+      expect(deriveControlView(s).volumeDb, -40.0, reason: 'the misreport must not flash');
+      // A matching byte still counts for nothing until the send went out…
+      s = s.ingest(reportFrom(amp1, power: true, volumeDb: -40), ms(16400));
+      expect(s.amps[amp1]!.pendingVolumeDb, isNotNull);
+      // …and releases as soon as it has.
+      s = arm(s, amp1, (a) => a.copyWith(boot: a.boot!.copyWith(startupSent: true)));
+      s = s.ingest(reportFrom(amp1, power: true, volumeDb: -40), ms(16800));
+      expect(s.amps[amp1]!.pendingVolumeDb, isNull);
+    });
+
+    test('the hold releases on a confirming push equal to the target once the send is out', () {
       var s = booted().ingest(reportFrom(amp1, power: true, volumeDb: -42), ms(16200));
+      s = arm(s, amp1, (a) => a.copyWith(boot: a.boot!.copyWith(startupSent: true)));
       s = s.ingest(reportFrom(amp1, power: true, volumeDb: -40), ms(16800));
       expect(s.amps[amp1]!.pendingVolumeDb, isNull);
       s = s.ingest(reportFrom(amp1, power: true, volumeDb: -41), ms(17000));
@@ -281,14 +301,31 @@ void main() {
       expect(s.amps[amp1]!.boot, isNull);
     });
 
-    test('a late On after the timeout is plain On: no record, no hold', () {
+    test('a late On after the timeout is plain On (never Booting) and is treated as an observed boot', () {
       var s = AmpState.initial.ingest(reportFrom(amp1, power: false), ms(0)).copyWith(selectedIp: amp1, hasExplicitSelection: true);
       s = arm(s, amp1, (a) => a.copyWith(boot: BootInProgress(deadline: ms(0) + kBootTimeout, target: -40)));
       s = s.tick(ms(20000));
+      expect(s.amps[amp1]!.boot, isNull, reason: 'the self-initiated record timed out');
       s = s.ingest(reportFrom(amp1, power: true, volumeDb: -42), ms(25000));
       expect(deriveControlView(s).power, PowerPhase.on);
-      expect(deriveControlView(s).volumeDb, -42.0);
-      expect(s.amps[amp1]!.boot, isNull);
+      expect(deriveControlView(s).volumeDb, -40.0, reason: 'held; the follow-ups are owed for any observed boot (3.2.5)');
+      expect(s.amps[amp1]!.boot!.isConfirmed, isTrue);
+    });
+
+    test('an observed Off→On on the selected amp creates an already-confirmed boot record (3.2.5)', () {
+      var s = AmpState.initial.ingest(reportFrom(amp1, power: false, volumeDb: -40), ms(0)).copyWith(selectedIp: amp1, hasExplicitSelection: true);
+      s = s.ingest(reportFrom(amp1, power: true, volumeDb: -40), ms(1000));
+      final boot = s.amps[amp1]!.boot!;
+      expect(boot.isConfirmed, isTrue);
+      expect(boot.confirmedAt, ms(1000));
+      expect(boot.target, -40.0);
+      expect(s.amps[amp1]!.pendingVolumeDb, PendingValue(-40.0, ms(1000) + kBootHold));
+      expect(deriveControlView(s).power, PowerPhase.on, reason: 'never Booting for an external boot');
+      // Not for an amp that is not the effective selection.
+      var t = AmpState.initial.ingest(reportFrom(amp1), ms(0)).ingest(reportFrom(amp2, power: false), ms(0))
+          .copyWith(selectedIp: amp1, hasExplicitSelection: true);
+      t = t.ingest(reportFrom(amp2, power: true), ms(1000));
+      expect(t.amps[amp2]!.boot, isNull);
     });
 
     test('startupVolumeTarget is the −40 constant clamped to the range', () {

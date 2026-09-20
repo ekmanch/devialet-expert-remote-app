@@ -9,11 +9,15 @@ import 'package:devialet_expert_remote_app/domain/debug/simulated_amp.dart';
 import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
 import 'package:devialet_expert_remote_app/domain/devialet_client_provider.dart';
 import 'package:devialet_expert_remote_app/domain/monotonic_clock.dart';
+import 'package:devialet_expert_remote_app/domain/settings/app_settings.dart';
+import 'package:devialet_expert_remote_app/domain/settings/hydrated_settings.dart';
+import 'package:devialet_expert_remote_app/domain/settings/settings_store.dart';
 import 'package:devialet_expert_remote_app/ui/app.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_screen.dart';
 import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
 
 import '../../domain/support/fake_time.dart';
+import '../../domain/support/settings_support.dart';
 import '../../networking/fake_udp_transport.dart';
 
 /// Galaxy S25-ish logical size; the mockups are 390 wide.
@@ -25,13 +29,20 @@ const Size tabletLandscape = Size(1024, 768);
 /// and off the wall clock: a fake transport (no socket), a frozen clock
 /// (pending values never expire unless a test advances it) and no stale
 /// tick. [variant] is left to the real resolver when null.
-Widget hermeticApp({UiVariant? variant, FakeClock? clock, Stream<void>? ticks}) {
+Widget hermeticApp({
+  UiVariant? variant,
+  FakeClock? clock,
+  Stream<void>? ticks,
+  InMemorySettingsStore? settingsStore,
+  AppSettings? initialSettings,
+}) {
   return ProviderScope(
     overrides: [
       if (variant != null) uiVariantProvider.overrideWithValue(variant),
       devialetTransportProvider.overrideWithValue(FakeUdpTransport()),
       monotonicClockProvider.overrideWithValue(clock ?? FakeClock()),
       staleTickProvider.overrideWithValue(ticks ?? const Stream<void>.empty()),
+      hydratedSettingsProvider.overrideWithValue(testHydrated(store: settingsStore, initial: initialSettings)),
       // The hermetic app is the debug app: TEST-NET commands go to the
       // (inactive) simulated amp, real IPs would go to the fake socket.
       debugCommandSinkOverride,

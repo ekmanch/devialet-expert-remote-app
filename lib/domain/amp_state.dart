@@ -1,18 +1,6 @@
 import '../networking/devialet_client.dart' show AmpStatusReport;
-import '../networking/volume_codec.dart';
 import 'amp_tracker.dart';
 import 'control_view_state.dart';
-
-/// Dial range until Task 3.4.x's settings object replaces them.
-const double kDefaultFloorDb = -50.0;
-const double kDefaultCeilingDb = VolumeCodec.defaultSafetyMaxDb;
-
-/// Startup volume sent 500 ms after a self-initiated boot confirms
-/// (Task 3.2.2). The same number `DevialetClient.sourceSwitchVolumeDb`
-/// forces after a source switch; Task 3.4.8 replaces both with the
-/// persisted startup setting. Always read through
-/// [AmpState.startupVolumeTarget], which clamps it.
-const double kStartupVolumeDb = -40.0;
 
 const Object _unset = Object();
 
@@ -28,15 +16,22 @@ class AmpState {
     required this.now,
     required this.floorDb,
     required this.ceilingDb,
+    required this.startupVolumeDb,
   });
 
+  /// Defaults mirror `AppSettings.defaults`; the owner overrides them with
+  /// the persisted settings on build (Task 3.3.x). Note the settings
+  /// ceiling default is −10 while `VolumeCodec.defaultSafetyMaxDb` still
+  /// clamps the wire at −15 until Task 3.4.7 / 1.1.3 — harmless until
+  /// user volume is sent (Task 3.6).
   static const AmpState initial = AmpState(
     amps: <String, TrackedAmp>{},
     selectedIp: null,
     hasExplicitSelection: false,
     now: Duration.zero,
-    floorDb: kDefaultFloorDb,
-    ceilingDb: kDefaultCeilingDb,
+    floorDb: -50.0,
+    ceilingDb: -10.0,
+    startupVolumeDb: -40.0,
   );
 
   /// Keyed by sender IP. **Never evicted**: a silent amp flips offline via
@@ -50,8 +45,14 @@ class AmpState {
 
   /// Monotonic clock reading at the last ingest/tick.
   final Duration now;
+
+  /// From the persisted settings (`AppSettings`); the floor is UI-only.
   final double floorDb;
   final double ceilingDb;
+
+  /// Sent 500 ms after a self-initiated boot confirms (Task 3.2.2) and,
+  /// later, after every source switch (Task 3.8.1). Persisted setting.
+  final double startupVolumeDb;
 
   /// The amp whose broadcasts drive the control state: the explicit
   /// selection, or — only if the user never chose — the sole known amp
@@ -68,20 +69,37 @@ class AmpState {
 
   bool get selectedOnline => selectedAmp?.isOnlineAt(now) ?? false;
 
-  /// The one seam for the post-boot volume (Task 3.4.8 supplies the value).
-  double get startupVolumeTarget => kStartupVolumeDb.clamp(floorDb, ceilingDb);
+  /// The post-boot volume, clamped to the limits in force (the setting
+  /// itself is never rewritten by a limit change).
+  double get startupVolumeTarget => startupVolumeDb.clamp(floorDb, ceilingDb);
 
   /// Every broadcast feeds the map; pending slots, boot deadline and model
   /// name are carried forward (a broadcast must not wipe an armed mask),
   /// then resolved against the new report.
   AmpState ingest(AmpStatusReport report, Duration now) {
     final previous = amps[report.senderIp];
+    var boot = previous?.boot;
+    // Task 3.2.5 (owner decision 2026-09-20, reversing 3.2.2's "not on an
+    // external power-on"): an Off→On observed on the *selected* amp that
+    // this app did not initiate (the KDE widget, the remote, the front
+    // panel) gets the same post-boot follow-ups. The record is created
+    // here, due for confirmation by this very packet, so `resolvePending`
+    // arms the hold and the owner sends the startup volume at +500 ms —
+    // the only thing that re-syncs the amp's misreporting broadcast
+    // (gotcha #8). Consequence: the app then sets its startup volume after
+    // a front-panel boot too, overriding one configured in the amp itself.
+    final externalPowerOn = boot == null &&
+        previous != null &&
+        !previous.status.isPoweredOn &&
+        report.status.isPoweredOn &&
+        report.senderIp == effectiveIp;
+    if (externalPowerOn) boot = BootInProgress(deadline: now, target: startupVolumeTarget);
     final next = TrackedAmp(
       ip: report.senderIp,
       status: report.status,
       lastSeen: now,
       modelName: previous?.modelName,
-      boot: previous?.boot,
+      boot: boot,
       pendingVolumeDb: previous?.pendingVolumeDb,
       pendingMuted: previous?.pendingMuted,
       pendingPower: previous?.pendingPower,
@@ -109,6 +127,7 @@ class AmpState {
     Duration? now,
     double? floorDb,
     double? ceilingDb,
+    double? startupVolumeDb,
   }) {
     return AmpState(
       amps: amps ?? this.amps,
@@ -117,6 +136,7 @@ class AmpState {
       now: now ?? this.now,
       floorDb: floorDb ?? this.floorDb,
       ceilingDb: ceilingDb ?? this.ceilingDb,
+      startupVolumeDb: startupVolumeDb ?? this.startupVolumeDb,
     );
   }
 }
