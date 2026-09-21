@@ -123,7 +123,25 @@ class ControlViewState {
 
   /// Task 3.2.1: the one predicate every non-power entry point gates
   /// through — the amp drops commands unless it is On and reachable.
-  /// Task 3.5.1 enumerates the UI entry points.
+  ///
+  /// Task 3.5.1 — every entry point, enumerated (checklist items 6, 28):
+  ///
+  /// | Entry point            | Widget gate                                   | Owner gate      |
+  /// |------------------------|-----------------------------------------------|-----------------|
+  /// | dial drag / snap       | `VolumeDial.enabled` + `DimmedGroup(dialWrap)` | `setVolumeDb`   |
+  /// | VOL − / +              | `VolumeButtons.enabled` + `DimmedGroup(dialWrap)` | `stepVolume` |
+  /// | mute                   | `MuteButton.enabled` + two `DimmedGroup`s      | `toggleMute`    |
+  /// | power                  | `PowerButton.enabled` ([powerCommandAllowed])  | `togglePower`   |
+  /// | source trigger         | `DimmedGroup(sourceTrigger, blockTaps: hasAmp)` | — (opens a sheet) |
+  /// | source sheet rows      | `DimmedGroup(sourceRows)` + row `enabled`      | `selectSource`  |
+  /// | amp sheet rows / None / manual IP | none, by design                     | none — selection is not an amp command |
+  /// | device card, gear      | always live (open a sheet / Settings)          | —               |
+  /// | hardware keys / Shortcuts / Actions / Semantics actions | none exist  | —               |
+  /// | debug bar              | `kDebugMode`; drives `ingest`, not intents     | bypassed by design |
+  ///
+  /// Boundary: the widget flags cover pointer input; the owner's check on
+  /// this predicate is the structural guarantee for every programmatic
+  /// caller; the debug bar is outside both on purpose.
   bool get commandsAllowed => hasAmp && power == PowerPhase.on;
 
   /// Power is live while Off or On and inert while Booting.

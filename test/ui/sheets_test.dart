@@ -1,8 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:devialet_expert_remote_app/domain/amp_state_owner.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
+import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
+import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
 
 import 'support/pump_control.dart';
 
@@ -98,6 +101,52 @@ void main() {
       expect(textAt(tester, ControlKeys.dialSourceLabel), 'AIRPLAY');
       expect(readState(tester).activeSourceIndex, 3);
     });
+
+    for (final scenario in [DebugScenario.off, DebugScenario.booting]) {
+      testWidgets(
+        'rows dim and go inert when the amp goes ${scenario.name} while the sheet is open; live again on On',
+        (tester) async {
+          bool rowEnabled(String name) => tester
+              .widget<AdaptivePressable>(
+                find.ancestor(of: find.text(name), matching: find.byType(AdaptivePressable)).first,
+              )
+              .enabled;
+
+          await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+          await tester.tap(find.byKey(ControlKeys.sourceTrigger));
+          await tester.pumpAndSettle();
+          expect(opacityAt(tester, ControlKeys.sourceRows), 1.0);
+          expect(rowEnabled('AirPlay'), isTrue);
+
+          // The amp goes Off / Booting under the open sheet (Task 3.5.1).
+          final notifier = containerOf(tester).read(ampStateProvider.notifier);
+          seedFromControlView(notifier, ControlViewState.forScenario(scenario));
+          await tester.pump();
+          expect(opacityAt(tester, ControlKeys.sourceRows), 0.4);
+          expect(rowEnabled('AirPlay'), isFalse);
+          expect(find.text('AirPlay'), findsOneWidget, reason: 'dim, don\'t blank');
+          // The row sits under an IgnorePointer, so the tap is expected to
+          // miss; Booting animates forever, so a bounded pump, not settle.
+          await tapRow(tester, 'AirPlay', warnIfMissed: false);
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.text('Select source'), findsOneWidget, reason: 'the sheet stays open');
+          expect(readState(tester).activeSourceIndex, 0);
+
+          // Counter-test (checklist 20): the same tap on the same row pops the
+          // sheet and selects once the gate re-opens — so the sheet staying
+          // open above is the widget gate's doing, not the owner's (whose
+          // check would still have let the unconditional pop run).
+          seedFromControlView(notifier, ControlViewState.forScenario(DebugScenario.connected));
+          await tester.pump();
+          expect(opacityAt(tester, ControlKeys.sourceRows), 1.0);
+          expect(rowEnabled('AirPlay'), isTrue);
+          await tapRow(tester, 'AirPlay');
+          await tester.pumpAndSettle();
+          expect(find.text('Select source'), findsNothing);
+          expect(readState(tester).activeSourceIndex, 3);
+        },
+      );
+    }
 
     testWidgets('long names elide in the trigger instead of overflowing', (tester) async {
       final state = ControlViewState.connectedFixture.copyWith(

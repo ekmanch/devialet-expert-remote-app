@@ -178,7 +178,10 @@ the raw datagrams directly, which covers the inbound side.
       confirmation can simply never arrive (fall back to the optimistic
       value, don't wait forever) and the 8 s staleness rule is fine.
       Method: `tool/protocol_probe/listen.py` ported to a debug screen, or
-      just the Task 1 debug scaffold counting packets per 30 s.
+      just the Task 1 debug scaffold counting packets per 30 s. Data point
+      2026-09-21 (Task 3.5.2, change-only trace so not a packet count):
+      in six 30 s post-boot windows the S25 missed the +200 ms broadcast
+      twice, never a first On packet, and never went "Not connected".
 - [x] **Accepted limitation (owner, 2026-09-20): a power-on started by
       another client shows as "Off" until the amp reports On.** The phone
       cannot see another client's unicast command, and the amp's broadcast
@@ -351,6 +354,8 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
         the v19 mockup side by side (fonts, sizes, spacing, colours);
       - glyph coverage of ◉ ◫ ◍ ◈ ◐ ◇ ⌨ ✓ in the trigger and the sheets
         (tofu → replace with painted icons in `stroke_icons.dart`);
+        ✔ 2026-09-21 S25 screenshots (Android variant): the source
+        sheet's ◉ ◫ ◍ ◈ ◐ ◇ ✓ all render; ⌨ and the iOS variant unchecked;
       - dial: drag feel around the ring, the bottom dead zone, a press on
         the readout doing nothing, −/+ taps; readout following the finger;
       - press feedback: Android ripple, iOS spring scale; the power
@@ -557,8 +562,10 @@ gotchas #1/#2 one input at a time.
       (widget + app) both send −40 — identical value, harmless, but if
       their startup settings differ the last sender wins. Non-selected amps
       get nothing. Counter-run: with the rule removed the external-boot
-      tests show −42 and no send. **Owner to re-check on the S25:** boot
-      from the widget and watch the phone stay at −40.
+      tests show −42 and no send. Re-checked on the S25 2026-09-21 (Task
+      3.5.2, trials D and E): two harness-initiated boots with the KDE
+      daemon stopped — the phone held −40.0, sent the startup volume at
+      +572 / +615 ms and the amp applied it by +800 ms.
 
 ### 3.3.x — Settings persistence layer
 
@@ -716,22 +723,60 @@ from the KDE widget's settings page.
 
 ## Task 3.5.x — Power / boot wiring (depends on 3.2.x)
 
-- [ ] **3.5.0** — Power button → owner → `powerOn` / `powerOff`; Booting presentation
+- [x] **3.5.0** — Power button → owner → `powerOn` / `powerOff`; Booting presentation
       from Task 2.0.0 driven by the machine; Booting is entered only on a
       self-initiated power-on. *(Already true since 3.2.0 — the button calls
-      `togglePower`, which sends for real; what remains here is a UI pass:
-      label/dot states verified against the real amp.)*
-- [ ] **3.5.1** — Every control except power is disabled while Off or Booting (the amp
+      `togglePower`, which sends for real.)* Done 2026-09-21: UI pass
+      through six real boots on the S25 (screenshots, Android variant) —
+      Off = hollow dot / "Power On" / everything else dimmed with the
+      last value kept; Booting = spinner + "Powering on…" + "Booting…" +
+      pulsing dot for the whole ~16 s, a repeat tap sends nothing; first
+      On = "Power Off", copper dot, all groups un-dim in one frame, dial
+      −40.0 at once; an external boot shows plain Off, never Booting.
+      Report: `docs/protocol-verification-2026-09-21-boot.md`.
+- [x] **3.5.1** — Every control except power is disabled while Off or Booting (the amp
       drops commands in those states); power is live while Off, disabled
       while Booting. **Enumerate every entry point** (buttons, dial drag,
       mute, source sheet, amp sheet, any hardware-key passthrough) and
-      route each through the one predicate (checklist item 6). *(The
-      predicates are `ControlViewState.commandsAllowed` /
-      `powerCommandAllowed` since 3.2.1; the owner already gates its
-      intents on them, so this task is about the widgets' own enabling.)*
-- [ ] **3.5.2** — Startup-volume send and post-boot display hold observed end-to-end
+      route each through the one predicate (checklist item 6). Done
+      2026-09-21; the enumeration lives as a table above
+      `ControlViewState.commandsAllowed`. Audit result: dial, mute, power
+      and the source trigger were already gated at the widget **and** the
+      owner; two gaps closed — **VOL −/+ had no `enabled` of their own**
+      (only the ancestor `DimmedGroup`; `VolumeButtons.enabled` now, with
+      `test/ui/volume_buttons_test.dart` proving the flag alone stops the
+      callback and its `enabled: true` counter-half proving the tap
+      otherwise lands) and **source-sheet rows stayed live if the amp
+      went Off / Booting under an open sheet** (owner decision 2026-09-21:
+      rows dim to 0.4 and go inert in place, sheet stays open — 3.8.2's
+      auto-close is untouched; `sheets_test.dart` flips the state under
+      the open sheet and its counter-half shows the same tap popping the
+      sheet once the gate re-opens, which the owner-only gate would never
+      have prevented). Recorded as *not* gates: amp-sheet rows / None /
+      manual IP (selection is not an amp command), the device card and
+      the gear; no hardware-key, `Shortcuts`, `Actions` or semantics
+      action path exists; the debug bar drives `ingest`, not intents.
+      Counter-run: with both new widget gates removed, 12 tests go red.
+      Verified live on the S25 with the sheet open across a harness
+      power cycle (report, trial E).
+- [x] **3.5.2** — Startup-volume send and post-boot display hold observed end-to-end
       on the real amp: raw UDP capture next to the app, ≥ 3 boots, report
-      recorded here (checklist item 22).
+      recorded here (checklist item 22). Done 2026-09-21 —
+      `docs/protocol-verification-2026-09-21-boot.md`, captures in
+      `docs/captures/2026-09-21-boot-verification{,-app}.txt`. Six boots
+      (one control with the app stopped: raw 111 persisted 30 s, nothing
+      corrected it; three app-initiated; two external with the app
+      watching; the KDE daemon stopped for the run). On all five
+      app-observed boots the display went to −40.0 on the first On packet
+      and never showed −42; the startup send went out at +555…+615 ms
+      and the amp applied it by the +800 ms broadcast (5/5); every hold
+      released on the real confirmation at +776…+822 ms, the 1500 ms
+      fallback never fired; the 3.2.4 case (powered off at −40) held
+      correctly on hardware. Boot time 15.0 s ×3 (harness power-on) /
+      16.0–16.1 s ×3 (app power-on). Tooling added for it and for every
+      later live check: a `kDebugMode`-only `[amp]` trace over logcat
+      (`lib/domain/amp_trace.dart`, `docs/architecture.md` §15) and
+      `tool/protocol_probe/run5_boot.py`. Hands-free over wireless adb.
 
 ## Task 3.6.x — Volume wiring: buttons + dial (depends on 3.1.x, 3.4.x)
 

@@ -4,7 +4,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'config/orientation_policy.dart';
+import 'domain/amp_trace.dart';
 import 'domain/debug/simulated_amp.dart';
+import 'domain/monotonic_clock.dart';
 import 'domain/settings/hydrated_settings.dart';
 import 'domain/settings/settings_store.dart';
 import 'ui/app.dart';
@@ -33,8 +35,10 @@ Future<void> main() async {
     ProviderScope(
       overrides: [
         hydratedSettingsProvider.overrideWithValue(hydrated),
-        // Debug builds route commands for TEST-NET IPs to the simulated amp.
+        // Debug builds route commands for TEST-NET IPs to the simulated amp
+        // and narrate the owner to logcat (`[amp]` lines, Task 3.5.2).
         if (kDebugMode) debugCommandSinkOverride,
+        if (kDebugMode) ampTraceProvider.overrideWith((ref) => AmpTrace(debugPrint, ref.watch(monotonicClockProvider))),
       ],
       child: const DevialetRemoteApp(),
     ),

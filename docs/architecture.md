@@ -195,9 +195,11 @@ are real; `setVolumeDb` / `setMute` / `selectSource` are no-ops until Tasks
   The wire ceiling is a **required** parameter (1.1.3) that
   `DevialetClientCommandSink` reads from the settings ceiling at send time.
   `restoreDefaults()` exists without a row (3.4.11 deferred).
-- 3.5.1: route every UI entry point through `commandsAllowed` /
-  `powerCommandAllowed`. 3.6 / 3.7 / 3.8: flip the corresponding no-op
-  method of `DevialetClientCommandSink`.
+- 3.5.1 (done 2026-09-21): every UI entry point is gated at the widget
+  *and* through `commandsAllowed` / `powerCommandAllowed` in the owner —
+  the enumeration is the table above `ControlViewState.commandsAllowed`.
+  3.6 / 3.7 / 3.8: flip the corresponding no-op method of
+  `DevialetClientCommandSink` (and add its `send …` trace line, §15).
 - 3.9.5: `setModelName(ip, model)`.
 - 3.10.x: `confirmedAmpStateProvider`.
 
@@ -289,5 +291,46 @@ back (§14) · 10 widen-first writes and in-range-before-pair healing (§14)
 fakes against disposable containers, seeding never persists (§12, §6) ·
 20 the counter-tests (§12) · 21 the S25 kill-and-relaunch script (TODO
 3.3.4) · 26 a broken store looks broken (§14) · 27 TEST-NET fixtures (§11)
-· 28 the mask, the gate and the heal live in one function each (§8, §9,
-§14).
+· 22 the debug trace next to a raw capture (§15) · 28 the mask, the
+gate and the heal live in one function each (§8, §9, §14); the widget
+gates are the pointer-layer belt on top (3.5.1).
+
+## 15. Debug trace (`lib/domain/amp_trace.dart`)
+
+`ampTraceProvider` gives the owner and the real command sink an
+`AmpTrace`: one line per event on the owner's monotonic clock,
+`[amp] <ms>ms <event> k=v …`. The default is `AmpTrace.none`; `main.dart`
+overrides it with `debugPrint` under `kDebugMode` (so it reads over
+`adb logcat -s flutter`) and release builds trace nothing — every call
+site checks `enabled` before doing any diffing. `lib/domain/` stays free
+of Flutter imports because the emitter is injected.
+
+What is traced, and where:
+
+- `send power` / `send startupVolume` — inside the two real methods of
+  `DevialetClientCommandSink`, *before* the await, so the timestamp is
+  the send instant. The display-only stubs (3.6/3.7/3.8) trace nothing
+  until they are flipped; the simulated amp is never traced (the routing
+  sink sits outside it). `send failed` from the owner's catch
+  (checklist 17: a dead route, not a dropped packet).
+- `rx power= raw= db=` — the selected amp's broadcast, only when power
+  or the raw volume byte changed (change-only keeps `debugPrint`
+  throttling irrelevant).
+- `boot booting` (`markBooting`), `boot confirmed` / `boot
+  observed-external` / `boot timeout` and `hold released
+  reason=confirmed|fallback sinceOnMs=` — diffed in the owner between
+  the amp before and after `ingest` / `tick`. The release reason
+  re-derives `PendingValue.isConfirmedBy` for reporting only;
+  `resolvePending` stays the one implementation.
+- `boot startup-send sinceOnMs=` — in `_runBootFollowUps`, the app-side
+  offset a live report needs.
+- `view power= db= muted= hasAmp=` — after every state write (`_arm`,
+  `ingest`, `tick`, selection), when the *displayed* values changed: what
+  the dial showed, from the same derivation the UI renders. A held −42
+  therefore never produces a `view` line, which the owner tests pin.
+
+Tests capture lines through a provider override
+(`amp_state_owner_test.dart`, `traced: true`); the format and the
+"real sends only" rule are pinned in `amp_trace_test.dart`. First used
+for `docs/protocol-verification-2026-09-21-boot.md` (Task 3.5.2).
+

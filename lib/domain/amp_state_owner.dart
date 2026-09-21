@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../networking/devialet_client.dart';
 import 'amp_command_sink.dart';
 import 'amp_state.dart';
+import 'amp_trace.dart';
 import 'amp_tracker.dart';
 import 'control_view_state.dart';
 import 'devialet_client_provider.dart';
@@ -22,22 +23,20 @@ import 'settings/settings_owner.dart';
 class AmpStateOwner extends Notifier<AmpState> {
   late MonotonicClock _clock;
   late AmpCommandSink _sink;
+  late AmpTrace _trace;
 
   @override
   AmpState build() {
     _clock = ref.watch(monotonicClockProvider);
     _sink = ref.watch(ampCommandSinkProvider);
+    _trace = ref.watch(ampTraceProvider);
     // Persisted settings (Task 3.3.x): read once for the initial state,
     // then *listen* — a watch would rebuild this notifier and drop its
     // subscriptions. Only the volume fields are applied from the listener;
     // the selection is written by this owner itself, so there is no loop.
     final settings = ref.read(settingsProvider);
     ref.listen(settingsProvider, (_, next) {
-      state = state.copyWith(
-        floorDb: next.floorDb,
-        ceilingDb: next.ceilingDb,
-        startupVolumeDb: next.startupVolumeDb,
-      );
+      state = state.copyWith(floorDb: next.floorDb, ceilingDb: next.ceilingDb, startupVolumeDb: next.startupVolumeDb);
     });
     final client = ref.watch(devialetClientProvider);
     client.startListening();
@@ -67,13 +66,93 @@ class AmpStateOwner extends Notifier<AmpState> {
   /// The single entry point for broadcasts: the socket, the debug
   /// simulated amp and test seeding all come through here.
   void ingest(AmpStatusReport report) {
+    final ip = report.senderIp;
+    final before = _trace.enabled ? state.amps[ip] : null;
+    final view = _viewIfTracing;
     state = state.ingest(report, _now);
+    if (_trace.enabled) {
+      final after = state.amps[ip]!;
+      if (ip == state.effectiveIp &&
+          (before == null ||
+              before.status.isPoweredOn != after.status.isPoweredOn ||
+              before.status.volumeRaw != after.status.volumeRaw)) {
+        _trace('rx', {
+          'ip': ip,
+          'power': after.status.isPoweredOn ? 'on' : 'off',
+          'raw': after.status.volumeRaw,
+          'db': after.status.volumeDb,
+        });
+      }
+      _traceBoot(before, after);
+    }
+    _traceViewChange(view);
     _runBootFollowUps();
   }
 
   void _onTick() {
+    final before = _trace.enabled
+        ? {
+            for (final e in state.amps.entries)
+              if (e.value.boot != null || e.value.pendingVolumeDb != null) e.key: e.value,
+          }
+        : const <String, TrackedAmp>{};
+    final view = _viewIfTracing;
     state = state.tick(_now);
+    for (final e in before.entries) {
+      _traceBoot(e.value, state.amps[e.key]);
+    }
+    _traceViewChange(view);
     _runBootFollowUps();
+  }
+
+  // ---- Debug trace (Task 3.5.2; `docs/architecture.md`, "Debug trace").
+  // Diffs are computed only while tracing; release builds skip all of it.
+
+  ControlViewState? get _viewIfTracing => _trace.enabled ? _view : null;
+
+  /// The *displayed* values, from the same derivation the UI renders.
+  void _traceViewChange(ControlViewState? before) {
+    if (before == null) return;
+    final after = _view;
+    if (after.power == before.power &&
+        after.volumeDb == before.volumeDb &&
+        after.isMuted == before.isMuted &&
+        after.hasAmp == before.hasAmp) {
+      return;
+    }
+    _trace('view', {'power': after.power.name, 'db': after.volumeDb, 'muted': after.isMuted, 'hasAmp': after.hasAmp});
+  }
+
+  /// Boot-record and hold transitions between two snapshots of one amp.
+  /// The release reason re-derives `PendingValue.isConfirmedBy` (exact
+  /// equality on the decoded dB) for reporting only; `resolvePending`
+  /// stays the one implementation.
+  void _traceBoot(TrackedAmp? before, TrackedAmp? after) {
+    if (after == null) return;
+    final b = before?.boot;
+    final a = after.boot;
+    if (b == null && a != null && a.isConfirmed) {
+      _trace('boot observed-external', {'ip': after.ip, 'target': a.target});
+    } else if (b != null && !b.isConfirmed && a != null && a.isConfirmed) {
+      _trace('boot confirmed', {
+        'ip': after.ip,
+        'target': a.target,
+        'sendAtMs': kStartupVolumeDelay.inMilliseconds,
+        'holdUntilMs': kBootHold.inMilliseconds,
+      });
+    } else if (b != null && !b.isConfirmed && a == null) {
+      _trace('boot timeout', {'ip': after.ip});
+    }
+    final held = before?.pendingVolumeDb;
+    if (held != null && b != null && b.isConfirmed && after.pendingVolumeDb == null) {
+      _trace('hold released', {
+        'ip': after.ip,
+        'reason': after.status.volumeDb == held.value ? 'confirmed' : 'fallback',
+        'sinceOnMs': (_now - b.confirmedAt!).inMilliseconds,
+        'raw': after.status.volumeRaw,
+        'db': after.status.volumeDb,
+      });
+    }
   }
 
   /// Task 3.2.2: for every amp whose self-initiated boot has been
@@ -90,6 +169,11 @@ class AmpStateOwner extends Notifier<AmpState> {
       final boot = amp.boot;
       if (boot == null || !boot.isConfirmed || boot.startupSent || now < boot.sendAt!) continue;
       final target = boot.target;
+      _trace('boot startup-send', {
+        'ip': amp.ip,
+        'target': target,
+        'sinceOnMs': (now - boot.confirmedAt!).inMilliseconds,
+      });
       // Flip `startupSent` and restart the hold's fallback from the send
       // (500 send + ~200 confirm + the late-application allowance); from
       // now on a matching broadcast is a real confirmation.
@@ -101,11 +185,7 @@ class AmpStateOwner extends Notifier<AmpState> {
         ),
       );
       unawaited(
-        _send(
-          amp.ip,
-          (s) => s.sendStartupVolume(amp.ip, target),
-          (a) => a.copyWith(boot: null, pendingVolumeDb: null),
-        ),
+        _send(amp.ip, (s) => s.sendStartupVolume(amp.ip, target), (a) => a.copyWith(boot: null, pendingVolumeDb: null)),
       );
     }
   }
@@ -121,8 +201,11 @@ class AmpStateOwner extends Notifier<AmpState> {
   /// Seeding / debug seam: the same state change **without persisting**,
   /// so the simulated amp and test fixtures never write a TEST-NET address
   /// into the real store (checklist 19). The persisted path is [selectIp].
-  void seedSelection(String? ip, {bool explicit = true}) =>
-      state = state.copyWith(selectedIp: ip, hasExplicitSelection: explicit);
+  void seedSelection(String? ip, {bool explicit = true}) {
+    final view = _viewIfTracing;
+    state = state.copyWith(selectedIp: ip, hasExplicitSelection: explicit);
+    _traceViewChange(view);
+  }
 
   void selectAmp(AmpRef? amp) => selectIp(amp?.ip);
 
@@ -133,8 +216,7 @@ class AmpStateOwner extends Notifier<AmpState> {
   // ---- Seams for later tasks
 
   /// Task 3.9.5 (mDNS). Ignored for an amp never heard from.
-  void setModelName(String ip, String? model) =>
-      state = state.updateAmp(ip, (a) => a.copyWith(modelName: model));
+  void setModelName(String ip, String? model) => state = state.updateAmp(ip, (a) => a.copyWith(modelName: model));
 
   /// Enters Booting for a self-initiated power-on (Task 3.2.0). A boot
   /// already in progress is not extended (repeated taps don't move the
@@ -142,11 +224,17 @@ class AmpStateOwner extends Notifier<AmpState> {
   /// unconfirmed optimistic Off must not be "confirmed" by a stale On.
   void markBooting(String ip, {Duration timeout = kBootTimeout}) {
     final target = state.startupVolumeTarget;
-    state = state.updateAmp(
+    final amp = state.amps[ip];
+    if (_trace.enabled && amp != null && amp.boot == null && !amp.status.isPoweredOn) {
+      _trace('boot booting', {'ip': ip, 'deadlineMs': timeout.inMilliseconds, 'target': target});
+    }
+    _arm(
       ip,
       (a) => (a.boot != null || a.status.isPoweredOn)
           ? a
-          : a.copyWith(boot: BootInProgress(deadline: _now + timeout, target: target)),
+          : a.copyWith(
+              boot: BootInProgress(deadline: _now + timeout, target: target),
+            ),
     );
   }
 
@@ -162,7 +250,13 @@ class AmpStateOwner extends Notifier<AmpState> {
 
   // ---- Intents: synchronous optimistic write → send → rollback on failure
 
-  void _arm(String ip, TrackedAmp Function(TrackedAmp amp) write) => state = state.updateAmp(ip, write);
+  /// Every optimistic write, rollback and boot-record write passes through
+  /// here, so the `view` trace sees each displayed change exactly once.
+  void _arm(String ip, TrackedAmp Function(TrackedAmp amp) write) {
+    final view = _viewIfTracing;
+    state = state.updateAmp(ip, write);
+    _traceViewChange(view);
+  }
 
   Future<void> _send(
     String ip,
@@ -171,7 +265,8 @@ class AmpStateOwner extends Notifier<AmpState> {
   ) async {
     try {
       await send(_sink);
-    } catch (_) {
+    } catch (error) {
+      _trace('send failed', {'ip': ip, 'error': error});
       if (ref.mounted) _arm(ip, rollback);
     }
   }
@@ -252,11 +347,7 @@ final ampStateProvider = NotifierProvider<AmpStateOwner, AmpState>(AmpStateOwner
 /// What every surface renders. Same name as the Task 2.0.x fake so the UI's
 /// `ref.watch` sites are untouched; [ControlViewState.==] suppresses
 /// rebuilds when a broadcast changes nothing visible.
-final controlViewStateProvider = Provider<ControlViewState>(
-  (ref) => deriveControlView(ref.watch(ampStateProvider)),
-);
+final controlViewStateProvider = Provider<ControlViewState>((ref) => deriveControlView(ref.watch(ampStateProvider)));
 
 /// The unmasked confirmed channel for Task 3.10.x feedback.
-final confirmedAmpStateProvider = Provider<ConfirmedAmpState?>(
-  (ref) => deriveConfirmed(ref.watch(ampStateProvider)),
-);
+final confirmedAmpStateProvider = Provider<ConfirmedAmpState?>((ref) => deriveConfirmed(ref.watch(ampStateProvider)));

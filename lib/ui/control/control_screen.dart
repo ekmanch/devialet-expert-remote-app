@@ -103,6 +103,7 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
                 ),
               ),
               VolumeButtons(
+                enabled: state.volumeGroupEnabled,
                 onMinus: () => notifier.stepVolume(-1),
                 onPlus: () => notifier.stepVolume(1),
               ),

@@ -25,6 +25,7 @@ abstract final class ControlKeys {
   static const powerIcon = ValueKey('control.powerIcon');
   static const sourceTrigger = ValueKey('control.sourceTrigger');
   static const sourceName = ValueKey('control.sourceName');
+  static const sourceRows = ValueKey('control.sourceRows');
   static const footer = ValueKey('control.footer');
   static const column = ValueKey('control.column');
   static const debugBar = ValueKey('debug.bar');

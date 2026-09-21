@@ -1,0 +1,96 @@
+   0.003 === RUN 5 watch: boot / startup-volume / post-boot hold (Task 3.5.2) ===
+   0.003 ENVELOPE: power on/off allowed (owner decision 2026-09-21); startup volume is the app's own (-40.0, its default); harness volume only in -50..-35 plus the single -25.0 restore, every vol_payload passes maxdb=-25; mute only restored off; source only restored to slot 0; end state On / slot 0 / -25.0 / unmuted
+   1.203 start state: power=True src=0 mute=False vol=-40.0 raw=115
+   1.203 watch: waiting for the app to power the amp Off, then On (tap now)
+  34.574 FIRST OFF at 8.369  (pre-shutdown raw=115 vol=-40.0)
+  34.574 FIRST ON  at 34.569  raw=115 vol=-40.0  boot Off->On 26200 ms
+  34.775   +   200 ms raw=111 vol=-42.0 power=on
+  35.377   +   800 ms raw=115 vol=-40.0 power=on
+  35.397   screenshot /tmp/claude-1000/-mnt-media-github-own-devialet-expert-remote-app/047a22a0-ee98-483a-b0c5-2f9ced40521e/scratchpad/shots/watch-on-300ms.png requested at +304 ms, done at +828 ms
+  35.892   screenshot /tmp/claude-1000/-mnt-media-github-own-devialet-expert-remote-app/047a22a0-ee98-483a-b0c5-2f9ced40521e/scratchpad/shots/watch-on-1000ms.png requested at +1003 ms, done at +1323 ms
+  64.585 SUMMARY watch: boot=26200 ms; first raw111 at 200.18759799995678 ms; first raw115 at 800.1420179998604 ms; raw@5s=115 raw@30s=115; eno1 packets=151; gaps>250ms=0
+  64.585 final state (64.56961686299974, 'eno1', True, 0, False, -40.0, 115)
+   0.003 === RUN 5 t0: boot / startup-volume / post-boot hold (Task 3.5.2) ===
+   0.003 ENVELOPE: power on/off allowed (owner decision 2026-09-21); startup volume is the app's own (-40.0, its default); harness volume only in -50..-35 plus the single -25.0 restore, every vol_payload passes maxdb=-25; mute only restored off; source only restored to slot 0; end state On / slot 0 / -25.0 / unmuted
+   1.203 start state: power=True src=0 mute=False vol=-40.0 raw=115
+   1.203 T0 control: the app must be force-stopped (adb shell am force-stop com.ekmanch.devialet_expert_remote_app)
+   1.204 SEND power off
+   1.526   Off confirmed 321 ms after the send; dwelling 10 s (a guess, checklist 14)
+  11.526 SEND power on
+  26.533   On confirmed 15001 ms after the send
+  26.533 FIRST OFF at 1.524  (pre-shutdown raw=115 vol=-40.0)
+  26.533 FIRST ON  at 26.528  raw=115 vol=-40.0  boot Off->On 25003 ms
+  26.734   +   198 ms raw=111 vol=-42.0 power=on
+  56.530 SUMMARY t0: boot=25003 ms; first raw111 at 198 ms; 
+  56.530 T0 verdict: raw 111 persisted with nothing correcting it
+  56.530 final state (56.52530505599998, 'eno1', True, 0, False, -42.0, 111)
+   0.003 === RUN 5 set35: boot / startup-volume / post-boot hold (Task 3.5.2) ===
+   0.003 ENVELOPE: power on/off allowed (owner decision 2026-09-21); startup volume is the app's own (-40.0, its default); harness volume only in -50..-35 plus the single -25.0 restore, every vol_payload passes maxdb=-25; mute only restored off; source only restored to slot 0; end state On / slot 0 / -25.0 / unmuted
+   1.203 start state: power=True src=0 mute=False vol=-42.0 raw=111
+   1.294 volume -35.0 (double send, maxdb -25)                   -> OK   83 ms   (state src=0 mute=False vol=-35.0)
+   1.294 final state (1.2866218419999313, 'eno1', True, 0, False, -35.0, 125)
+   0.003 === RUN 5 watch: boot / startup-volume / post-boot hold (Task 3.5.2) ===
+   0.003 ENVELOPE: power on/off allowed (owner decision 2026-09-21); startup volume is the app's own (-40.0, its default); harness volume only in -50..-35 plus the single -25.0 restore, every vol_payload passes maxdb=-25; mute only restored off; source only restored to slot 0; end state On / slot 0 / -25.0 / unmuted
+   1.203 start state: power=True src=0 mute=False vol=-35.0 raw=125
+   1.203 watch: waiting for the app to power the amp Off, then On (tap now)
+  32.877 FIRST OFF at 6.878  (pre-shutdown raw=125 vol=-35.0)
+  32.877 FIRST ON  at 32.877  raw=125 vol=-35.0  boot Off->On 26000 ms
+  33.078   +   200 ms raw=111 vol=-42.0 power=on
+  33.489   screenshot /tmp/claude-1000/-mnt-media-github-own-devialet-expert-remote-app/047a22a0-ee98-483a-b0c5-2f9ced40521e/scratchpad/shots/watch-on-300ms.png requested at +304 ms, done at +612 ms
+  33.680   +   800 ms raw=115 vol=-40.0 power=on
+  34.197   screenshot /tmp/claude-1000/-mnt-media-github-own-devialet-expert-remote-app/047a22a0-ee98-483a-b0c5-2f9ced40521e/scratchpad/shots/watch-on-1000ms.png requested at +1002 ms, done at +1320 ms
+  62.878 SUMMARY watch: first Off -> first On 26000 ms (includes the Off dwell); first raw111 at 200 ms; first raw115 at 800 ms; raw@5s=115 raw@30s=None; eno1 packets=151; gaps>250ms=0
+  62.878 final state (62.87704803399993, 'eno1', True, 0, False, -40.0, 115)
+   0.003 === RUN 5 t3: boot / startup-volume / post-boot hold (Task 3.5.2) ===
+   0.003 ENVELOPE: power on/off allowed (owner decision 2026-09-21); startup volume is the app's own (-40.0, its default); harness volume only in -50..-35 plus the single -25.0 restore, every vol_payload passes maxdb=-25; mute only restored off; source only restored to slot 0; end state On / slot 0 / -25.0 / unmuted
+   1.203 start state: power=True src=0 mute=False vol=-40.0 raw=115
+   1.204 T3 external boot: the app must be in the foreground and connected
+   1.204 SEND power off
+   1.435   Off confirmed 227 ms after the send; dwelling 10 s (a guess, checklist 14)
+  11.436 SEND power on
+  26.434   On confirmed 14995 ms after the send
+  26.434 FIRST OFF at 1.431  (pre-shutdown raw=115 vol=-40.0)
+  26.434 FIRST ON  at 26.430  raw=115 vol=-40.0  boot Off->On 24999 ms
+  26.635   +   199 ms raw=111 vol=-42.0 power=on
+  27.045   screenshot /tmp/claude-1000/-mnt-media-github-own-devialet-expert-remote-app/047a22a0-ee98-483a-b0c5-2f9ced40521e/scratchpad/shots/t3-on-300ms.png requested at +303 ms, done at +614 ms
+  27.237   +   800 ms raw=115 vol=-40.0 power=on
+  27.731   screenshot /tmp/claude-1000/-mnt-media-github-own-devialet-expert-remote-app/047a22a0-ee98-483a-b0c5-2f9ced40521e/scratchpad/shots/t3-on-1000ms.png requested at +1003 ms, done at +1301 ms
+  56.431 SUMMARY t3: first Off -> first On 24999 ms (includes the Off dwell); first raw111 at 199 ms; first raw115 at 800 ms; raw@5s=115 raw@30s=115; eno1 packets=151; gaps>250ms=0
+  56.431 final state (56.43068254099944, 'eno1', True, 0, False, -40.0, 115)
+   0.003 === RUN 5 t3: boot / startup-volume / post-boot hold (Task 3.5.2) ===
+   0.003 ENVELOPE: power on/off allowed (owner decision 2026-09-21); startup volume is the app's own (-40.0, its default); harness volume only in -50..-35 plus the single -25.0 restore, every vol_payload passes maxdb=-25; mute only restored off; source only restored to slot 0; end state On / slot 0 / -25.0 / unmuted
+   1.203 start state: power=True src=0 mute=False vol=-40.0 raw=115
+   1.203 T3 external boot: the app must be in the foreground and connected
+   1.204 SEND power off
+   1.486   Off confirmed 276 ms after the send; dwelling 10 s (a guess, checklist 14)
+  11.486 SEND power on
+  26.487   On confirmed 14994 ms after the send
+  26.487 FIRST OFF at 1.480  (pre-shutdown raw=115 vol=-40.0)
+  26.487 FIRST ON  at 26.480  raw=115 vol=-40.0  boot Off->On 25000 ms
+  26.687   +   200 ms raw=111 vol=-42.0 power=on
+  27.290   +   800 ms raw=115 vol=-40.0 power=on
+  56.486 SUMMARY t3: first Off -> first On 25000 ms (includes the Off dwell); first raw111 at 200 ms; first raw115 at 800 ms; raw@5s=115 raw@30s=115; eno1 packets=151; gaps>250ms=0
+  56.486 final state (56.48022754700014, 'eno1', True, 0, False, -40.0, 115)
+   0.003 === RUN 5 set35: boot / startup-volume / post-boot hold (Task 3.5.2) ===
+   0.003 ENVELOPE: power on/off allowed (owner decision 2026-09-21); startup volume is the app's own (-40.0, its default); harness volume only in -50..-35 plus the single -25.0 restore, every vol_payload passes maxdb=-25; mute only restored off; source only restored to slot 0; end state On / slot 0 / -25.0 / unmuted
+   1.203 start state: power=True src=0 mute=False vol=-40.0 raw=115
+   1.294 volume -35.0 (double send, maxdb -25)                   -> OK   87 ms   (state src=0 mute=False vol=-35.0)
+   1.295 final state (1.290364203999161, 'eno1', True, 0, False, -35.0, 125)
+   0.003 === RUN 5 watch: boot / startup-volume / post-boot hold (Task 3.5.2) ===
+   0.003 ENVELOPE: power on/off allowed (owner decision 2026-09-21); startup volume is the app's own (-40.0, its default); harness volume only in -50..-35 plus the single -25.0 restore, every vol_payload passes maxdb=-25; mute only restored off; source only restored to slot 0; end state On / slot 0 / -25.0 / unmuted
+   1.203 start state: power=True src=0 mute=False vol=-35.0 raw=125
+   1.203 watch: waiting for the app to power the amp Off, then On (tap now)
+  32.176 FIRST OFF at 6.366  (pre-shutdown raw=125 vol=-35.0)
+  32.176 FIRST ON  at 32.166  raw=125 vol=-35.0  boot Off->On 25800 ms
+  32.377   +   199 ms raw=111 vol=-42.0 power=on
+  32.855   screenshot /tmp/claude-1000/-mnt-media-github-own-devialet-expert-remote-app/047a22a0-ee98-483a-b0c5-2f9ced40521e/scratchpad/shots/watch-on-300ms.png requested at +304 ms, done at +689 ms
+  32.979   +   799 ms raw=115 vol=-40.0 power=on
+  33.452   screenshot /tmp/claude-1000/-mnt-media-github-own-devialet-expert-remote-app/047a22a0-ee98-483a-b0c5-2f9ced40521e/scratchpad/shots/watch-on-1000ms.png requested at +1002 ms, done at +1286 ms
+  62.174 SUMMARY watch: first Off -> first On 25800 ms (includes the Off dwell); first raw111 at 199 ms; first raw115 at 799 ms; raw@5s=115 raw@30s=None; eno1 packets=151; gaps>250ms=0
+  62.174 final state (62.16524489400035, 'eno1', True, 0, False, -40.0, 115)
+   0.003 === RUN 5 restore: boot / startup-volume / post-boot hold (Task 3.5.2) ===
+   0.003 ENVELOPE: power on/off allowed (owner decision 2026-09-21); startup volume is the app's own (-40.0, its default); harness volume only in -50..-35 plus the single -25.0 restore, every vol_payload passes maxdb=-25; mute only restored off; source only restored to slot 0; end state On / slot 0 / -25.0 / unmuted
+   1.203 start state: power=True src=0 mute=False vol=-40.0 raw=115
+   1.325 restore slot 0 via 0x0000 -> 119 ms
+   1.727 volume -25.0 (final restore, double send)               -> OK  198 ms   (state src=0 mute=False vol=-25.0)
+   1.727 final state (1.7229380569997375, 'eno1', True, 0, False, -25.0, 145)

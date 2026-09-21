@@ -1,0 +1,70 @@
+         1790018165.817 28681 28681 I flutter : [amp] 220ms rx ip=192.168.0.22 power=on raw=115 db=-40.0
+         1790018165.818 28681 28681 I flutter : [amp] 223ms view power=on db=-40.0 muted=false hasAmp=true
+         1790018218.255 28681 28681 I flutter : [amp] 52660ms view power=off db=-40.0 muted=false hasAmp=true
+         1790018218.255 28681 28681 I flutter : [amp] 52660ms send power ip=192.168.0.22 on=false
+         1790018218.648 28681 28681 I flutter : [amp] 53053ms rx ip=192.168.0.22 power=off raw=115 db=-40.0
+         1790018228.739 28681 28681 I flutter : [amp] 63144ms boot booting ip=192.168.0.22 deadlineMs=20000 target=-40.0
+         1790018228.740 28681 28681 I flutter : [amp] 63145ms view power=booting db=-40.0 muted=false hasAmp=true
+         1790018228.740 28681 28681 I flutter : [amp] 63145ms send power ip=192.168.0.22 on=true
+         1790018244.761 28681 28681 I flutter : [amp] 79166ms rx ip=192.168.0.22 power=on raw=115 db=-40.0
+         1790018244.761 28681 28681 I flutter : [amp] 79166ms boot confirmed ip=192.168.0.22 target=-40.0 sendAtMs=500 holdUntilMs=1500
+         1790018244.761 28681 28681 I flutter : [amp] 79167ms view power=on db=-40.0 muted=false hasAmp=true
+         1790018244.968 28681 28681 I flutter : [amp] 79372ms rx ip=192.168.0.22 power=on raw=111 db=-42.0
+         1790018245.352 28681 28681 I flutter : [amp] 79757ms boot startup-send ip=192.168.0.22 target=-40.0 sinceOnMs=594
+         1790018245.354 28681 28681 I flutter : [amp] 79759ms send startupVolume ip=192.168.0.22 db=-40.0 ceiling=-10.0
+         1790018245.551 28681 28681 I flutter : [amp] 79956ms rx ip=192.168.0.22 power=on raw=115 db=-40.0
+         1790018245.551 28681 28681 I flutter : [amp] 79956ms hold released ip=192.168.0.22 reason=confirmed sinceOnMs=793 raw=115 db=-40.0
+         1790018391.004 30166 30166 I flutter : [amp] 150ms rx ip=192.168.0.22 power=on raw=125 db=-35.0
+         1790018391.005 30166 30166 I flutter : [amp] 152ms view power=on db=-35.0 muted=false hasAmp=true
+         1790018410.960 30166 30166 I flutter : [amp] 20107ms view power=off db=-35.0 muted=false hasAmp=true
+         1790018410.960 30166 30166 I flutter : [amp] 20108ms send power ip=192.168.0.22 on=false
+         1790018411.163 30166 30166 I flutter : [amp] 20310ms rx ip=192.168.0.22 power=off raw=125 db=-35.0
+         1790018421.086 30166 30166 I flutter : [amp] 30234ms boot booting ip=192.168.0.22 deadlineMs=20000 target=-40.0
+         1790018421.088 30166 30166 I flutter : [amp] 30235ms view power=booting db=-35.0 muted=false hasAmp=true
+         1790018421.088 30166 30166 I flutter : [amp] 30235ms send power ip=192.168.0.22 on=true
+         1790018437.171 30166 30166 I flutter : [amp] 46318ms rx ip=192.168.0.22 power=on raw=125 db=-35.0
+         1790018437.171 30166 30166 I flutter : [amp] 46319ms boot confirmed ip=192.168.0.22 target=-40.0 sendAtMs=500 holdUntilMs=1500
+         1790018437.171 30166 30166 I flutter : [amp] 46319ms view power=on db=-40.0 muted=false hasAmp=true
+         1790018437.478 30166 30166 I flutter : [amp] 46625ms rx ip=192.168.0.22 power=on raw=111 db=-42.0
+         1790018437.751 30166 30166 I flutter : [amp] 46898ms boot startup-send ip=192.168.0.22 target=-40.0 sinceOnMs=582
+         1790018437.754 30166 30166 I flutter : [amp] 46901ms send startupVolume ip=192.168.0.22 db=-40.0 ceiling=-10.0
+         1790018437.952 30166 30166 I flutter : [amp] 47099ms rx ip=192.168.0.22 power=on raw=115 db=-40.0
+         1790018437.953 30166 30166 I flutter : [amp] 47100ms hold released ip=192.168.0.22 reason=confirmed sinceOnMs=784 raw=115 db=-40.0
+         1790018506.393 30166 30166 I flutter : [amp] 115540ms rx ip=192.168.0.22 power=off raw=115 db=-40.0
+         1790018506.394 30166 30166 I flutter : [amp] 115541ms view power=off db=-40.0 muted=false hasAmp=true
+         1790018531.380 30166 30166 I flutter : [amp] 140527ms rx ip=192.168.0.22 power=on raw=115 db=-40.0
+         1790018531.380 30166 30166 I flutter : [amp] 140527ms boot observed-external ip=192.168.0.22 target=-40.0
+         1790018531.380 30166 30166 I flutter : [amp] 140527ms view power=on db=-40.0 muted=false hasAmp=true
+         1790018531.584 30166 30166 I flutter : [amp] 140731ms rx ip=192.168.0.22 power=on raw=111 db=-42.0
+         1790018531.951 30166 30166 I flutter : [amp] 141098ms boot startup-send ip=192.168.0.22 target=-40.0 sinceOnMs=572
+         1790018531.952 30166 30166 I flutter : [amp] 141099ms send startupVolume ip=192.168.0.22 db=-40.0 ceiling=-10.0
+         1790018532.155 30166 30166 I flutter : [amp] 141302ms rx ip=192.168.0.22 power=on raw=115 db=-40.0
+         1790018532.155 30166 30166 I flutter : [amp] 141302ms hold released ip=192.168.0.22 reason=confirmed sinceOnMs=776 raw=115 db=-40.0
+         1790018602.035 30166 30166 I flutter : [amp] 211182ms rx ip=192.168.0.22 power=off raw=115 db=-40.0
+         1790018602.036 30166 30166 I flutter : [amp] 211183ms view power=off db=-40.0 muted=false hasAmp=true
+         1790018627.021 30166 30166 I flutter : [amp] 236168ms rx ip=192.168.0.22 power=on raw=115 db=-40.0
+         1790018627.021 30166 30166 I flutter : [amp] 236168ms boot observed-external ip=192.168.0.22 target=-40.0
+         1790018627.021 30166 30166 I flutter : [amp] 236169ms view power=on db=-40.0 muted=false hasAmp=true
+         1790018627.229 30166 30166 I flutter : [amp] 236376ms rx ip=192.168.0.22 power=on raw=111 db=-42.0
+         1790018627.636 30166 30166 I flutter : [amp] 236782ms boot startup-send ip=192.168.0.22 target=-40.0 sinceOnMs=615
+         1790018627.636 30166 30166 I flutter : [amp] 236783ms send startupVolume ip=192.168.0.22 db=-40.0 ceiling=-10.0
+         1790018627.842 30166 30166 I flutter : [amp] 236989ms rx ip=192.168.0.22 power=on raw=115 db=-40.0
+         1790018627.842 30166 30166 I flutter : [amp] 236990ms hold released ip=192.168.0.22 reason=confirmed sinceOnMs=822 raw=115 db=-40.0
+         1790018692.662 30166 30166 I flutter : [amp] 301810ms rx ip=192.168.0.22 power=on raw=125 db=-35.0
+         1790018692.663 30166 30166 I flutter : [amp] 301810ms view power=on db=-35.0 muted=false hasAmp=true
+         1790018706.543 30166 30166 I flutter : [amp] 315690ms view power=off db=-35.0 muted=false hasAmp=true
+         1790018706.543 30166 30166 I flutter : [amp] 315690ms send power ip=192.168.0.22 on=false
+         1790018706.791 30166 30166 I flutter : [amp] 315938ms rx ip=192.168.0.22 power=off raw=125 db=-35.0
+         1790018716.601 30166 30166 I flutter : [amp] 325748ms boot booting ip=192.168.0.22 deadlineMs=20000 target=-40.0
+         1790018716.601 30166 30166 I flutter : [amp] 325749ms view power=booting db=-35.0 muted=false hasAmp=true
+         1790018716.601 30166 30166 I flutter : [amp] 325749ms send power ip=192.168.0.22 on=true
+         1790018732.596 30166 30166 I flutter : [amp] 341743ms rx ip=192.168.0.22 power=on raw=125 db=-35.0
+         1790018732.596 30166 30166 I flutter : [amp] 341744ms boot confirmed ip=192.168.0.22 target=-40.0 sendAtMs=500 holdUntilMs=1500
+         1790018732.596 30166 30166 I flutter : [amp] 341744ms view power=on db=-40.0 muted=false hasAmp=true
+         1790018733.006 30166 30166 I flutter : [amp] 342153ms rx ip=192.168.0.22 power=on raw=111 db=-42.0
+         1790018733.151 30166 30166 I flutter : [amp] 342298ms boot startup-send ip=192.168.0.22 target=-40.0 sinceOnMs=555
+         1790018733.151 30166 30166 I flutter : [amp] 342298ms send startupVolume ip=192.168.0.22 db=-40.0 ceiling=-10.0
+         1790018733.414 30166 30166 I flutter : [amp] 342561ms rx ip=192.168.0.22 power=on raw=115 db=-40.0
+         1790018733.414 30166 30166 I flutter : [amp] 342561ms hold released ip=192.168.0.22 reason=confirmed sinceOnMs=819 raw=115 db=-40.0
+         1790018780.827 30166 30166 I flutter : [amp] 389974ms rx ip=192.168.0.22 power=on raw=145 db=-25.0
+         1790018780.827 30166 30166 I flutter : [amp] 389975ms view power=on db=-25.0 muted=false hasAmp=true

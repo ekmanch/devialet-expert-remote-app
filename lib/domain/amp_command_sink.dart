@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../networking/devialet_client.dart';
+import 'amp_trace.dart';
 import 'devialet_client_provider.dart';
 import 'settings/settings_owner.dart';
 
@@ -48,9 +49,14 @@ class NoopCommandSink implements AmpCommandSink {
 /// "set the IP, then call" in one synchronous run cannot interleave with
 /// another caller (an explicit-IP client API is a 3.5/3.6 follow-up).
 class DevialetClientCommandSink implements AmpCommandSink {
-  DevialetClientCommandSink(this._client, {required this.ceilingDb});
+  DevialetClientCommandSink(this._client, {required this.ceilingDb, this.trace = AmpTrace.none});
 
   final DevialetClient _client;
+
+  /// Debug trace of every *real* send, emitted before the await so the
+  /// timestamp is the send instant (Task 3.5.2). The display-only stubs
+  /// below trace nothing until their task flips them.
+  final AmpTrace trace;
 
   /// The wire-side ceiling, read at send time so a Settings change applies
   /// to the next command (Task 3.4.7 / 1.1.3). `null` would mean unbounded;
@@ -59,6 +65,7 @@ class DevialetClientCommandSink implements AmpCommandSink {
 
   @override
   Future<void> setPower(String ip, bool on) {
+    trace('send power', {'ip': ip, 'on': on});
     _client.deviceIp = ip;
     return _client.setPower(on);
   }
@@ -67,8 +74,10 @@ class DevialetClientCommandSink implements AmpCommandSink {
   /// `AmpState.startupVolumeTarget`'s (gotcha #6, defence in depth).
   @override
   Future<void> sendStartupVolume(String ip, double db) {
+    final ceiling = ceilingDb();
+    trace('send startupVolume', {'ip': ip, 'db': db, 'ceiling': ceiling});
     _client.deviceIp = ip;
-    return _client.setVolumeDb(db, maxDb: ceilingDb());
+    return _client.setVolumeDb(db, maxDb: ceiling);
   }
 
   /// Task 3.6.x — display-only until then.
@@ -88,5 +97,6 @@ final ampCommandSinkProvider = Provider<AmpCommandSink>(
   (ref) => DevialetClientCommandSink(
     ref.watch(devialetClientProvider),
     ceilingDb: () => ref.read(settingsProvider).ceilingDb,
+    trace: ref.watch(ampTraceProvider),
   ),
 );

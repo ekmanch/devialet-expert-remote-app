@@ -350,9 +350,9 @@ All timers must run on a **monotonic clock** (Rust uses `Instant`; Kotlin
 | 100–200 ms | pace of outbound commands during a sustained gesture (a different concern from the 400 ms trust window) |
 | ✔ 82–200 ms (median ~95, n = 60 on Ethernet; one 297 ms over Wi-Fi) | delay until the amp's next broadcast confirms a command — bounded by the 200 ms broadcast period, not by processing |
 | 8 s | staleness: `online = last_seen < 8 s`, re-evaluated on a 1 s tick |
-| 15.0–18.6 s | real boot time (one sample 16.07 s) |
+| 15.0–18.6 s | real boot time (one sample 16.07 s; 2026-09-21 on this app: 15.00 s ×3 when the dev machine sent power-on, 15.99–16.08 s ×3 when the phone did — `docs/protocol-verification-2026-09-21-boot.md`) |
 | 20 s | boot timeout (15 s made a normal boot flash "Off" first) |
-| 500 ms | delay after the first "power on" broadcast before a volume command is safe (`docs/known-gotchas.md` #9) |
+| 500 ms | delay after the first "power on" broadcast before a volume command is safe (`docs/known-gotchas.md` #9); the app's send lands at +555…+615 ms and is applied by +800 ms (5/5, 2026-09-21) |
 | 1500 ms | bounded fallback for the post-boot display hold |
 | 0 ms | settling needed between source switch and the forced volume (6/6) |
 

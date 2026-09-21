@@ -219,7 +219,10 @@ and the numbering is shared across both repos and referenced by
   misreport meanwhile — for app-initiated boots and, since 2026-09-20
   (3.2.5), for any Off→On observed on the selected amp.
   `test/domain/amp_state_test.dart` proves the hold with an `applyUnheld`
-  counter-test that shows −42 leaking without it.
+  counter-test that shows −42 leaking without it. **Verified on this app
+  2026-09-21** (`docs/protocol-verification-2026-09-21-boot.md`): five
+  real boots, −42 recorded on every one and displayed on none; a control
+  boot with the app stopped showed raw 111 persisting for 30 s.
 - **Watch out #2 (found on the KDE widget and on this app the same day,
   2026-09-20):** if the client masks the post-boot value until its own
   set is confirmed, do not treat "status now equals the value I intend
@@ -231,7 +234,9 @@ and the numbering is shared across both repos and referenced by
   Both implementations now count a match only after the set has actually
   been sent, and measure the fallback from the send
   (`TrackedAmp.resolvePending`, `AmpStateOwner._runBootFollowUps`; KDE
-  `PendingAmpState.qml` `bootHoldSent`).
+  `PendingAmpState.qml` `bootHoldSent`). Seen holding on hardware
+  2026-09-21: three of five boots had the first On packet already at the
+  target and none released early.
 
 ## 9. Volume commands that reach the amp before its own post-boot startup-volume application are dropped — [Control]
 
@@ -283,7 +288,9 @@ and the numbering is shared across both repos and referenced by
   A user volume change inside the window re-targets the deferred send. The
   debug simulated amp drops volume commands within 200 ms of its first On
   packet, which is how the early-send failure mode is kept visible in
-  tests.
+  tests. **Verified on this app 2026-09-21:** the send left at
+  +555…+615 ms after the app's first On packet and the amp applied it by
+  the +800 ms broadcast, 5/5 (`docs/protocol-verification-2026-09-21-boot.md`).
 
 ## Non-bugs worth knowing about (deliberate behavior, not defects)
 

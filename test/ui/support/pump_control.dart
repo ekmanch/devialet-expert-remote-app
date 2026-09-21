@@ -13,6 +13,10 @@ import 'package:devialet_expert_remote_app/domain/settings/app_settings.dart';
 import 'package:devialet_expert_remote_app/domain/settings/hydrated_settings.dart';
 import 'package:devialet_expert_remote_app/domain/settings/settings_store.dart';
 import 'package:devialet_expert_remote_app/ui/app.dart';
+import 'package:devialet_expert_remote_app/ui/platform/platform_style.dart';
+import 'package:devialet_expert_remote_app/ui/theme/app_theme.dart';
+import 'package:devialet_expert_remote_app/ui/theme/app_tokens.dart';
+import 'package:devialet_expert_remote_app/ui/theme/app_typography.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_screen.dart';
 import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
 import 'package:devialet_expert_remote_app/ui/settings/url_opener.dart';
@@ -54,6 +58,26 @@ Widget hermeticApp({
       debugCommandSinkOverride,
     ],
     child: const DevialetRemoteApp(),
+  );
+}
+
+/// A single widget under the same `AppTheme` the app installs, with no
+/// screen, owner or `DimmedGroup` around it — for testing a control's own
+/// behaviour in isolation (mirrors `DevialetRemoteApp.wrap`).
+Widget themed(Widget child, {UiVariant variant = UiVariant.android, Brightness brightness = Brightness.dark}) {
+  return MediaQuery(
+    data: const MediaQueryData(size: phonePortrait),
+    child: Directionality(
+      textDirection: TextDirection.ltr,
+      child: AppTheme(
+        tokens: AppTokens.forBrightness(brightness),
+        type: AppTypography.forVariant(variant),
+        style: PlatformStyle.forVariant(variant),
+        child: Center(
+          child: SizedBox(width: phonePortrait.width, child: child),
+        ),
+      ),
+    ),
   );
 }
 
@@ -102,7 +126,7 @@ bool visibilityOf(WidgetTester tester, Key key) {
 /// Taps the pressable row that contains [text]. Rows paint their ripple
 /// in an overlay above the content, so the content itself is never the
 /// hit-test target; aiming at the `AdaptivePressable` is the honest tap.
-Future<void> tapRow(WidgetTester tester, String text) async {
+Future<void> tapRow(WidgetTester tester, String text, {bool warnIfMissed = true}) async {
   final row = find.ancestor(of: find.text(text), matching: find.byType(AdaptivePressable)).first;
-  await tester.tap(row);
+  await tester.tap(row, warnIfMissed: warnIfMissed);
 }

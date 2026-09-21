@@ -6,6 +6,7 @@ import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
 import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
 import 'package:devialet_expert_remote_app/ui/control/device_card.dart';
+import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
 import 'package:devialet_expert_remote_app/ui/widgets/ring_spinner.dart';
 import 'package:devialet_expert_remote_app/ui/widgets/stroke_icons.dart';
 
@@ -28,6 +29,7 @@ class _Expected {
     required this.actionRow,
     required this.muteButton,
     required this.sourceTrigger,
+    required this.volButtonsEnabled,
     required this.footer,
     required this.sourceName,
     required this.dialSourceLabel,
@@ -46,6 +48,10 @@ class _Expected {
   final double actionRow;
   final double muteButton;
   final double sourceTrigger;
+
+  /// The VOL −/+ buttons' own `enabled` flag (Task 3.5.1), independent of
+  /// the ancestor `DimmedGroup` measured by [dialWrap].
+  final bool volButtonsEnabled;
   final String footer;
   final String sourceName;
   final String dialSourceLabel;
@@ -65,6 +71,7 @@ const _connected = _Expected(
   actionRow: 1.0,
   muteButton: 1.0,
   sourceTrigger: 1.0,
+  volButtonsEnabled: true,
   footer: 'Connected',
   sourceName: 'Optical 1',
   dialSourceLabel: 'OPTICAL 1',
@@ -84,6 +91,7 @@ const _noAmp = _Expected(
   actionRow: 0.4,
   muteButton: 1.0,
   sourceTrigger: 0.5,
+  volButtonsEnabled: false,
   footer: 'Not connected',
   sourceName: 'No source',
   dialSourceLabel: 'NO SOURCE',
@@ -105,6 +113,7 @@ final Map<DebugScenario, _Expected> _expected = {
     actionRow: 1.0,
     muteButton: 0.4,
     sourceTrigger: 0.4,
+    volButtonsEnabled: false,
     footer: 'Connected',
     sourceName: 'Optical 1',
     dialSourceLabel: 'OPTICAL 1',
@@ -123,6 +132,7 @@ final Map<DebugScenario, _Expected> _expected = {
     actionRow: 1.0,
     muteButton: 0.4,
     sourceTrigger: 0.4,
+    volButtonsEnabled: false,
     footer: 'Connected',
     sourceName: 'Optical 1',
     dialSourceLabel: 'OPTICAL 1',
@@ -143,6 +153,7 @@ final Map<DebugScenario, _Expected> _expected = {
     actionRow: 1.0,
     muteButton: 1.0,
     sourceTrigger: 1.0,
+    volButtonsEnabled: true,
     footer: 'Connected',
     sourceName: 'Optical 1',
     dialSourceLabel: 'OPTICAL 1',
@@ -171,6 +182,11 @@ void main() {
         expect(opacityAt(tester, ControlKeys.actionRow), e.actionRow);
         expect(opacityAt(tester, ControlKeys.muteButton), e.muteButton);
         expect(opacityAt(tester, ControlKeys.sourceTrigger), e.sourceTrigger);
+        // The buttons' own gate, not the group's (Task 3.5.1).
+        for (final key in [ControlKeys.volMinus, ControlKeys.volPlus]) {
+          final pressable = find.descendant(of: find.byKey(key), matching: find.byType(AdaptivePressable));
+          expect(tester.widget<AdaptivePressable>(pressable).enabled, e.volButtonsEnabled, reason: '$key');
+        }
         expect(textAt(tester, ControlKeys.footer), e.footer);
         expect(textAt(tester, ControlKeys.sourceName), e.sourceName);
         expect(textAt(tester, ControlKeys.dialSourceLabel), e.dialSourceLabel);
@@ -205,14 +221,20 @@ void main() {
       expect(textAt(tester, ControlKeys.powerLabel), 'Power On');
       expect(tester.widget<DeviceDot>(find.byKey(ControlKeys.deviceDot)).state, DeviceDotState.off);
       // The optimistic Off must be confirmed before a boot can start.
-      seedFromControlView(containerOf(tester).read(ampStateProvider.notifier), ControlViewState.forScenario(DebugScenario.off));
+      seedFromControlView(
+        containerOf(tester).read(ampStateProvider.notifier),
+        ControlViewState.forScenario(DebugScenario.off),
+      );
       await tester.pump();
       await tester.tap(find.byKey(ControlKeys.powerButton));
       await tester.pump(const Duration(milliseconds: 200));
       expect(textAt(tester, ControlKeys.powerLabel), 'Powering on\u2026');
       expect(textAt(tester, ControlKeys.deviceSub), 'Booting\u2026');
       expect(tester.widget<DeviceDot>(find.byKey(ControlKeys.deviceDot)).state, DeviceDotState.booting);
-      expect(find.descendant(of: find.byKey(ControlKeys.powerIcon), matching: find.byType(RingSpinner)), findsOneWidget);
+      expect(
+        find.descendant(of: find.byKey(ControlKeys.powerIcon), matching: find.byType(RingSpinner)),
+        findsOneWidget,
+      );
     });
 
     testWidgets('no amp: power and volume inert, source trigger still opens the empty state', (tester) async {

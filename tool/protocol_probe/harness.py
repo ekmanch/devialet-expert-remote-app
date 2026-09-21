@@ -20,7 +20,7 @@ class Listener(threading.Thread):
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.s.setsockopt(socket.IPPROTO_IP, socket.IP_PKTINFO, 1)
         self.s.bind(("0.0.0.0", 45454)); self.s.settimeout(0.2)
-        self.lock = threading.Lock(); self.events = []  # (t, iface, power, src, mute, vol)
+        self.lock = threading.Lock(); self.events = []  # (t, iface, power, src, mute, vol, raw)  -- raw = byte 565, added for run5
         self.verbose = False
     def run(self):
         while True:
@@ -31,9 +31,9 @@ class Listener(threading.Thread):
                 if lvl == socket.IPPROTO_IP and typ == socket.IP_PKTINFO:
                     iface = IFNAMES.get(struct.unpack("i", data[:4])[0], "?")
             if len(d) < 566 or addr[0] != AMP: continue
-            ev = (time.monotonic()-T0, iface, (d[562]&0x80)!=0, (d[563]&0x3C)>>2, (d[563]&0x02)!=0, (d[565]-195)/2)
+            ev = (time.monotonic()-T0, iface, (d[562]&0x80)!=0, (d[563]&0x3C)>>2, (d[563]&0x02)!=0, (d[565]-195)/2, d[565])
             with self.lock: self.events.append(ev)
-            if self.verbose: log("  bcast", iface, f"power={ev[2]} src={ev[3]} mute={ev[4]} vol={ev[5]:+.1f}")
+            if self.verbose: log("  bcast", iface, f"power={ev[2]} src={ev[3]} mute={ev[4]} vol={ev[5]:+.1f} raw={ev[6]}")
     def since(self, t, iface=None):
         with self.lock: return [e for e in self.events if e[0] >= t and (iface is None or e[1] == iface)]
     def latest(self, iface="eno1"):

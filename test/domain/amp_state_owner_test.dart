@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:devialet_expert_remote_app/domain/amp_command_sink.dart';
 import 'package:devialet_expert_remote_app/domain/amp_state_owner.dart';
+import 'package:devialet_expert_remote_app/domain/amp_trace.dart';
 import 'package:devialet_expert_remote_app/domain/amp_tracker.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
 import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
@@ -71,15 +72,20 @@ void main() {
 
   late InMemorySettingsStore settingsStore;
 
+  /// Captured `[amp]` trace lines when [make] is called with `traced: true`.
+  late List<String> traceLines;
+
   ProviderContainer make({
     AmpCommandSink sink = const NoopCommandSink(),
     InMemorySettingsStore? store,
     AppSettings? initialSettings,
+    bool traced = false,
   }) {
     clock = FakeClock();
     ticker = ManualTicker();
     transport = FakeUdpTransport();
     settingsStore = store ?? InMemorySettingsStore();
+    traceLines = [];
     addTearDown(ticker.close);
     return ProviderContainer.test(
       overrides: [
@@ -88,9 +94,13 @@ void main() {
         staleTickProvider.overrideWithValue(ticker.stream),
         ampCommandSinkProvider.overrideWithValue(sink),
         hydratedSettingsProvider.overrideWithValue(testHydrated(store: settingsStore, initial: initialSettings)),
+        if (traced) ampTraceProvider.overrideWithValue(AmpTrace(traceLines.add, clock)),
       ],
     );
   }
+
+  /// Trace lines with the `[amp] <ms>ms ` prefix stripped.
+  List<String> events() => [for (final l in traceLines) l.replaceFirst(RegExp(r'^\[amp\] \d+ms '), '')];
 
   /// "Kill and relaunch": a fresh container hydrated from the same store,
   /// exactly as main() would do it.
@@ -218,8 +228,10 @@ void main() {
     const ip = '192.0.2.22';
     Duration s(int seconds, [int ms = 0]) => Duration(seconds: seconds, milliseconds: ms);
 
-    AmpStatusReport on({double volumeDb = -25}) => syntheticReport(ip: ip, name: 'My Devialet', isPoweredOn: true, volumeDb: volumeDb);
-    AmpStatusReport off({double volumeDb = -25}) => syntheticReport(ip: ip, name: 'My Devialet', isPoweredOn: false, volumeDb: volumeDb);
+    AmpStatusReport on({double volumeDb = -25}) =>
+        syntheticReport(ip: ip, name: 'My Devialet', isPoweredOn: true, volumeDb: volumeDb);
+    AmpStatusReport off({double volumeDb = -25}) =>
+        syntheticReport(ip: ip, name: 'My Devialet', isPoweredOn: false, volumeDb: volumeDb);
 
     /// Seeds the Off shape and taps power: a self-initiated boot at t = 0.
     Future<RecordingCommandSink> bootFromOff(ProviderContainer c, RecordingCommandSink sink) async {
@@ -265,43 +277,53 @@ void main() {
       expect(sink.calls, isEmpty);
     });
 
-    test('self-initiated: one power send, Booting through Off broadcasts, repeat taps send nothing and do not extend', () async {
-      final sink = RecordingCommandSink();
-      final c = make(sink: sink);
-      await bootFromOff(c, sink);
-      expect(sink.calls, ['power $ip true']);
-      expect(view(c).power, PowerPhase.booting);
-      clock.set(s(5));
-      owner(c).ingest(off());
-      expect(view(c).power, PowerPhase.booting, reason: 'Off broadcasts mid-boot are normal');
-      await owner(c).togglePower();
-      expect(sink.calls, ['power $ip true'], reason: 'inert while Booting');
-      // A booting amp keeps broadcasting Off at 5 Hz (it must stay online).
-      clock.set(s(19, 999));
-      owner(c).ingest(off());
-      expect(view(c).power, PowerPhase.booting);
-      clock.set(s(20));
-      owner(c).ingest(off());
-      expect(view(c).power, PowerPhase.off, reason: 'silent fallback at the 20 s deadline, not extended by the second tap');
-      expect(view(c).hasAmp, isTrue);
-    });
+    test(
+      'self-initiated: one power send, Booting through Off broadcasts, repeat taps send nothing and do not extend',
+      () async {
+        final sink = RecordingCommandSink();
+        final c = make(sink: sink);
+        await bootFromOff(c, sink);
+        expect(sink.calls, ['power $ip true']);
+        expect(view(c).power, PowerPhase.booting);
+        clock.set(s(5));
+        owner(c).ingest(off());
+        expect(view(c).power, PowerPhase.booting, reason: 'Off broadcasts mid-boot are normal');
+        await owner(c).togglePower();
+        expect(sink.calls, ['power $ip true'], reason: 'inert while Booting');
+        // A booting amp keeps broadcasting Off at 5 Hz (it must stay online).
+        clock.set(s(19, 999));
+        owner(c).ingest(off());
+        expect(view(c).power, PowerPhase.booting);
+        clock.set(s(20));
+        owner(c).ingest(off());
+        expect(
+          view(c).power,
+          PowerPhase.off,
+          reason: 'silent fallback at the 20 s deadline, not extended by the second tap',
+        );
+        expect(view(c).hasAmp, isTrue);
+      },
+    );
 
-    test('a late On after the timeout is plain On (no Booting) but still gets the follow-ups as an observed boot', () async {
-      final sink = RecordingCommandSink();
-      final c = make(sink: sink);
-      await bootFromOff(c, sink);
-      clock.set(s(20));
-      owner(c).ingest(off());
-      expect(view(c).power, PowerPhase.off, reason: 'silent fallback at the deadline');
-      clock.set(s(25));
-      owner(c).ingest(on(volumeDb: -42));
-      expect(view(c).power, PowerPhase.on);
-      expect(view(c).volumeDb, -40.0, reason: 'held at the target');
-      clock.set(s(25, 600));
-      owner(c).ingest(on(volumeDb: -42));
-      await settle();
-      expect(sink.calls, ['power $ip true', 'startup $ip -40.0']);
-    });
+    test(
+      'a late On after the timeout is plain On (no Booting) but still gets the follow-ups as an observed boot',
+      () async {
+        final sink = RecordingCommandSink();
+        final c = make(sink: sink);
+        await bootFromOff(c, sink);
+        clock.set(s(20));
+        owner(c).ingest(off());
+        expect(view(c).power, PowerPhase.off, reason: 'silent fallback at the deadline');
+        clock.set(s(25));
+        owner(c).ingest(on(volumeDb: -42));
+        expect(view(c).power, PowerPhase.on);
+        expect(view(c).volumeDb, -40.0, reason: 'held at the target');
+        clock.set(s(25, 600));
+        owner(c).ingest(on(volumeDb: -42));
+        await settle();
+        expect(sink.calls, ['power $ip true', 'startup $ip -40.0']);
+      },
+    );
 
     test('self On: target shown at once, −42 recorded not displayed, exactly one startup send at ≥ 500 ms', () async {
       final sink = RecordingCommandSink(clock: clock);
@@ -387,6 +409,103 @@ void main() {
           expect(view(c).volumeDb, -42.0, reason: 'bounded hold: the misreport shows honestly');
         }
       }
+    });
+
+    group('debug trace (Task 3.5.2)', () {
+      const ipField = 'ip=$ip';
+
+      test('narrates a self-initiated boot in order; the held −42 never reaches the view', () async {
+        final sink = RecordingCommandSink(clock: clock);
+        final c = make(sink: sink, traced: true);
+        seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off));
+        traceLines.clear();
+        await owner(c).togglePower();
+        clock.set(s(16));
+        owner(c).ingest(on(volumeDb: -25)); // first On packet: pre-shutdown byte
+        clock.set(s(16, 200));
+        owner(c).ingest(on(volumeDb: -42)); // the misreport
+        clock.set(s(16, 400));
+        owner(c).ingest(on(volumeDb: -42)); // unchanged: no rx line
+        clock.set(s(16, 600));
+        owner(c).ingest(on(volumeDb: -42)); // the send goes out
+        await settle();
+        clock.set(s(16, 800));
+        owner(c).ingest(on(volumeDb: -40)); // the amp applied it
+        expect(events(), [
+          'boot booting $ipField deadlineMs=20000 target=-40.0',
+          'view power=booting db=-25.0 muted=false hasAmp=true',
+          'rx $ipField power=on raw=145 db=-25.0',
+          'boot confirmed $ipField target=-40.0 sendAtMs=500 holdUntilMs=1500',
+          'view power=on db=-40.0 muted=false hasAmp=true',
+          'rx $ipField power=on raw=111 db=-42.0',
+          'boot startup-send $ipField target=-40.0 sinceOnMs=600',
+          'rx $ipField power=on raw=115 db=-40.0',
+          'hold released $ipField reason=confirmed sinceOnMs=800 raw=115 db=-40.0',
+        ]);
+        expect(traceLines[2], startsWith('[amp] 16000ms '));
+        expect(
+          traceLines.where((l) => l.contains('view') && l.contains('db=-42.0')),
+          isEmpty,
+          reason: 'the hold keeps the misreport off the display (its counter-test is applyUnheld)',
+        );
+      });
+
+      test('a fallback release via the tick says so, and the view then shows the misreport', () async {
+        final sink = RecordingCommandSink();
+        final c = make(sink: sink, traced: true);
+        await bootFromOff(c, sink);
+        clock.set(s(16));
+        owner(c).ingest(on());
+        clock.set(s(16, 600));
+        owner(c).ingest(on(volumeDb: -42));
+        await settle();
+        traceLines.clear();
+        clock.set(s(18, 100));
+        ticker.tick();
+        await settle();
+        expect(events(), [
+          'hold released $ipField reason=fallback sinceOnMs=2100 raw=111 db=-42.0',
+          'view power=on db=-42.0 muted=false hasAmp=true',
+        ]);
+      });
+
+      test('an observed external boot and a boot timeout are named', () async {
+        final sink = RecordingCommandSink();
+        final c = make(sink: sink, traced: true);
+        seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off));
+        traceLines.clear();
+        clock.set(s(1));
+        owner(c).ingest(on(volumeDb: -42));
+        expect(events().where((e) => e.startsWith('boot')), ['boot observed-external $ipField target=-40.0']);
+
+        final c2 = make(sink: RecordingCommandSink(), traced: true);
+        await bootFromOff(c2, sink);
+        traceLines.clear();
+        clock.set(s(20));
+        owner(c2).ingest(off());
+        expect(events(), ['boot timeout $ipField', 'view power=off db=-25.0 muted=false hasAmp=true']);
+      });
+
+      test('a throwing sink is reported as a failed send, then the rollback shows in the view', () async {
+        final c = make(sink: ThrowingCommandSink(), traced: true);
+        seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
+        traceLines.clear();
+        await owner(c).toggleMute();
+        expect(events(), [
+          'view power=on db=-25.0 muted=true hasAmp=true',
+          'send failed $ipField error=Bad state: no route to host',
+          'view power=on db=-25.0 muted=false hasAmp=true',
+        ]);
+      });
+
+      test('untraced by default: the same boot produces no lines', () async {
+        final sink = RecordingCommandSink();
+        final c = make(sink: sink);
+        await bootFromOff(c, sink);
+        clock.set(s(16));
+        owner(c).ingest(on());
+        expect(traceLines, isEmpty);
+      });
     });
 
     test('a user change inside the window re-targets both the send and the hold', () async {

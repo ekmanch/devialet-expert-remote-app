@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../amp_command_sink.dart';
+import '../amp_trace.dart';
 import '../amp_state_owner.dart';
 import '../control_view_state.dart';
 import '../devialet_client_provider.dart';
@@ -282,6 +283,7 @@ final debugCommandSinkOverride = ampCommandSinkProvider.overrideWith(
     real: DevialetClientCommandSink(
       ref.watch(devialetClientProvider),
       ceilingDb: () => ref.read(settingsProvider).ceilingDb,
+      trace: ref.watch(ampTraceProvider),
     ),
     simulated: () => ref.read(simulatedAmpProvider.notifier),
   ),
