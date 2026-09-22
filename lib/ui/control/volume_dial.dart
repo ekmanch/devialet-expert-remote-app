@@ -28,7 +28,7 @@ class VolumeDial extends StatefulWidget {
     this.trackWidth = 10,
     this.trackRadius = 96,
     this.innerHitSlop = 28,
-    this.stepDb = 0.5,
+    required this.stepDb,
   });
 
   final double minDb;
@@ -50,6 +50,12 @@ class VolumeDial extends StatefulWidget {
 
   /// How far *inside* the track's inner edge a drag may start.
   final double innerHitSlop;
+
+  /// The grid a drag snaps to: the configured step (Task 3.6.0), from the
+  /// settings like the range — required so no call site can forget it.
+  /// The grid is anchored at 0 dB, while VOL ± step from the current
+  /// value; the two only diverge for an odd floor with a 2 dB step
+  /// (recorded in TODO 3.6.0 as accepted).
   final double stepDb;
 
   @override
@@ -57,9 +63,22 @@ class VolumeDial extends StatefulWidget {
 }
 
 class VolumeDialState extends State<VolumeDial> {
+  /// The value last emitted by the drag in progress; `null` when idle.
+  /// This is gesture state, not a copy of the volume (TODO 3.0.0 / 3.6.4):
+  /// what is rendered is always [VolumeDial.valueDb].
   double? _lastDb;
 
   double get _innerRadius => widget.trackRadius - widget.trackWidth / 2 - widget.innerHitSlop;
+
+  /// Disabled mid-drag (the amp went Off / silent): the recognizer's
+  /// callbacks are nulled below, so the release never arrives — forget the
+  /// drag so a later re-enable cannot commit a stale value. The screen
+  /// drops its own drag copy in the same rebuild (Task 3.6.4).
+  @override
+  void didUpdateWidget(VolumeDial oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled) _lastDb = null;
+  }
 
   void _emit(double fraction) {
     final db = quantizeDb(dbForFraction(fraction, widget.minDb, widget.maxDb), widget.stepDb)

@@ -59,11 +59,19 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
     final notifier = ref.read(ampStateProvider.notifier);
     final widthClass = WindowClassScope.of(context).width;
 
+    // A drag interrupted by the group going inert (the amp went Off or
+    // silent under the finger) ends here, uncommitted: the dial's
+    // callbacks are nulled while disabled, so its release never reaches
+    // us (Task 3.6.4). A plain field write — this *is* the build.
+    if (!state.volumeGroupEnabled) _dragDb = null;
     final shownDb = _dragDb ?? state.volumeDb;
     final String valueText;
     if (!state.hasAmp) {
       valueText = '—';
-    } else if (state.isMuted) {
+    } else if (state.isMuted && _dragDb == null) {
+      // The readout follows the finger even on a muted amp (KDE's label is
+      // bound to the slider); "Muted" outside a drag derives from the
+      // masked state, never from the button (Task 3.7.2).
       valueText = 'Muted';
     } else {
       valueText = formatDb(shownDb);
@@ -87,6 +95,7 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
                   key: _dialKey,
                   minDb: state.floorDb,
                   maxDb: state.ceilingDb,
+                  stepDb: state.stepDb,
                   valueDb: shownDb,
                   enabled: state.volumeGroupEnabled,
                   showArc: state.hasAmp,
@@ -97,7 +106,7 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
                   },
                   child: DialReadout(
                     valueText: valueText,
-                    unitVisible: state.hasAmp && !state.isMuted,
+                    unitVisible: state.hasAmp && (!state.isMuted || _dragDb != null),
                     sourceLabel: state.hasAmp ? (state.activeSource?.name ?? 'No source') : 'No source',
                   ),
                 ),

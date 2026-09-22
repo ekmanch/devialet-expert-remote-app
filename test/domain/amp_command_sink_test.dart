@@ -31,11 +31,34 @@ void main() {
     expect(sentPayload(transport), bytesOf(CommandPayloads.setVolume(-5, maxDb: null)));
   });
 
-  test('user volume, mute and source are still display-only (Tasks 3.6–3.8)', () async {
+  test('user volume sends the payload for the ip, clamped by the ceiling read at send time (3.6.0)', () async {
+    final transport = FakeUdpTransport();
+    var ceiling = -30.0;
+    final sink = DevialetClientCommandSink(DevialetClient(transport: transport), ceilingDb: () => ceiling);
+    await sink.setVolumeDb('192.0.2.22', -20);
+    expect(sentPayload(transport), bytesOf(CommandPayloads.setVolume(-30, maxDb: null)));
+    expect(transport.sentPairs.single.host, '192.0.2.22');
+
+    transport.sentPairs.clear();
+    ceiling = -10.0;
+    await sink.setVolumeDb('192.0.2.23', -20);
+    expect(sentPayload(transport), bytesOf(CommandPayloads.setVolume(-20, maxDb: null)));
+    expect(transport.sentPairs.single.host, '192.0.2.23');
+  });
+
+  test('mute sends its own opcode, no volume word (3.7.0; the two are independent on the wire)', () async {
     final transport = FakeUdpTransport();
     final sink = DevialetClientCommandSink(DevialetClient(transport: transport), ceilingDb: () => -10);
-    await sink.setVolumeDb('192.0.2.22', -20);
     await sink.setMute('192.0.2.22', true);
+    expect(sentPayload(transport), bytesOf(CommandPayloads.muteOn));
+    transport.sentPairs.clear();
+    await sink.setMute('192.0.2.22', false);
+    expect(sentPayload(transport), bytesOf(CommandPayloads.muteOff));
+  });
+
+  test('source selection is still display-only (Task 3.8)', () async {
+    final transport = FakeUdpTransport();
+    final sink = DevialetClientCommandSink(DevialetClient(transport: transport), ceilingDb: () => -10);
     await sink.selectSource('192.0.2.22', 3);
     expect(transport.sentPairs, isEmpty);
   });

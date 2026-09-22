@@ -18,12 +18,19 @@ import 'settings/settings_owner.dart';
 /// Ingests every status broadcast into [AmpState.amps] keyed by sender IP,
 /// re-evaluates staleness and pending deadlines on the 1 s tick, holds the
 /// selection, and applies every intent as a synchronous optimistic write
-/// through the pending mask before (later) sending. Views read the derived
+/// through the pending mask before sending. Views read the derived
 /// [controlViewStateProvider]; nothing keeps a private copy.
 class AmpStateOwner extends Notifier<AmpState> {
   late MonotonicClock _clock;
   late AmpCommandSink _sink;
   late AmpTrace _trace;
+
+  /// Task 3.6.6: the last `(selected ip, clamp-eligible)` seen after a
+  /// write; a false→true edge (connection landing, power reaching On, the
+  /// boot follow-ups finishing) or an ip change while eligible schedules
+  /// one limit-clamp evaluation.
+  late ({String? ip, bool eligible}) _clampKey;
+  bool _clampScheduled = false;
 
   @override
   AmpState build() {
@@ -36,7 +43,16 @@ class AmpStateOwner extends Notifier<AmpState> {
     // the selection is written by this owner itself, so there is no loop.
     final settings = ref.read(settingsProvider);
     ref.listen(settingsProvider, (_, next) {
-      state = state.copyWith(floorDb: next.floorDb, ceilingDb: next.ceilingDb, startupVolumeDb: next.startupVolumeDb);
+      final limitsChanged = state.floorDb != next.floorDb || state.ceilingDb != next.ceilingDb;
+      final view = _viewIfTracing;
+      state = state.copyWith(
+        floorDb: next.floorDb,
+        ceilingDb: next.ceilingDb,
+        startupVolumeDb: next.startupVolumeDb,
+        stepDb: next.stepDb.db,
+      );
+      _afterWrite(view);
+      if (limitsChanged) _scheduleLimitClamp();
     });
     final client = ref.watch(devialetClientProvider);
     client.startListening();
@@ -47,14 +63,17 @@ class AmpStateOwner extends Notifier<AmpState> {
       ticks.cancel();
       client.stopListening();
     });
-    return AmpState.initial.copyWith(
+    final initial = AmpState.initial.copyWith(
       now: _clock.now(),
       selectedIp: settings.selectedIp,
       hasExplicitSelection: settings.hasExplicitSelection,
       floorDb: settings.floorDb,
       ceilingDb: settings.ceilingDb,
       startupVolumeDb: settings.startupVolumeDb,
+      stepDb: settings.stepDb.db,
     );
+    _clampKey = _clampKeyOf(initial);
+    return initial;
   }
 
   Duration get _now => _clock.now();
@@ -85,7 +104,7 @@ class AmpStateOwner extends Notifier<AmpState> {
       }
       _traceBoot(before, after);
     }
-    _traceViewChange(view);
+    _afterWrite(view);
     _runBootFollowUps();
   }
 
@@ -101,8 +120,23 @@ class AmpStateOwner extends Notifier<AmpState> {
     for (final e in before.entries) {
       _traceBoot(e.value, state.amps[e.key]);
     }
-    _traceViewChange(view);
+    _afterWrite(view);
     _runBootFollowUps();
+  }
+
+  // ---- After every state write
+
+  /// Runs after **every** `state =` in this class: the `view` trace (when
+  /// tracing) and the limit-clamp edge detector (Task 3.6.6, checklist 11:
+  /// re-trigger on every input that can complete late — a broadcast, a
+  /// tick, a rollback, a selection change — not only on the setting that
+  /// changed). One place, so a new write site cannot forget either.
+  void _afterWrite(ControlViewState? viewBefore) {
+    _traceViewChange(viewBefore);
+    final key = _clampKeyOf(state);
+    final previous = _clampKey;
+    _clampKey = key;
+    if (key.eligible && (!previous.eligible || previous.ip != key.ip)) _scheduleLimitClamp();
   }
 
   // ---- Debug trace (Task 3.5.2; `docs/architecture.md`, "Debug trace").
@@ -162,13 +196,16 @@ class AmpStateOwner extends Notifier<AmpState> {
   /// user booted gets its correction even if the selection moved. Not a
   /// user entry point, so not gated by `commandsAllowed`; a failed send
   /// drops the record and the hold so the amp's own value shows honestly —
-  /// no retry.
+  /// no retry. The target is clamped to the limits *in force at the send*
+  /// (the record's target was clamped when the boot started, and a 16 s
+  /// boot is long enough for a Settings change), so the post-boot limit
+  /// clamp (3.6.6) is a no-op by construction. Never unmutes (3.7.1).
   void _runBootFollowUps() {
     final now = _now;
     for (final amp in state.amps.values.toList()) {
       final boot = amp.boot;
       if (boot == null || !boot.isConfirmed || boot.startupSent || now < boot.sendAt!) continue;
-      final target = boot.target;
+      final target = state.clampDb(boot.target);
       _trace('boot startup-send', {
         'ip': amp.ip,
         'target': target,
@@ -180,14 +217,59 @@ class AmpStateOwner extends Notifier<AmpState> {
       _arm(
         amp.ip,
         (a) => a.copyWith(
-          boot: a.boot?.copyWith(startupSent: true),
-          pendingVolumeDb: PendingValue(a.pendingVolumeDb?.value ?? target, now + kBootHold),
+          boot: a.boot?.copyWith(startupSent: true, target: target),
+          pendingVolumeDb: PendingValue(target, now + kBootHold),
         ),
       );
       unawaited(
         _send(amp.ip, (s) => s.sendStartupVolume(amp.ip, target), (a) => a.copyWith(boot: null, pendingVolumeDb: null)),
       );
     }
+  }
+
+  // ---- Limit-change clamp (Task 3.6.6 / 3.4.13; KDE `applyImmediateClamp`)
+
+  /// Eligible = the selected amp is reachable, On (masked power, so an
+  /// optimistic Off counts as Off) and has no boot record: the follow-ups
+  /// leave it at the clamped startup target, and a send inside gotcha #9's
+  /// window would be dropped anyway.
+  static ({String? ip, bool eligible}) _clampKeyOf(AmpState s) {
+    final amp = s.selectedAmp;
+    final eligible =
+        amp != null && amp.isOnlineAt(s.now) && amp.powerPhaseAt(s.now) == PowerPhase.on && amp.boot == null;
+    return (ip: s.effectiveIp, eligible: eligible);
+  }
+
+  /// Coalesces every trigger of one synchronous run (both limits written
+  /// by one call, a broadcast that lands and confirms in the same tick)
+  /// into a single evaluation at the end of the microtask queue; the
+  /// evaluation re-reads [state], so it sees the final values.
+  void _scheduleLimitClamp() {
+    if (_clampScheduled) return;
+    _clampScheduled = true;
+    scheduleMicrotask(() {
+      _clampScheduled = false;
+      if (!ref.mounted) return;
+      _applyLimitClamp();
+    });
+  }
+
+  /// Nothing is sent when the displayed value is already in range, so the
+  /// routine case (a limit widened, a reconnect) costs nothing on the
+  /// wire. One evaluation per trigger and no retry: an ignored clamp is
+  /// re-sent at the next trigger, never on a timer (KDE parity). Every
+  /// armed pending value was clamped when it was armed, so "displayed in
+  /// range" is the right no-op test even mid-mask: a pending *user* value
+  /// that the new limits exclude must be clamped too.
+  void _applyLimitClamp() {
+    final ip = state.effectiveIp;
+    final amp = state.selectedAmp;
+    if (ip == null || amp == null || !_clampKeyOf(state).eligible) return;
+    final shown = amp.displayedVolumeDb;
+    if (state.inRange(shown)) return;
+    final target = state.clampDb(shown);
+    _trace('clamp', {'ip': ip, 'from': shown, 'to': target});
+    unawaited(_writeVolume(ip, target, userIntent: false));
   }
 
   // ---- Selection (checklist 4: "chose None" ≠ "never chose")
@@ -204,7 +286,7 @@ class AmpStateOwner extends Notifier<AmpState> {
   void seedSelection(String? ip, {bool explicit = true}) {
     final view = _viewIfTracing;
     state = state.copyWith(selectedIp: ip, hasExplicitSelection: explicit);
-    _traceViewChange(view);
+    _afterWrite(view);
   }
 
   void selectAmp(AmpRef? amp) => selectIp(amp?.ip);
@@ -216,7 +298,11 @@ class AmpStateOwner extends Notifier<AmpState> {
   // ---- Seams for later tasks
 
   /// Task 3.9.5 (mDNS). Ignored for an amp never heard from.
-  void setModelName(String ip, String? model) => state = state.updateAmp(ip, (a) => a.copyWith(modelName: model));
+  void setModelName(String ip, String? model) {
+    final view = _viewIfTracing;
+    state = state.updateAmp(ip, (a) => a.copyWith(modelName: model));
+    _afterWrite(view);
+  }
 
   /// Enters Booting for a self-initiated power-on (Task 3.2.0). A boot
   /// already in progress is not extended (repeated taps don't move the
@@ -240,12 +326,26 @@ class AmpStateOwner extends Notifier<AmpState> {
 
   /// Seeding / debug seam for the dial range, **not persisted**; the
   /// persisted path is `SettingsNotifier.setVolumeLimits`, which this
-  /// owner mirrors through its settings listener. Same validity rule.
+  /// owner mirrors through its settings listener. Same validity rule, same
+  /// limit clamp (3.6.6) — a seeded out-of-range amp is corrected too.
   void setVolumeRange({double? floorDb, double? ceilingDb}) {
     final floor = floorDb ?? state.floorDb;
     final ceiling = ceilingDb ?? state.ceilingDb;
     assert(VolumeLimitRules.validPair(floor, ceiling), 'invalid volume range $floor/$ceiling');
+    final changed = floor != state.floorDb || ceiling != state.ceilingDb;
+    final view = _viewIfTracing;
     state = state.copyWith(floorDb: floor, ceilingDb: ceiling);
+    _afterWrite(view);
+    if (changed) _scheduleLimitClamp();
+  }
+
+  /// Seeding / debug seam for the step size, **not persisted** (the
+  /// persisted path is `SettingsNotifier.setStepDb`, mirrored by the
+  /// settings listener); lets a fixture keep its own dial grid.
+  void seedStepDb(double stepDb) {
+    assert(stepDb > 0, 'step must be positive');
+    state = state.copyWith(stepDb: stepDb);
+    _afterWrite(null);
   }
 
   // ---- Intents: synchronous optimistic write → send → rollback on failure
@@ -255,7 +355,7 @@ class AmpStateOwner extends Notifier<AmpState> {
   void _arm(String ip, TrackedAmp Function(TrackedAmp amp) write) {
     final view = _viewIfTracing;
     state = state.updateAmp(ip, write);
-    _traceViewChange(view);
+    _afterWrite(view);
   }
 
   Future<void> _send(
@@ -275,31 +375,68 @@ class AmpStateOwner extends Notifier<AmpState> {
 
   static double _quantizeHalfDb(double db) => (db * 2).round() / 2;
 
-  /// Inside a confirmed post-boot hold a user value re-targets **both** the
-  /// hold (its deadline is kept) and the deferred startup send, so the
-  /// user is never overridden by the default (gotcha #9, 4/4 measured).
-  Future<void> setVolumeDb(double db) async {
-    final ip = state.effectiveIp;
-    if (ip == null || !_view.commandsAllowed) return;
-    final target = _quantizeHalfDb(db).clamp(state.floorDb, state.ceilingDb);
+  /// The one volume write (Task 3.6.2 / 3.6.5 / 3.6.6): [target] is
+  /// already quantized and clamped by the caller through [AmpState.clampDb].
+  ///
+  /// [userIntent] (VOL ±, the dial) vs a correction (the limit clamp;
+  /// the startup send has its own path in [_runBootFollowUps]):
+  /// - **Auto-unmute** (3.6.5, a client decision — the wire does not
+  ///   unmute): a user change on a muted amp arms `pendingMuted(false)` in
+  ///   the same synchronous write and sends `mute off` *before* the volume
+  ///   (KDE order). Two separate sends with separate rollbacks, so a
+  ///   failed unmute never rolls the volume back. A correction leaves the
+  ///   amp muted (3.7.1).
+  /// - **Inside a confirmed post-boot hold** (3.6.4b) a user value
+  ///   re-targets the deferred startup send (while it has not gone out),
+  ///   marks the record `userSent` so a matching broadcast may release the
+  ///   hold, and restarts the fallback from this send — the user is never
+  ///   overridden by the default (gotcha #9, 4/4 measured) and never left
+  ///   waiting on the startup send for confirmation.
+  Future<void> _writeVolume(String ip, double target, {required bool userIntent}) async {
     final now = _now;
+    var unmute = false;
     _arm(ip, (a) {
       final boot = a.boot;
-      final held = boot != null && boot.isConfirmed && now < boot.holdDeadline!;
-      final deadline = held && boot.holdDeadline! > now + kPendingWindow ? boot.holdDeadline! : now + kPendingWindow;
-      var next = a.copyWith(pendingVolumeDb: PendingValue(target, deadline));
-      if (held && !boot.startupSent) next = next.copyWith(boot: boot.copyWith(target: target));
+      final held = userIntent && boot != null && boot.isConfirmed && now < boot.holdDeadline!;
+      var next = a.copyWith(pendingVolumeDb: PendingValue(target, now + (held ? kBootHold : kPendingWindow)));
+      if (held) {
+        next = next.copyWith(boot: boot.copyWith(userSent: true, target: boot.startupSent ? null : target));
+      }
+      if (userIntent && a.displayedMuted) {
+        unmute = true;
+        next = next.copyWith(pendingMuted: _pending(false));
+      }
       return next;
     });
+    if (unmute) await _send(ip, (s) => s.setMute(ip, false), (a) => a.copyWith(pendingMuted: null));
     await _send(ip, (s) => s.setVolumeDb(ip, target), (a) => a.copyWith(pendingVolumeDb: null));
   }
 
-  /// Steps from the *displayed* value, so rapid taps accumulate
-  /// (5 taps 10 ms apart = 5 steps; checklist item 3).
-  Future<void> stepVolume(int direction, {double stepDb = 1.0}) {
+  /// The dial's release value (and any absolute user value): quantized to
+  /// the 0.5 dB wire grid and clamped, then written as a user intent.
+  Future<void> setVolumeDb(double db) {
+    final ip = state.effectiveIp;
+    if (ip == null || !_view.commandsAllowed) return Future.value();
+    return _writeVolume(ip, state.clampDb(_quantizeHalfDb(db)), userIntent: true);
+  }
+
+  /// One discrete input = one step of the configured size (3.6.0), from the
+  /// *displayed* value so rapid taps accumulate (5 taps 10 ms apart = 5
+  /// steps; checklist 3), clamped through the same function as every other
+  /// path (3.6.2). Synchronous; returns whether anything was written, so a
+  /// hold-to-repeat chain can stop at a bound without the widget keeping a
+  /// copy of the volume (checklist 9). At a bound on a *muted* amp the
+  /// press still counts: it unmutes and re-asserts the value (KDE sends
+  /// there too); the next tick then reports false.
+  bool stepVolume(int direction) {
+    final ip = state.effectiveIp;
     final amp = state.selectedAmp;
-    if (amp == null) return Future.value();
-    return setVolumeDb(amp.displayedVolumeDb + direction * stepDb);
+    if (ip == null || amp == null || !_view.commandsAllowed) return false;
+    final base = amp.displayedVolumeDb;
+    final target = state.clampDb(_quantizeHalfDb(base + direction * state.stepDb));
+    if (target == base && !amp.displayedMuted) return false;
+    unawaited(_writeVolume(ip, target, userIntent: true));
+    return true;
   }
 
   Future<void> toggleMute() async {

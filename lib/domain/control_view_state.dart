@@ -82,6 +82,7 @@ class ControlViewState {
     required this.volumeDb,
     required this.floorDb,
     required this.ceilingDb,
+    required this.stepDb,
     required this.sources,
     required this.activeSourceIndex,
     this.selectedIp,
@@ -108,6 +109,10 @@ class ControlViewState {
   /// ceiling settings in Task 3.4.x (TODO 2.0.4).
   final double floorDb;
   final double ceilingDb;
+
+  /// The configured step (Task 3.6.0): what one VOL ± input moves and
+  /// what the dial snaps to. From the settings, like the range.
+  final double stepDb;
 
   /// Enabled slots only; empty == the sheet's empty state.
   final List<SourceItem> sources;
@@ -136,7 +141,8 @@ class ControlViewState {
   /// | source sheet rows      | `DimmedGroup(sourceRows)` + row `enabled`      | `selectSource`  |
   /// | amp sheet rows / None / manual IP | none, by design                     | none — selection is not an amp command |
   /// | device card, gear      | always live (open a sheet / Settings)          | —               |
-  /// | hardware keys / Shortcuts / Actions / Semantics actions | none exist  | —               |
+  /// | VOL ± screen-reader tap (no pointer) | `AdaptivePressable.enabled` nulls `onTap` | `stepVolume` (3.6.1) |
+  /// | hardware keys / Shortcuts / Actions | none exist                        | —               |
   /// | debug bar              | `kDebugMode`; drives `ingest`, not intents     | bypassed by design |
   ///
   /// Boundary: the widget flags cover pointer input; the owner's check on
@@ -168,6 +174,7 @@ class ControlViewState {
     double? volumeDb,
     double? floorDb,
     double? ceilingDb,
+    double? stepDb,
     List<SourceItem>? sources,
     Object? activeSourceIndex = _unset,
     Object? selectedIp = _unset,
@@ -181,6 +188,7 @@ class ControlViewState {
       volumeDb: volumeDb ?? this.volumeDb,
       floorDb: floorDb ?? this.floorDb,
       ceilingDb: ceilingDb ?? this.ceilingDb,
+      stepDb: stepDb ?? this.stepDb,
       sources: sources ?? this.sources,
       activeSourceIndex: identical(activeSourceIndex, _unset)
           ? this.activeSourceIndex
@@ -203,6 +211,7 @@ class ControlViewState {
       other.volumeDb == volumeDb &&
       other.floorDb == floorDb &&
       other.ceilingDb == ceilingDb &&
+      other.stepDb == stepDb &&
       _listEquals(other.sources, sources) &&
       other.activeSourceIndex == activeSourceIndex;
 
@@ -217,6 +226,7 @@ class ControlViewState {
     volumeDb,
     floorDb,
     ceilingDb,
+    stepDb,
     Object.hashAll(sources),
     activeSourceIndex,
   );
@@ -266,6 +276,7 @@ class ControlViewState {
     volumeDb: -25.0,
     floorDb: -60.0,
     ceilingDb: -15.0,
+    stepDb: 0.5,
     sources: fixtureSources,
     activeSourceIndex: 0,
   );

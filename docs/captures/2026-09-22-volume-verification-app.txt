@@ -1,0 +1,115 @@
+09-22 20:27:52.427 13237 13237 I flutter : [amp] 261ms rx ip=192.168.0.22 power=on raw=145 db=-25.0
+09-22 20:27:52.428 13237 13237 I flutter : [amp] 265ms view power=on db=-25.0 muted=false hasAmp=true
+09-22 20:28:40.703 13237 13237 I flutter : [amp] 48540ms view power=on db=-26.0 muted=false hasAmp=true
+09-22 20:28:40.704 13237 13237 I flutter : [amp] 48541ms send volume ip=192.168.0.22 db=-26.0 ceiling=-25.0
+09-22 20:28:40.806 13237 13237 I flutter : [amp] 48643ms rx ip=192.168.0.22 power=on raw=143 db=-26.0
+09-22 20:28:41.214 13237 13237 I flutter : [amp] 49051ms view power=on db=-27.0 muted=false hasAmp=true
+09-22 20:28:41.214 13237 13237 I flutter : [amp] 49051ms send volume ip=192.168.0.22 db=-27.0 ceiling=-25.0
+09-22 20:28:41.468 13237 13237 I flutter : [amp] 49305ms rx ip=192.168.0.22 power=on raw=141 db=-27.0
+09-22 20:28:41.681 13237 13237 I flutter : [amp] 49518ms view power=on db=-28.0 muted=false hasAmp=true
+09-22 20:28:41.681 13237 13237 I flutter : [amp] 49518ms send volume ip=192.168.0.22 db=-28.0 ceiling=-25.0
+09-22 20:28:41.881 13237 13237 I flutter : [amp] 49718ms rx ip=192.168.0.22 power=on raw=139 db=-28.0
+09-22 20:28:43.364 13237 13237 I flutter : [amp] 51201ms view power=on db=-29.0 muted=false hasAmp=true
+09-22 20:28:43.365 13237 13237 I flutter : [amp] 51202ms send volume ip=192.168.0.22 db=-29.0 ceiling=-25.0
+09-22 20:28:43.408 13237 13237 I flutter : [amp] 51245ms rx ip=192.168.0.22 power=on raw=137 db=-29.0
+09-22 20:28:43.672 13237 13237 I flutter : [amp] 51509ms view power=on db=-30.0 muted=false hasAmp=true
+09-22 20:28:43.672 13237 13237 I flutter : [amp] 51509ms send volume ip=192.168.0.22 db=-30.0 ceiling=-25.0
+09-22 20:28:43.775 13237 13237 I flutter : [amp] 51612ms view power=on db=-31.0 muted=false hasAmp=true
+09-22 20:28:43.775 13237 13237 I flutter : [amp] 51612ms send volume ip=192.168.0.22 db=-31.0 ceiling=-25.0
+09-22 20:28:43.802 13237 13237 I flutter : [amp] 51639ms rx ip=192.168.0.22 power=on raw=135 db=-30.0
+09-22 20:28:43.879 13237 13237 I flutter : [amp] 51716ms view power=on db=-32.0 muted=false hasAmp=true
+09-22 20:28:43.879 13237 13237 I flutter : [amp] 51716ms send volume ip=192.168.0.22 db=-32.0 ceiling=-25.0
+09-22 20:28:43.981 13237 13237 I flutter : [amp] 51818ms view power=on db=-33.0 muted=false hasAmp=true
+09-22 20:28:43.982 13237 13237 I flutter : [amp] 51819ms send volume ip=192.168.0.22 db=-33.0 ceiling=-25.0
+09-22 20:28:44.004 13237 13237 I flutter : [amp] 51841ms rx ip=192.168.0.22 power=on raw=131 db=-32.0
+09-22 20:28:44.084 13237 13237 I flutter : [amp] 51921ms view power=on db=-34.0 muted=false hasAmp=true
+09-22 20:28:44.084 13237 13237 I flutter : [amp] 51921ms send volume ip=192.168.0.22 db=-34.0 ceiling=-25.0
+09-22 20:28:44.187 13237 13237 I flutter : [amp] 52024ms view power=on db=-35.0 muted=false hasAmp=true
+09-22 20:28:44.187 13237 13237 I flutter : [amp] 52024ms send volume ip=192.168.0.22 db=-35.0 ceiling=-25.0
+09-22 20:28:44.211 13237 13237 I flutter : [amp] 52048ms rx ip=192.168.0.22 power=on raw=127 db=-34.0
+09-22 20:28:44.289 13237 13237 I flutter : [amp] 52126ms view power=on db=-36.0 muted=false hasAmp=true
+09-22 20:28:44.289 13237 13237 I flutter : [amp] 52127ms send volume ip=192.168.0.22 db=-36.0 ceiling=-25.0
+09-22 20:28:44.393 13237 13237 I flutter : [amp] 52230ms view power=on db=-37.0 muted=false hasAmp=true
+09-22 20:28:44.393 13237 13237 I flutter : [amp] 52230ms send volume ip=192.168.0.22 db=-37.0 ceiling=-25.0
+09-22 20:28:44.435 13237 13237 I flutter : [amp] 52272ms rx ip=192.168.0.22 power=on raw=123 db=-36.0
+09-22 20:28:44.496 13237 13237 I flutter : [amp] 52333ms view power=on db=-38.0 muted=false hasAmp=true
+09-22 20:28:44.496 13237 13237 I flutter : [amp] 52333ms send volume ip=192.168.0.22 db=-38.0 ceiling=-25.0
+09-22 20:28:44.599 13237 13237 I flutter : [amp] 52436ms view power=on db=-39.0 muted=false hasAmp=true
+09-22 20:28:44.600 13237 13237 I flutter : [amp] 52437ms send volume ip=192.168.0.22 db=-39.0 ceiling=-25.0
+09-22 20:28:44.639 13237 13237 I flutter : [amp] 52476ms rx ip=192.168.0.22 power=on raw=121 db=-37.0
+09-22 20:28:44.702 13237 13237 I flutter : [amp] 52539ms view power=on db=-40.0 muted=false hasAmp=true
+09-22 20:28:44.702 13237 13237 I flutter : [amp] 52539ms send volume ip=192.168.0.22 db=-40.0 ceiling=-25.0
+09-22 20:28:44.804 13237 13237 I flutter : [amp] 52641ms rx ip=192.168.0.22 power=on raw=117 db=-39.0
+09-22 20:28:44.805 13237 13237 I flutter : [amp] 52642ms view power=on db=-41.0 muted=false hasAmp=true
+09-22 20:28:44.805 13237 13237 I flutter : [amp] 52642ms send volume ip=192.168.0.22 db=-41.0 ceiling=-25.0
+09-22 20:28:44.908 13237 13237 I flutter : [amp] 52745ms view power=on db=-42.0 muted=false hasAmp=true
+09-22 20:28:44.908 13237 13237 I flutter : [amp] 52745ms send volume ip=192.168.0.22 db=-42.0 ceiling=-25.0
+09-22 20:28:45.011 13237 13237 I flutter : [amp] 52848ms view power=on db=-43.0 muted=false hasAmp=true
+09-22 20:28:45.011 13237 13237 I flutter : [amp] 52848ms send volume ip=192.168.0.22 db=-43.0 ceiling=-25.0
+09-22 20:28:45.049 13237 13237 I flutter : [amp] 52887ms rx ip=192.168.0.22 power=on raw=113 db=-41.0
+09-22 20:28:45.113 13237 13237 I flutter : [amp] 52950ms view power=on db=-44.0 muted=false hasAmp=true
+09-22 20:28:45.113 13237 13237 I flutter : [amp] 52951ms send volume ip=192.168.0.22 db=-44.0 ceiling=-25.0
+09-22 20:28:45.204 13237 13237 I flutter : [amp] 53041ms rx ip=192.168.0.22 power=on raw=109 db=-43.0
+09-22 20:28:45.216 13237 13237 I flutter : [amp] 53053ms view power=on db=-45.0 muted=false hasAmp=true
+09-22 20:28:45.216 13237 13237 I flutter : [amp] 53053ms send volume ip=192.168.0.22 db=-45.0 ceiling=-25.0
+09-22 20:28:45.464 13237 13237 I flutter : [amp] 53301ms rx ip=192.168.0.22 power=on raw=105 db=-45.0
+09-22 20:28:46.961 13237 13237 I flutter : [amp] 54798ms view power=on db=-44.0 muted=false hasAmp=true
+09-22 20:28:46.961 13237 13237 I flutter : [amp] 54798ms send volume ip=192.168.0.22 db=-44.0 ceiling=-25.0
+09-22 20:28:47.009 13237 13237 I flutter : [amp] 54846ms rx ip=192.168.0.22 power=on raw=107 db=-44.0
+09-22 20:28:47.264 13237 13237 I flutter : [amp] 55101ms view power=on db=-43.0 muted=false hasAmp=true
+09-22 20:28:47.264 13237 13237 I flutter : [amp] 55101ms send volume ip=192.168.0.22 db=-43.0 ceiling=-25.0
+09-22 20:28:47.366 13237 13237 I flutter : [amp] 55203ms view power=on db=-42.0 muted=false hasAmp=true
+09-22 20:28:47.366 13237 13237 I flutter : [amp] 55203ms send volume ip=192.168.0.22 db=-42.0 ceiling=-25.0
+09-22 20:28:47.421 13237 13237 I flutter : [amp] 55258ms rx ip=192.168.0.22 power=on raw=111 db=-42.0
+09-22 20:28:47.468 13237 13237 I flutter : [amp] 55305ms view power=on db=-41.0 muted=false hasAmp=true
+09-22 20:28:47.469 13237 13237 I flutter : [amp] 55306ms send volume ip=192.168.0.22 db=-41.0 ceiling=-25.0
+09-22 20:28:47.571 13237 13237 I flutter : [amp] 55408ms view power=on db=-40.0 muted=false hasAmp=true
+09-22 20:28:47.572 13237 13237 I flutter : [amp] 55409ms send volume ip=192.168.0.22 db=-40.0 ceiling=-25.0
+09-22 20:28:47.602 13237 13237 I flutter : [amp] 55440ms rx ip=192.168.0.22 power=on raw=113 db=-41.0
+09-22 20:28:47.674 13237 13237 I flutter : [amp] 55511ms view power=on db=-39.0 muted=false hasAmp=true
+09-22 20:28:47.675 13237 13237 I flutter : [amp] 55512ms send volume ip=192.168.0.22 db=-39.0 ceiling=-25.0
+09-22 20:28:47.777 13237 13237 I flutter : [amp] 55614ms view power=on db=-38.0 muted=false hasAmp=true
+09-22 20:28:47.778 13237 13237 I flutter : [amp] 55615ms send volume ip=192.168.0.22 db=-38.0 ceiling=-25.0
+09-22 20:28:47.806 13237 13237 I flutter : [amp] 55643ms rx ip=192.168.0.22 power=on raw=117 db=-39.0
+09-22 20:28:48.004 13237 13237 I flutter : [amp] 55841ms rx ip=192.168.0.22 power=on raw=119 db=-38.0
+09-22 20:28:50.992 13237 13237 I flutter : [amp] 58829ms send volume ip=192.168.0.22 db=-38.0 ceiling=-25.0
+09-22 20:28:53.284 13237 13237 I flutter : [amp] 61121ms view power=on db=-46.0 muted=false hasAmp=true
+09-22 20:28:53.285 13237 13237 I flutter : [amp] 61122ms send volume ip=192.168.0.22 db=-46.0 ceiling=-25.0
+09-22 20:28:53.403 13237 13237 I flutter : [amp] 61240ms rx ip=192.168.0.22 power=on raw=103 db=-46.0
+09-22 20:28:55.293 13237 13237 I flutter : [amp] 63130ms view power=on db=-38.0 muted=false hasAmp=true
+09-22 20:28:55.293 13237 13237 I flutter : [amp] 63130ms send volume ip=192.168.0.22 db=-38.0 ceiling=-25.0
+09-22 20:28:55.401 13237 13237 I flutter : [amp] 63238ms rx ip=192.168.0.22 power=on raw=119 db=-38.0
+09-22 20:28:56.843 13237 13237 I flutter : [amp] 64680ms view power=on db=-38.0 muted=true hasAmp=true
+09-22 20:28:56.843 13237 13237 I flutter : [amp] 64680ms send mute ip=192.168.0.22 muted=true
+09-22 20:28:58.520 13237 13237 I flutter : [amp] 66357ms view power=on db=-37.0 muted=false hasAmp=true
+09-22 20:28:58.520 13237 13237 I flutter : [amp] 66357ms send mute ip=192.168.0.22 muted=false
+09-22 20:28:58.521 13237 13237 I flutter : [amp] 66359ms send volume ip=192.168.0.22 db=-37.0 ceiling=-25.0
+09-22 20:28:58.603 13237 13237 I flutter : [amp] 66440ms rx ip=192.168.0.22 power=on raw=121 db=-37.0
+09-22 20:29:00.170 13237 13237 I flutter : [amp] 68007ms view power=on db=-37.0 muted=true hasAmp=true
+09-22 20:29:00.170 13237 13237 I flutter : [amp] 68008ms send mute ip=192.168.0.22 muted=true
+09-22 20:29:02.182 13237 13237 I flutter : [amp] 70019ms view power=on db=-46.0 muted=false hasAmp=true
+09-22 20:29:02.182 13237 13237 I flutter : [amp] 70019ms send mute ip=192.168.0.22 muted=false
+09-22 20:29:02.183 13237 13237 I flutter : [amp] 70020ms send volume ip=192.168.0.22 db=-46.0 ceiling=-25.0
+09-22 20:29:02.666 13237 13237 I flutter : [amp] 70503ms rx ip=192.168.0.22 power=on raw=103 db=-46.0
+09-22 20:29:51.676 13237 13237 I flutter : [amp] 119513ms clamp ip=192.168.0.22 from=-46.0 to=-45.0
+09-22 20:29:51.676 13237 13237 I flutter : [amp] 119513ms view power=on db=-45.0 muted=false hasAmp=true
+09-22 20:29:51.676 13237 13237 I flutter : [amp] 119513ms send volume ip=192.168.0.22 db=-45.0 ceiling=-25.0
+09-22 20:29:51.817 13237 13237 I flutter : [amp] 119654ms rx ip=192.168.0.22 power=on raw=105 db=-45.0
+09-22 20:29:53.613 13237 13237 I flutter : [amp] 121450ms clamp ip=192.168.0.22 from=-45.0 to=-44.0
+09-22 20:29:53.613 13237 13237 I flutter : [amp] 121451ms view power=on db=-44.0 muted=false hasAmp=true
+09-22 20:29:53.614 13237 13237 I flutter : [amp] 121451ms send volume ip=192.168.0.22 db=-44.0 ceiling=-25.0
+09-22 20:29:53.865 13237 13237 I flutter : [amp] 121702ms rx ip=192.168.0.22 power=on raw=107 db=-44.0
+09-22 20:29:54.225 13237 13237 I flutter : [amp] 122062ms clamp ip=192.168.0.22 from=-44.0 to=-43.0
+09-22 20:29:54.225 13237 13237 I flutter : [amp] 122062ms view power=on db=-43.0 muted=false hasAmp=true
+09-22 20:29:54.225 13237 13237 I flutter : [amp] 122062ms send volume ip=192.168.0.22 db=-43.0 ceiling=-25.0
+09-22 20:29:54.407 13237 13237 I flutter : [amp] 122244ms rx ip=192.168.0.22 power=on raw=109 db=-43.0
+09-22 20:30:01.857 13237 13237 I flutter : [amp] 129694ms view power=on db=-43.0 muted=true hasAmp=true
+09-22 20:30:01.857 13237 13237 I flutter : [amp] 129694ms send mute ip=192.168.0.22 muted=true
+09-22 20:30:07.606 13237 13237 I flutter : [amp] 135443ms clamp ip=192.168.0.22 from=-43.0 to=-42.0
+09-22 20:30:07.606 13237 13237 I flutter : [amp] 135443ms view power=on db=-42.0 muted=true hasAmp=true
+09-22 20:30:07.606 13237 13237 I flutter : [amp] 135443ms send volume ip=192.168.0.22 db=-42.0 ceiling=-25.0
+09-22 20:30:07.894 13237 13237 I flutter : [amp] 135731ms rx ip=192.168.0.22 power=on raw=111 db=-42.0
+09-22 20:30:14.975 13237 13237 I flutter : [amp] 142812ms view power=on db=-42.0 muted=false hasAmp=true
+09-22 20:30:14.975 13237 13237 I flutter : [amp] 142812ms send mute ip=192.168.0.22 muted=false
+09-22 20:30:41.229 13237 13237 I flutter : [amp] 169066ms view power=off db=-50.0 muted=false hasAmp=false
+09-22 20:30:46.151 13237 13237 I flutter : [amp] 173988ms view power=on db=-42.0 muted=false hasAmp=true

@@ -63,13 +63,14 @@ void seedFromControlView(AmpStateOwner owner, ControlViewState shape) {
 }
 
 /// The owner-side half of seeding: model names, the dial range (before
-/// any boot record so the startup target uses the shape's range), a boot
-/// in progress for the booting shape, and the selection.
+/// any boot record so the startup target uses the shape's range), the
+/// step size, a boot in progress for the booting shape, and the selection.
 void seedSelectionFromControlView(AmpStateOwner owner, ControlViewState shape) {
   for (final amp in shape.knownAmps) {
     if (amp.model != null) owner.setModelName(amp.ip, amp.model);
   }
   owner.setVolumeRange(floorDb: shape.floorDb, ceilingDb: shape.ceilingDb);
+  owner.seedStepDb(shape.stepDb);
   final selected = shape.selectedAmp;
   if (selected != null) {
     if (selected.model != null) owner.setModelName(selected.ip, selected.model);

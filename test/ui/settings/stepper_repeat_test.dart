@@ -47,4 +47,32 @@ void main() {
     expect(ticks, 1);
     c.dispose();
   });
+
+  testWidgets('a flat schedule (accel zero): 0, firstRepeatAt, then every interval (VOL ± use 300/100)', (
+    tester,
+  ) async {
+    var ticks = 0;
+    final c = StepperRepeatController(
+      onTick: () {
+        ticks++;
+        return true;
+      },
+      firstRepeatAt: const Duration(milliseconds: 300),
+      interval: const Duration(milliseconds: 100),
+      accel: Duration.zero,
+    );
+    c.start();
+    expect(ticks, 1);
+    await tester.pump(const Duration(milliseconds: 299));
+    expect(ticks, 1);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(ticks, 2);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 99));
+      expect(ticks, 2 + i);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(ticks, 3 + i);
+    }
+    c.dispose();
+  });
 }

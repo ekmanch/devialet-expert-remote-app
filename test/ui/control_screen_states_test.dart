@@ -250,15 +250,17 @@ void main() {
       expect(find.text('No amplifier connected'), findsOneWidget);
     });
 
-    testWidgets('connected: buttons step 1 dB and mute toggles', (tester) async {
+    testWidgets('connected: buttons step the configured size (the fixture\'s 0.5 dB, not the 1 dB default) and mute toggles', (
+      tester,
+    ) async {
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
       await tester.tap(find.byKey(ControlKeys.volPlus));
       await tester.pump();
-      expect(textAt(tester, ControlKeys.dialValue), '\u221224.0');
+      expect(textAt(tester, ControlKeys.dialValue), '\u221224.5');
       await tester.tap(find.byKey(ControlKeys.volMinus));
       await tester.tap(find.byKey(ControlKeys.volMinus));
       await tester.pump();
-      expect(textAt(tester, ControlKeys.dialValue), '\u221226.0');
+      expect(textAt(tester, ControlKeys.dialValue), '\u221225.5');
       await tester.tap(find.byKey(ControlKeys.muteButton));
       await tester.pump(const Duration(milliseconds: 200));
       expect(textAt(tester, ControlKeys.dialValue), 'Muted');

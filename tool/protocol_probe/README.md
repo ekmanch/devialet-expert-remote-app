@@ -25,6 +25,15 @@ here is imported by `lib/`. Python 3, standard library only.
   commands; its envelope is in its header. Set `SHOTS=<dir>` to grab adb
   screenshots at +0.3 / +1.0 s after the first On packet. The listener
   tuple carries the raw volume byte as index 6 since this run.
+- `run6_volume.py <log> watch <s>` / `restore` — the 2026-09-22 user
+  volume / mute / limit-clamp run (`docs/protocol-verification-2026-09-22-volume.md`).
+  Listen-only while the phone is driven (`adb shell input tap/swipe`);
+  the app's sends come from its `[amp]` trace. Sets nothing on the amp
+  except the final restore. The phone's ceiling was pinned to −25 for the
+  run by editing `flutter.volume_ceiling_db` in the debug build's
+  `shared_prefs/FlutterSharedPreferences.xml` via `adb shell run-as`
+  (app force-stopped first; the double is stored as
+  `<base64 prefix>-25.0`), and restored afterwards.
 
 Run from this directory with the amp powered on and idle:
 `python3 run1.py run1.log`. The amp IP is hardcoded in `harness.py`

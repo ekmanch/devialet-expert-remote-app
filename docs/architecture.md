@@ -156,10 +156,47 @@ sequence unmasked (checklist 20).
 `setVolumeDb`, `stepVolume`, `toggleMute`, `selectSource`: gate on
 `commandsAllowed` (On and connected — 3.2.1), quantize/clamp, **write the
 pending slot synchronously**, then `await sink…`; on a throw, clear the
-slot (rollback, checklist 3). `stepVolume` steps from the displayed value
-so rapid taps accumulate. Inside a confirmed post-boot hold `setVolumeDb`
-keeps the hold's deadline and re-targets the pending startup send, so a
-user value is never overridden by the default (gotcha #9).
+slot (rollback, checklist 3).
+
+**Volume (3.6.x, 2026-09-22).** Every volume write goes through one
+private `_writeVolume(ip, target, userIntent:)`; the target is already
+on the 0.5 dB wire grid and clamped by `AmpState.clampDb`, the one
+min/max clamp (idempotent). `stepVolume(direction)` is synchronous: it
+steps `AmpState.stepDb` (the persisted step size, mirrored like the
+range) from the *displayed* value so rapid taps accumulate, and returns
+whether anything was written — a bound step sends nothing and returns
+false, which ends a hold-to-repeat chain without the widget keeping a
+copy of the volume (checklist 9); a bound press on a *muted* amp still
+counts (it unmutes and re-asserts). `setVolumeDb` is the dial's release
+value. **Auto-unmute (3.6.5):** a user write on a muted amp arms
+`pendingMuted(false)` in the same synchronous write and sends `mute
+off` *before* the volume, as two sends with separate rollbacks; a
+correction (`userIntent: false`) cannot touch the mute slot (3.7.1).
+**Inside a confirmed post-boot hold (3.6.4b)** a user write re-targets
+the deferred startup send (while it has not gone out), sets
+`BootInProgress.userSent` so a matching broadcast may release the hold
+(`holdConfirmable = startupSent || userSent`), and restarts the 1500 ms
+fallback from that send. The deferred startup send still goes out with
+the re-targeted value even if the user's confirmation already released
+the hold — a deliberate deviation from the widget (which would send the
+configured default): a user send inside gotcha #9's window can be
+dropped and the deferred send is the only recovery.
+
+**Limit-change clamp (3.6.6, KDE `applyImmediateClamp`).**
+`_applyLimitClamp` corrects the selected amp when its *displayed* value
+is outside `[floor, ceiling]`: one `_writeVolume(userIntent: false)`
+(mute untouched), nothing when in range, no timer retry. It runs in one
+coalescing microtask (`_scheduleLimitClamp`) so several triggers in a
+synchronous run produce one command at the final limits. Triggers: the
+settings listener when floor or ceiling changed, and the `_afterWrite`
+hook — called after **every** `state =` in the owner (ingest, tick,
+`_arm` including rollbacks, selection, the seams) — on an eligibility
+edge: `selected && online && On && boot == null` going false→true, or
+the selected ip changing while eligible. "Power reaching On" is thus
+"the boot record dropped": by then the amp sits at the startup target,
+which `_runBootFollowUps` clamps to the limits in force at the send, so
+the post-boot evaluation is a no-op and never races the amp's own
+startup application (gotcha #9).
 
 `togglePower` (3.2.0), gated on `powerCommandAllowed`: On → Off arms
 `pendingPower(false)`, drops any boot record and sends; Off → On calls
@@ -177,9 +214,9 @@ late On after the 20 s timeout) creates an already-confirmed record in
 `AmpState.ingest` (3.2.5, owner decision 2026-09-20): same hold, same
 send, no Booting presentation. Non-selected amps get nothing.
 
-The sink is `DevialetClientCommandSink`: `setPower` and `sendStartupVolume`
-are real; `setVolumeDb` / `setMute` / `selectSource` are no-ops until Tasks
-3.6 / 3.7 / 3.8, so those optimistic changes still revert after 400 ms.
+The sink is `DevialetClientCommandSink`: `setPower`, `sendStartupVolume`,
+`setVolumeDb` (3.6.0) and `setMute` (3.7.0) are real; `selectSource` is a
+no-op until Task 3.8, so that optimistic change still reverts after 400 ms.
 
 ## 10. Seams
 
@@ -198,8 +235,10 @@ are real; `setVolumeDb` / `setMute` / `selectSource` are no-ops until Tasks
 - 3.5.1 (done 2026-09-21): every UI entry point is gated at the widget
   *and* through `commandsAllowed` / `powerCommandAllowed` in the owner —
   the enumeration is the table above `ControlViewState.commandsAllowed`.
-  3.6 / 3.7 / 3.8: flip the corresponding no-op method of
-  `DevialetClientCommandSink` (and add its `send …` trace line, §15).
+  3.6 / 3.7 (done 2026-09-22): `setVolumeDb` / `setMute` flipped with
+  their `send …` trace lines; 3.8: flip `selectSource` the same way (§15).
+  The VOL ± screen-reader tap is a separate entry point since 3.6.1 (it
+  never sends a pointer) and is gated the same way.
 - 3.9.5: `setModelName(ip, model)`.
 - 3.10.x: `confirmedAmpStateProvider`.
 
@@ -241,8 +280,12 @@ shows the stale broadcast leaking), the hold (`applyUnheld` shows −42
 leaking), the startup delay (an early volume command is dropped by the
 simulated amp, as measured on the real one), the explicit-selection flag
 (a store that drops it lets auto-select resurrect a "None"), the heal (an
-inverted pair bound unhealed leaks into the view) and the seeding seam
-(the user intent, unlike the seam, lands in the store).
+inverted pair bound unhealed leaks into the view), the seeding seam
+(the user intent, unlike the seam, lands in the store), and — 3.6.x, run
+by hand on 2026-09-22 with each guard removed — the dot-pulse leg, the
+`userSent` hold release, the clamp's microtask coalescing (two commands
+without it), the clamp trigger from a rollback (missed by an ingest-only
+diff), the mid-drag disable and the mid-hold disable.
 
 ## 14. Settings (`lib/domain/settings/`)
 
@@ -307,12 +350,15 @@ of Flutter imports because the emitter is injected.
 
 What is traced, and where:
 
-- `send power` / `send startupVolume` — inside the two real methods of
+- `send power` / `send startupVolume` / `send volume db= ceiling=` /
+  `send mute muted=` — inside the real methods of
   `DevialetClientCommandSink`, *before* the await, so the timestamp is
-  the send instant. The display-only stubs (3.6/3.7/3.8) trace nothing
-  until they are flipped; the simulated amp is never traced (the routing
-  sink sits outside it). `send failed` from the owner's catch
-  (checklist 17: a dead route, not a dropped packet).
+  the send instant. The remaining display-only stub (`selectSource`,
+  3.8) traces nothing until it is flipped; the simulated amp is never
+  traced (the routing sink sits outside it). `send failed` from the
+  owner's catch (checklist 17: a dead route, not a dropped packet).
+- `clamp ip= from= to=` — the limit-change correction (3.6.6), just
+  before its `send volume`.
 - `rx power= raw= db=` — the selected amp's broadcast, only when power
   or the raw volume byte changed (change-only keeps `debugPrint`
   throttling irrelevant).

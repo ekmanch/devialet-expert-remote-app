@@ -9,11 +9,15 @@ import 'settings/settings_owner.dart';
 /// optimistic value *before* calling this and rolls that value back if the
 /// call throws (checklist item 3; `docs/protocol.md`, reconciliation #6).
 ///
-/// Since Task 3.2.x the default is [DevialetClientCommandSink], which
-/// sends **power and the post-boot startup volume** for real and keeps the
-/// user's volume / mute / source intents display-only (owner decision
-/// 2026-09-19) until Tasks 3.6 / 3.7 / 3.8 flip them one at a time.
+/// The default is [DevialetClientCommandSink]. Power and the post-boot
+/// startup volume have been real since Task 3.2.x; user volume and mute
+/// since Tasks 3.6.0 / 3.7.0 (2026-09-22). Source selection stays
+/// display-only until Task 3.8 flips it.
 abstract interface class AmpCommandSink {
+  /// A volume the user asked for, or the limit clamp's correction (Task
+  /// 3.6.6) — same opcode as [sendStartupVolume]. Never unmutes by itself:
+  /// the owner sends [setMute] first when a *user* change should unmute
+  /// (Task 3.6.5); corrections don't (Task 3.7.1).
   Future<void> setVolumeDb(String ip, double db);
   Future<void> setMute(String ip, bool muted);
   Future<void> setPower(String ip, bool on);
@@ -54,8 +58,8 @@ class DevialetClientCommandSink implements AmpCommandSink {
   final DevialetClient _client;
 
   /// Debug trace of every *real* send, emitted before the await so the
-  /// timestamp is the send instant (Task 3.5.2). The display-only stubs
-  /// below trace nothing until their task flips them.
+  /// timestamp is the send instant (Task 3.5.2). The one remaining
+  /// display-only stub (`selectSource`) traces nothing until 3.8 flips it.
   final AmpTrace trace;
 
   /// The wire-side ceiling, read at send time so a Settings change applies
@@ -80,13 +84,24 @@ class DevialetClientCommandSink implements AmpCommandSink {
     return _client.setVolumeDb(db, maxDb: ceiling);
   }
 
-  /// Task 3.6.x — display-only until then.
+  /// Task 3.6.0: the same wire-side ceiling as the startup send (gotcha #6;
+  /// the owner already clamped to the floor/ceiling, this is the required
+  /// parameter's defence in depth).
   @override
-  Future<void> setVolumeDb(String ip, double db) async {}
+  Future<void> setVolumeDb(String ip, double db) {
+    final ceiling = ceilingDb();
+    trace('send volume', {'ip': ip, 'db': db, 'ceiling': ceiling});
+    _client.deviceIp = ip;
+    return _client.setVolumeDb(db, maxDb: ceiling);
+  }
 
-  /// Task 3.7.x — display-only until then.
+  /// Task 3.7.0.
   @override
-  Future<void> setMute(String ip, bool muted) async {}
+  Future<void> setMute(String ip, bool muted) {
+    trace('send mute', {'ip': ip, 'muted': muted});
+    _client.deviceIp = ip;
+    return _client.setMute(muted);
+  }
 
   /// Task 3.8.x — display-only until then.
   @override

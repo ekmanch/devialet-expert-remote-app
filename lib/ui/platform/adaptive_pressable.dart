@@ -44,6 +44,19 @@ class _AdaptivePressableState extends State<AdaptivePressable> {
     widget.onPressedChanged?.call(value);
   }
 
+  /// A control disabled *while pressed* (the amp went Off under a held VOL
+  /// button — Task 3.6.1, checklist 6/28) must release here, for every
+  /// user of this widget at once: the Cupertino branch nulls its up/cancel
+  /// handlers when disabled, so they would never fire, and `InkResponse`
+  /// clears its own highlight without calling `onHighlightChanged`. The
+  /// release reaches [AdaptivePressable.onPressedChanged], which is what
+  /// stops a hold-to-repeat chain.
+  @override
+  void didUpdateWidget(AdaptivePressable oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.enabled && _pressed) _setPressed(false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final style = AppTheme.of(context).style;

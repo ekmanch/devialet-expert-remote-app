@@ -31,13 +31,13 @@ class ControlHeader extends StatelessWidget {
               children: [
                 Padding(
                   padding: EdgeInsets.only(bottom: eyebrow ? 2 : 4),
-                  child: Text(
-                    'DEVIALET',
+                  child: _Wordmark(
                     style: theme.type.display(
                       size: eyebrow ? 12 : 13,
                       letterSpacingEm: eyebrow ? 0.2 : 0.22,
                       color: t.copperBright,
                     ),
+                    gradientColors: t.wordmarkGradientColors,
                   ),
                 ),
                 Text(
@@ -74,6 +74,35 @@ class ControlHeader extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// "DEVIALET" — flat `copperBright`, or, when the theme supplies
+/// [gradientColors] (light), the mockups' foil sheen: a left-to-right
+/// gradient clipped to the glyphs (`background-clip: text`), darkest on the
+/// left, brightest on the right. `ShaderMask` + `srcIn` is Flutter's
+/// equivalent; the text's own colour only defines the mask.
+class _Wordmark extends StatelessWidget {
+  const _Wordmark({required this.style, required this.gradientColors});
+
+  final TextStyle style;
+  final List<Color>? gradientColors;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text('DEVIALET', key: ControlKeys.wordmark, style: style);
+    final colors = gradientColors;
+    if (colors == null) return text;
+    return ShaderMask(
+      key: ControlKeys.wordmarkSheen,
+      blendMode: BlendMode.srcIn,
+      shaderCallback: (bounds) => LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: colors,
+      ).createShader(Offset.zero & bounds.size),
+      child: text,
     );
   }
 }

@@ -4,6 +4,8 @@ import 'package:flutter/widgets.dart';
 /// invariance, resize survival). Not used for logic.
 abstract final class ControlKeys {
   static const header = ValueKey('control.header');
+  static const wordmark = ValueKey('control.wordmark');
+  static const wordmarkSheen = ValueKey('control.wordmarkSheen');
   static const gearButton = ValueKey('control.gear');
   static const deviceCard = ValueKey('control.deviceCard');
   static const deviceDot = ValueKey('control.deviceDot');

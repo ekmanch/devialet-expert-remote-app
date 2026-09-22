@@ -1,0 +1,43 @@
+   0.000 === RUN 6 watch: user volume / mute / clamp (Task 3.6.7) wall=2026-09-22T20:28:25.633 ===
+   0.000 ENVELOPE: no power commands; phone ceiling -25.0 for the run; harness sends only the final restore (-25.0 / unmute / slot 0); gestures aim -50..-30
+   1.200 start state: power=True src=0 mute=False vol=-25.0 raw=145
+   1.200 watch: logging every raw/mute/source change on eno1 for 200 s — drive the app now
+   1.241   wall=20:28:26.874 raw=145 vol=-25.0 mute=False src=0 power=on
+  15.240   wall=20:28:40.873 raw=143 vol=-26.0 mute=False src=0 power=on
+  15.843   wall=20:28:41.476 raw=141 vol=-27.0 mute=False src=0 power=on
+  16.225   wall=20:28:41.858 raw=139 vol=-28.0 mute=False src=0 power=on
+  17.835   wall=20:28:43.468 raw=137 vol=-29.0 mute=False src=0 power=on
+  18.238   wall=20:28:43.871 raw=135 vol=-30.0 mute=False src=0 power=on
+  18.440   wall=20:28:44.073 raw=131 vol=-32.0 mute=False src=0 power=on
+  18.641   wall=20:28:44.274 raw=127 vol=-34.0 mute=False src=0 power=on
+  18.842   wall=20:28:44.475 raw=123 vol=-36.0 mute=False src=0 power=on
+  19.043   wall=20:28:44.676 raw=121 vol=-37.0 mute=False src=0 power=on
+  19.244   wall=20:28:44.877 raw=117 vol=-39.0 mute=False src=0 power=on
+  19.425   wall=20:28:45.058 raw=113 vol=-41.0 mute=False src=0 power=on
+  19.626   wall=20:28:45.259 raw=109 vol=-43.0 mute=False src=0 power=on
+  19.827   wall=20:28:45.460 raw=105 vol=-45.0 mute=False src=0 power=on
+  21.436   wall=20:28:47.069 raw=107 vol=-44.0 mute=False src=0 power=on
+  21.858   wall=20:28:47.492 raw=111 vol=-42.0 mute=False src=0 power=on
+  22.039   wall=20:28:47.672 raw=113 vol=-41.0 mute=False src=0 power=on
+  22.241   wall=20:28:47.874 raw=117 vol=-39.0 mute=False src=0 power=on
+  22.442   wall=20:28:48.075 raw=119 vol=-38.0 mute=False src=0 power=on
+  27.829   wall=20:28:53.462 raw=103 vol=-46.0 mute=False src=0 power=on
+  29.838   wall=20:28:55.471 raw=119 vol=-38.0 mute=False src=0 power=on
+  31.427   wall=20:28:57.060 raw=119 vol=-38.0 mute=True src=0 power=on
+  33.034   wall=20:28:58.668 raw=121 vol=-37.0 mute=False src=0 power=on
+  34.642   wall=20:29:00.275 raw=121 vol=-37.0 mute=True src=0 power=on
+  36.833   wall=20:29:02.466 raw=103 vol=-46.0 mute=False src=0 power=on
+  86.234   wall=20:29:51.867 raw=105 vol=-45.0 mute=False src=0 power=on
+  88.226   wall=20:29:53.859 raw=107 vol=-44.0 mute=False src=0 power=on
+  88.829   wall=20:29:54.462 raw=109 vol=-43.0 mute=False src=0 power=on
+  96.431   wall=20:30:02.064 raw=109 vol=-43.0 mute=True src=0 power=on
+ 102.240   wall=20:30:07.873 raw=111 vol=-42.0 mute=True src=0 power=on
+ 109.642   wall=20:30:15.275 raw=111 vol=-42.0 mute=False src=0 power=on
+ 201.214 SUMMARY watch: packets=1000 gaps>250ms=0 final raw=111 vol=-42.0 mute=False
+ 201.214 final state (201.02405643999964, 'eno1', True, 0, False, -42.0, 111)
+   0.000 === RUN 6 restore: user volume / mute / clamp (Task 3.6.7) wall=2026-09-22T20:36:38.361 ===
+   0.000 ENVELOPE: no power commands; phone ceiling -25.0 for the run; harness sends only the final restore (-25.0 / unmute / slot 0); gestures aim -50..-30
+   1.200 start state: power=True src=0 mute=False vol=-42.0 raw=111
+   1.301 restore slot 0 via 0x0000 -> 94 ms
+   1.704 volume -25.0 (final restore, double send, maxdb -25)    -> OK  193 ms   (state src=0 mute=False vol=-25.0)
+   1.704 final state (1.6941909660008605, 'eno1', True, 0, False, -25.0, 145)

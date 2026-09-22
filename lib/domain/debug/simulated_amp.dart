@@ -36,9 +36,10 @@ import 'synthetic_status.dart';
 /// a scenario re-selects the simulated amp in memory only — never in the
 /// persisted settings (checklist 19) — so a real amp is shadowed until
 /// picked in the sheet, and the persisted choice returns on the next launch. "Not responding" stops broadcasting and the view
-/// flips after the real 8 s. User volume / mute / source intents still
-/// send nothing (Tasks 3.6–3.8), so those optimistic changes revert after
-/// 400 ms — power and the startup volume are real.
+/// flips after the real 8 s. Power, the startup volume, user volume and
+/// mute reach the sim for real (Tasks 3.2 / 3.6 / 3.7); a source change
+/// still sends nothing (Task 3.8), so that optimistic change reverts after
+/// 400 ms.
 class SimulatedAmp extends Notifier<DebugScenario> implements AmpCommandSink {
   static const Duration broadcastPeriod = Duration(milliseconds: 200);
 

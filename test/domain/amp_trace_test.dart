@@ -48,11 +48,14 @@ void main() {
       ]);
     });
 
-    test('the display-only stubs emit nothing (3.6 / 3.7 / 3.8 flip this deliberately)', () async {
+    test('user volume and mute emit one line each (3.6.0 / 3.7.0); the source stub still emits nothing (3.8)', () async {
       await sink.setVolumeDb('192.0.2.22', -30);
       await sink.setMute('192.0.2.22', true);
       await sink.selectSource('192.0.2.22', 3);
-      expect(lines, isEmpty);
+      expect(lines, [
+        '[amp] 2000ms send volume ip=192.0.2.22 db=-30.0 ceiling=-10.0',
+        '[amp] 2000ms send mute ip=192.0.2.22 muted=true',
+      ]);
     });
 
     test('the default trace is none, so an untraced sink stays silent', () async {

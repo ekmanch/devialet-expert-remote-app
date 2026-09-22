@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:devialet_expert_remote_app/domain/amp_state_owner.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
+import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
 
 import 'support/pump_control.dart';
@@ -85,6 +87,48 @@ void main() {
     await tester.pump();
     expect(textAt(tester, ControlKeys.dialValue), '\u221225.0');
     expect(readState(tester).volumeDb, -25.0);
+  });
+
+  testWidgets('disabled mid-drag (amp went Off): the drag is dropped uncommitted; counter-half: kept On, release commits (3.6.4)', (
+    tester,
+  ) async {
+    for (final goOff in [true, false]) {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      final gesture = await tester.startGesture(ringPoint(tester, 180));
+      await tester.pump();
+      expect(textAt(tester, ControlKeys.dialValue), '\u221252.5');
+      if (goOff) {
+        containerOf(tester)
+            .read(ampStateProvider.notifier)
+            .ingest(syntheticReport(ip: '192.0.2.22', name: 'My Devialet', isPoweredOn: false));
+        await tester.pump();
+        expect(textAt(tester, ControlKeys.dialValue), '\u221225.0', reason: 'the last known value, not the finger');
+      }
+      await gesture.up();
+      await tester.pump();
+      expect(readState(tester).volumeDb, goOff ? -25.0 : -52.5, reason: 'goOff=$goOff');
+    }
+  });
+
+  testWidgets('muted: the readout follows the finger during a drag; the release unmutes (3.6.5)', (tester) async {
+    await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.muted));
+    expect(textAt(tester, ControlKeys.dialValue), 'Muted');
+    final gesture = await tester.startGesture(ringPoint(tester, 180));
+    await tester.pump();
+    expect(textAt(tester, ControlKeys.dialValue), '\u221252.5');
+    expect(visibilityOf(tester, ControlKeys.dialUnit), isTrue);
+    await gesture.up();
+    await tester.pump();
+    expect((readState(tester).volumeDb, readState(tester).isMuted), (-52.5, false));
+    expect(textAt(tester, ControlKeys.dialValue), '\u221252.5');
+  });
+
+  testWidgets('the dial snaps to the configured step (a 2 dB grid here), not a constant', (tester) async {
+    await pumpControl(tester, state: ControlViewState.connectedFixture.copyWith(stepDb: 2.0));
+    final gesture = await tester.startGesture(ringPoint(tester, 180)); // 9 o'clock ≈ −52.5 on the 0.5 grid
+    await tester.pump();
+    expect(textAt(tester, ControlKeys.dialValue), '\u221252.0');
+    await gesture.up();
   });
 
   testWidgets('the dial range comes from the state, not constants', (tester) async {

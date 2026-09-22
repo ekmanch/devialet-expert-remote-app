@@ -57,6 +57,11 @@ and the numbering is shared across both repos and referenced by
   repo on 2026-09-19 (Tasks 3.0.x / 3.1.x): `docs/architecture.md` §8,
   `lib/domain/amp_tracker.dart`, reproduced in
   `test/domain/amp_state_test.dart`. Don't port #1/#2 as two separate fixes.
+- **Live since 2026-09-22 (Tasks 3.6.0 / 3.7.0):** user volume and mute
+  are real sends, so the mask now guards the actual race. Every 100 ms
+  hold-to-repeat tick re-arms the 400 ms window, so a sustained gesture
+  never leaves a gap for a stale broadcast; the dial sends once, on
+  release, through the same path. Hardware check: Task 3.6.7.
 
 ## 3. Wrong source selected — Optical 1 selection played Roon Ready instead — [Control]
 

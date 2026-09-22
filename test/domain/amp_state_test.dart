@@ -328,6 +328,18 @@ void main() {
       expect(t.amps[amp2]!.boot, isNull);
     });
 
+    test('3.6.4b: a user send inside the hold makes a matching push a confirmation; without the flag it is ignored', () {
+      var s = booted().ingest(reportFrom(amp1, power: true, volumeDb: -42), ms(16200));
+      // Counter-half first: the same push with no send recorded does nothing.
+      final unsent = s.ingest(reportFrom(amp1, power: true, volumeDb: -40), ms(16400));
+      expect(unsent.amps[amp1]!.pendingVolumeDb, isNotNull);
+      s = arm(s, amp1, (a) => a.copyWith(boot: a.boot!.copyWith(userSent: true)));
+      expect(s.amps[amp1]!.boot!.holdConfirmable, isTrue);
+      s = s.ingest(reportFrom(amp1, power: true, volumeDb: -40), ms(16400));
+      expect(s.amps[amp1]!.pendingVolumeDb, isNull);
+      expect(s.amps[amp1]!.boot, isNotNull, reason: 'the deferred startup send is still owed');
+    });
+
     test('startupVolumeTarget is the −40 constant clamped to the range', () {
       expect(AmpState.initial.startupVolumeTarget, -40.0);
       expect(AmpState.initial.copyWith(floorDb: -35).startupVolumeTarget, -35.0);

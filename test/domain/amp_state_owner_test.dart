@@ -44,17 +44,21 @@ class _DroppingFlagStore extends InMemorySettingsStore {
 }
 
 class RecordingCommandSink extends NoopCommandSink {
-  RecordingCommandSink({this.clock, this.failStartup = false});
+  RecordingCommandSink({this.clock, this.failStartup = false, this.failMute = false});
 
   final FakeClock? clock;
   final bool failStartup;
+  final bool failMute;
   final List<String> calls = [];
   final List<Duration> startupSentAt = [];
 
   @override
   Future<void> setVolumeDb(String ip, double db) async => calls.add('volume $ip $db');
   @override
-  Future<void> setMute(String ip, bool muted) async => calls.add('mute $ip $muted');
+  Future<void> setMute(String ip, bool muted) async {
+    calls.add('mute $ip $muted');
+    if (failMute) throw StateError('no route to host');
+  }
   @override
   Future<void> setPower(String ip, bool on) async => calls.add('power $ip $on');
   @override
@@ -171,13 +175,13 @@ void main() {
     expect(sink.calls, ['volume 192.0.2.22 -24.0', 'volume 192.0.2.22 -15.0', 'mute 192.0.2.22 true']);
   });
 
-  test('five rapid steps accumulate on the displayed value', () async {
+  test('five rapid steps accumulate on the displayed value (the fixture step is 0.5 dB)', () async {
     final c = make();
     seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
     for (var i = 0; i < 5; i++) {
       owner(c).stepVolume(1);
     }
-    expect(view(c).volumeDb, -20.0);
+    expect(view(c).volumeDb, -22.5);
   });
 
   test('gated intents are no-ops while Off and with no amp, including power', () async {
@@ -726,6 +730,300 @@ void main() {
       // The same raw pair bound without healing leaks straight into the view.
       final unhealed = make(initialSettings: AppSettings.defaults.copyWith(floorDb: -10, ceilingDb: -50));
       expect((view(unhealed).floorDb, view(unhealed).ceilingDb), (-10.0, -50.0));
+    });
+  });
+
+  group('volume wiring (3.6.x) and mute (3.7.x)', () {
+    const ip = '192.0.2.22';
+    Duration s(int seconds, [int ms = 0]) => Duration(seconds: seconds, milliseconds: ms);
+    AmpStatusReport on({double volumeDb = -25, bool muted = false}) =>
+        syntheticReport(ip: ip, name: 'My Devialet', isPoweredOn: true, volumeDb: volumeDb, isMuted: muted);
+    SettingsNotifier settings(ProviderContainer c) => c.read(settingsProvider.notifier);
+    Iterable<String> mutes(RecordingCommandSink sink) => sink.calls.where((x) => x.startsWith('mute'));
+    Iterable<String> volumes(RecordingCommandSink sink) => sink.calls.where((x) => x.startsWith('volume'));
+
+    test('one step = the configured size; a settings change applies to the next step (3.6.0)', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected)); // fixture step 0.5
+      expect(view(c).stepDb, 0.5);
+      expect(owner(c).stepVolume(1), isTrue);
+      expect(view(c).volumeDb, -24.5);
+      settings(c).setStepDb(VolumeStepDb.two);
+      expect(view(c).stepDb, 2.0);
+      owner(c).stepVolume(1);
+      expect(view(c).volumeDb, -22.5);
+      settings(c).setStepDb(VolumeStepDb.one);
+      owner(c).stepVolume(-1);
+      expect(view(c).volumeDb, -23.5);
+      await settle();
+      expect(volumes(sink), ['volume $ip -24.5', 'volume $ip -22.5', 'volume $ip -23.5']);
+    });
+
+    test('every step path clamps on the already-clamped value: a bound step reports false and sends nothing (3.6.2)', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.connectedFixture.copyWith(volumeDb: -15.5));
+      expect(owner(c).stepVolume(1), isTrue, reason: 'half a step to the ceiling');
+      expect(view(c).volumeDb, -15.0);
+      expect(owner(c).stepVolume(1), isFalse);
+      expect(owner(c).stepVolume(1), isFalse, reason: 'idempotent: clamp(clamp(x)) == clamp(x)');
+      await settle();
+      expect(volumes(sink), ['volume $ip -15.0'], reason: 'nothing re-sent at the bound');
+      await owner(c).setVolumeDb(5);
+      expect(view(c).volumeDb, -15.0);
+      expect(volumes(sink).last, 'volume $ip -15.0', reason: 'an absolute value is clamped through the same function');
+    });
+
+    test('a user volume change on a muted amp unmutes first, then sends the volume; the view unmutes at once (3.6.5)', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.muted));
+      expect(view(c).isMuted, isTrue);
+      owner(c).stepVolume(1);
+      expect((view(c).isMuted, view(c).volumeDb), (false, -24.5), reason: 'both written before any send');
+      await settle();
+      expect(sink.calls, ['mute $ip false', 'volume $ip -24.5'], reason: 'KDE order: mute off, then volume');
+    });
+
+    test('the dial release goes through the same unmute path (checklist 6: every input path)', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.muted));
+      await owner(c).setVolumeDb(-30);
+      expect(sink.calls, ['mute $ip false', 'volume $ip -30.0']);
+      expect(view(c).isMuted, isFalse);
+    });
+
+    test('ten repeat ticks on a muted amp send exactly one mute-off; a bound press on a muted amp still unmutes', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.muted));
+      for (var i = 0; i < 10; i++) {
+        expect(owner(c).stepVolume(1), isTrue);
+      }
+      await settle();
+      expect(mutes(sink).length, 1, reason: 'the optimistic unmute masks displayedMuted for the rest');
+      expect(volumes(sink).length, 10);
+      expect(view(c).volumeDb, -20.0);
+
+      final sink2 = RecordingCommandSink();
+      final c2 = make(sink: sink2);
+      seedFromControlView(owner(c2), ControlViewState.forScenario(DebugScenario.muted).copyWith(volumeDb: -15));
+      expect(owner(c2).stepVolume(1), isTrue, reason: 'at the ceiling but muted: the press unmutes and re-asserts');
+      expect(owner(c2).stepVolume(1), isFalse, reason: 'now unmuted at the ceiling: nothing to do');
+      await settle();
+      expect(sink2.calls, ['mute $ip false', 'volume $ip -15.0']);
+    });
+
+    test('once the 400 ms mask expires with the amp still muted, the next user change re-sends mute-off', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.muted));
+      owner(c).stepVolume(1);
+      await settle();
+      clock.advance(const Duration(milliseconds: 400));
+      owner(c).ingest(on(volumeDb: -24.5, muted: true)); // the amp ignored the unmute
+      expect(view(c).isMuted, isTrue, reason: 'the mask expired; the amp says muted');
+      owner(c).stepVolume(1);
+      await settle();
+      expect(mutes(sink), ['mute $ip false', 'mute $ip false'], reason: 'the gesture retries the dropped unmute');
+    });
+
+    test('a failed unmute rolls back only the mute slot; the volume still goes out and stays', () async {
+      final sink = RecordingCommandSink(failMute: true);
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.muted));
+      await owner(c).setVolumeDb(-30);
+      expect(sink.calls, ['mute $ip false', 'volume $ip -30.0']);
+      expect((view(c).isMuted, view(c).volumeDb), (true, -30.0));
+    });
+
+    test('corrections never unmute (3.7.1): the startup send and the limit clamp leave a muted amp muted', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off).copyWith(isMuted: true));
+      await owner(c).togglePower();
+      clock.set(s(16));
+      owner(c).ingest(on(muted: true));
+      clock.set(s(16, 600));
+      owner(c).ingest(on(volumeDb: -42, muted: true));
+      await settle();
+      clock.set(s(16, 800));
+      owner(c).ingest(on(volumeDb: -40, muted: true));
+      clock.set(s(18));
+      ticker.tick();
+      await settle();
+      expect(sink.calls, ['power $ip true', 'startup $ip -40.0']);
+      expect(view(c).isMuted, isTrue);
+      // Now the clamp, on the same muted amp.
+      settings(c).setVolumeLimits(ceilingDb: -45);
+      await settle();
+      expect(sink.calls.last, 'volume $ip -45.0');
+      expect(mutes(sink), isEmpty, reason: 'counter-half of 3.6.5: a correction is not a user gesture');
+      expect((view(c).isMuted, view(c).volumeDb), (true, -45.0));
+    });
+
+    group('limit-change clamp (3.6.6 / 3.4.13)', () {
+      test('a ceiling below the displayed value sends one clamp and the view moves at once; a floor above it clamps up', () async {
+        final sink = RecordingCommandSink();
+        final c = make(sink: sink);
+        seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected)); // −25 in −60..−15
+        settings(c).setVolumeLimits(ceilingDb: -30);
+        await settle();
+        expect(sink.calls, ['volume $ip -30.0']);
+        expect(view(c).volumeDb, -30.0);
+        settings(c).setVolumeLimits(ceilingDb: -15); // widen back: in range, nothing sent
+        settings(c).setVolumeLimits(floorDb: -28);
+        await settle();
+        expect(sink.calls, ['volume $ip -30.0', 'volume $ip -28.0']);
+        expect(view(c).volumeDb, -28.0);
+      });
+
+      test('nothing is sent when the displayed value is already in range', () async {
+        final sink = RecordingCommandSink();
+        final c = make(sink: sink);
+        seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
+        settings(c).setVolumeLimits(floorDb: -55, ceilingDb: -16);
+        settings(c).setVolumeLimits(floorDb: -26);
+        await settle();
+        expect(sink.calls, isEmpty);
+        expect(view(c).volumeDb, -25.0);
+      });
+
+      test('several triggers in one synchronous run coalesce into exactly one command, at the final limits', () async {
+        // Counter-run (checklist 20), by hand: with `_scheduleLimitClamp`
+        // calling `_applyLimitClamp` directly instead of a microtask, this
+        // records two commands (−30.0 then −35.0).
+        final sink = RecordingCommandSink();
+        final c = make(sink: sink);
+        seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
+        settings(c).setVolumeLimits(ceilingDb: -30);
+        settings(c).setVolumeLimits(ceilingDb: -35);
+        owner(c).setVolumeRange(floorDb: -50);
+        await settle();
+        expect(sink.calls, ['volume $ip -35.0']);
+      });
+
+      test('an amp that is Off gets nothing; power reaching On through a boot leaves it in range by construction', () async {
+        final sink = RecordingCommandSink();
+        final c = make(sink: sink);
+        seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off)); // −25 shown, Off
+        settings(c).setVolumeLimits(ceilingDb: -30);
+        await settle();
+        expect(sink.calls, isEmpty, reason: 'the amp drops commands while Off');
+        await owner(c).togglePower();
+        clock.set(s(16));
+        owner(c).ingest(on(volumeDb: -25));
+        clock.set(s(16, 600));
+        owner(c).ingest(on(volumeDb: -42));
+        await settle();
+        clock.set(s(16, 800));
+        owner(c).ingest(on(volumeDb: -40));
+        clock.set(s(18));
+        ticker.tick(); // the boot record drops: the clamp evaluates and finds −40 in range
+        await settle();
+        expect(sink.calls, ['power $ip true', 'startup $ip -40.0']);
+        expect(view(c).volumeDb, -40.0);
+      });
+
+      test('limits narrowed during a boot: the startup send is clamped to the limits in force, so no second command', () async {
+        final sink = RecordingCommandSink();
+        final c = make(sink: sink);
+        seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off));
+        await owner(c).togglePower();
+        clock.set(s(5));
+        settings(c).setVolumeLimits(ceilingDb: -45); // mid-boot; the record's target was −40
+        clock.set(s(16));
+        owner(c).ingest(on(volumeDb: -25));
+        expect(view(c).volumeDb, -40.0, reason: 'the hold arms with the record target');
+        clock.set(s(16, 600));
+        owner(c).ingest(on(volumeDb: -42));
+        await settle();
+        expect(sink.calls, ['power $ip true', 'startup $ip -45.0']);
+        expect(view(c).volumeDb, -45.0, reason: 'the hold re-arms on the clamped send');
+        clock.set(s(16, 800));
+        owner(c).ingest(on(volumeDb: -45));
+        clock.set(s(18));
+        ticker.tick();
+        await settle();
+        expect(sink.calls.length, 2, reason: 'the post-boot evaluation is a no-op');
+      });
+
+      test('a failed startup send drops the record through the rollback, which still triggers the clamp', () async {
+        final sink = RecordingCommandSink(failStartup: true);
+        final c = make(sink: sink);
+        seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off));
+        await owner(c).togglePower();
+        settings(c).setVolumeLimits(ceilingDb: -45);
+        clock.set(s(16));
+        owner(c).ingest(on(volumeDb: -25));
+        clock.set(s(16, 600));
+        owner(c).ingest(on(volumeDb: -42));
+        await settle();
+        expect(sink.calls, ['power $ip true', 'startup $ip -45.0', 'volume $ip -45.0']);
+        expect(view(c).volumeDb, -45.0, reason: 'the −42 the amp reports is above the new ceiling');
+      });
+
+      test('connection landing and a selection change each clamp the amp that became current; others are untouched', () async {
+        const b = '192.0.2.23';
+        final sink = RecordingCommandSink();
+        final c = make(
+          sink: sink,
+          initialSettings: AppSettings.defaults.copyWith(ceilingDb: -30, selectedIp: ip, hasExplicitSelection: true),
+        );
+        owner(c).ingest(on(volumeDb: -25));
+        await settle();
+        expect(sink.calls, ['volume $ip -30.0'], reason: 'landing out of range');
+        expect(view(c).volumeDb, -30.0);
+        owner(c).ingest(syntheticReport(ip: b, name: 'b', volumeDb: -20));
+        await settle();
+        expect(sink.calls.length, 1, reason: 'a non-selected amp is never corrected');
+        owner(c).selectIp(b);
+        await settle();
+        expect(sink.calls, ['volume $ip -30.0', 'volume $b -30.0']);
+        owner(c).selectIp(ip);
+        await settle();
+        expect(sink.calls.length, 2, reason: 'back to an amp already in range: nothing');
+      });
+
+      test('the clamp is one evaluation per trigger: an ignored clamp is not retried on a timer', () async {
+        final sink = RecordingCommandSink();
+        final c = make(sink: sink);
+        seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
+        settings(c).setVolumeLimits(ceilingDb: -30);
+        await settle();
+        for (var t = 200; t <= 3000; t += 200) {
+          clock.advance(const Duration(milliseconds: 200));
+          owner(c).ingest(on(volumeDb: -25)); // the amp keeps reporting the old value
+          if (t % 1000 == 0) ticker.tick();
+          await settle();
+        }
+        expect(sink.calls, ['volume $ip -30.0']);
+        expect(view(c).volumeDb, -25.0, reason: 'after the mask, the amp\'s own (out-of-range) value shows honestly');
+      });
+    });
+
+    test('3.6.4b: a user send inside the hold lets a matching push release it before the startup send, which still goes out with the user value', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off));
+      await owner(c).togglePower();
+      clock.set(s(16));
+      owner(c).ingest(on(volumeDb: -25));
+      clock.set(s(16, 300));
+      await owner(c).setVolumeDb(-30);
+      expect(sink.calls, ['power $ip true', 'volume $ip -30.0']);
+      expect(c.read(ampStateProvider).amps[ip]!.boot!.userSent, isTrue);
+      clock.set(s(16, 400));
+      owner(c).ingest(on(volumeDb: -30));
+      expect(c.read(ampStateProvider).amps[ip]!.pendingVolumeDb, isNull, reason: 'released by the user\'s own confirmation');
+      expect(view(c).volumeDb, -30.0);
+      clock.set(s(16, 600));
+      owner(c).ingest(on(volumeDb: -30));
+      await settle();
+      expect(sink.calls.last, 'startup $ip -30.0', reason: 'the deferred send still carries the user value (deviation from KDE)');
+      expect(view(c).volumeDb, -30.0);
     });
   });
 

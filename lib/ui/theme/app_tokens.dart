@@ -38,6 +38,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.scrimCupertino,
     required this.dotGlow,
     required this.numericAccent,
+    required this.wordmarkGradientColors,
   });
 
   final Brightness brightness;
@@ -79,6 +80,14 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// cluster ("the same gradient repeated four times read as patterned").
   final Color numericAccent;
 
+  /// Foil-text sheen on the "DEVIALET" wordmark / eyebrow, **light theme
+  /// only** (both v19 mockups: `linear-gradient(90deg, #a8710b, #d99a1f,
+  /// #fbe6ab)` clipped to the letterforms — dark on the left, bright on
+  /// the right, like foil-stamped print). `null` = flat `copperBright`
+  /// (dark theme). The mockups tried it on the dB readout and rejected it
+  /// as too busy on a number read in real time; keep it to branding text.
+  final List<Color>? wordmarkGradientColors;
+
   /// `rgba(var(--accent-rgb), alpha)` in the CSS.
   Color accentTint(double alpha) => copperBright.withValues(alpha: alpha);
 
@@ -113,6 +122,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     scrimCupertino: Color(0x6B08080A),
     dotGlow: Color(0x8CE3A06A),
     numericAccent: Color(0xFFE3A06A),
+    wordmarkGradientColors: null,
   );
 
   static const AppTokens light = AppTokens(
@@ -153,6 +163,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     scrimCupertino: Color(0x6B08080A),
     dotGlow: Color(0x00000000),
     numericAccent: Color(0xFFC2924F),
+    wordmarkGradientColors: [Color(0xFFA8710B), Color(0xFFD99A1F), Color(0xFFFBE6AB)],
   );
 
   static AppTokens forBrightness(Brightness b) => b == Brightness.dark ? dark : light;

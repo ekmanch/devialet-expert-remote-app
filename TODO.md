@@ -399,6 +399,16 @@ gotchas #1/#2 one input at a time.
 
 ### 3.0.x — State owner (Riverpod)
 
+- [x] **2.0.14** — **Wordmark foil sheen (owner request 2026-09-22):** the
+      "DEVIALET" wordmark / eyebrow in the **light theme** gets the
+      mockups' gradient clipped to the letterforms — `#a8710b → #d99a1f →
+      #fbe6ab`, darkest on the left, brightest on the right (both v19
+      mockups, `.phone.light .wordmark` / `.nav-eyebrow`; the mockup
+      rejected the same sheen on the dB readout as too busy). Dark theme
+      stays flat copper, as mocked. Done 2026-09-22:
+      `AppTokens.wordmarkGradientColors` (null in dark) + a `ShaderMask`
+      in `ControlHeader`; `test/ui/wordmark_sheen_test.dart`; checked on
+      the S25 (light, Android variant).
 - [x] **3.0.0** — One Riverpod-owned live amp state, injected into every surface as a
       *required* dependency; views never keep private copies of
       volume/mute/ip/power (checklist items 2, 5). Done 2026-09-19:
@@ -717,9 +727,9 @@ from the KDE widget's settings page.
       GitHub opens the repo. Not yet reported: the stepper hold feel
       (3.4.3 timings stay unmeasured) and the amp-selection restart
       scenarios of 3.3.4.
-- [ ] **3.4.13** — The clamp that a limit change applies *to the amp* is Task 3.6.6's
+- [x] **3.4.13** — The clamp that a limit change applies *to the amp* is Task 3.6.6's
       (it needs the pending mask and the power/boot re-trigger); this task
-      only stores and validates.
+      only stores and validates. Done 2026-09-22 with 3.6.6.
 
 ## Task 3.5.x — Power / boot wiring (depends on 3.2.x)
 
@@ -777,46 +787,158 @@ from the KDE widget's settings page.
       later live check: a `kDebugMode`-only `[amp]` trace over logcat
       (`lib/domain/amp_trace.dart`, `docs/architecture.md` §15) and
       `tool/protocol_probe/run5_boot.py`. Hands-free over wireless adb.
+- [x] **3.5.3** — **Bug (owner, 2026-09-22): the booting dot on the amp card pulsed
+      at half the KDE widget's speed.** The mockup declares `dotPulse 1.1s`
+      for the *whole* cycle (1 → 0.35 → 1) and the widget animates 550 ms
+      down + 550 ms up; `DeviceDot` used 1100 ms as the controller
+      duration with `repeat(reverse: true)`, i.e. a 2.2 s cycle (checklist
+      15: the declared number described the cycle, the port used it as a
+      leg). Fixed 2026-09-22: `kDotPulseLeg = 550 ms`;
+      `test/ui/device_dot_pulse_test.dart` samples 0.35 at 550 ms and 1.0
+      at 1100 ms (counter-run with 1100 ms: both fail).
 
 ## Task 3.6.x — Volume wiring: buttons + dial (depends on 3.1.x, 3.4.x)
 
-- [ ] **3.6.0** — One discrete input (tap, hardware key if ever mapped) = exactly one
-      step of the configured size; the dial snaps to the same step.
-- [ ] **3.6.1** — Hold-to-repeat: 300 ms initial delay, 100 ms interval (measured, not
-      the mockup's 400/100 — checklist item 14).
-- [ ] **3.6.2** — Every step path computes `clamp(base + dir·step)` on the
-      already-clamped synchronous value; clamp is idempotent.
-- [ ] **3.6.3** — One fraction value feeds every meter (dial arc, any indicator bar);
-      never computed three times.
-- [ ] **3.6.4** — Exception, by design: an actively dragged dial displays its own
+Wired 2026-09-22 (owner decisions that day: the dial sends **only on
+release**, as the KDE widget's slider — paced sends during a drag are
+3.6.8; mute is flipped real in the same pass, 3.7.x). The sink's
+`setVolumeDb` / `setMute` are real; `selectSource` stays a stub (3.8).
+Trace events `send volume`, `send mute`, `clamp` (`docs/architecture.md`
+§15).
+
+- [x] **3.6.0** — One discrete input (tap, hardware key if ever mapped) = exactly one
+      step of the configured size; the dial snaps to the same step. Done
+      2026-09-22: `AmpState.stepDb` mirrors the setting like the range and
+      reaches the dial through `ControlViewState.stepDb` (a *required*
+      dial parameter — checklist 2); `AmpStateOwner.stepVolume` reads it.
+      A screen reader's activate action on VOL ± steps once too (the
+      press-to-step path would otherwise have made it a dead entry point,
+      checklist 6). Accepted divergence: the dial's grid is anchored at
+      0 dB (`quantizeDb`), the buttons step from the current value; they
+      only differ for an odd floor with a 2 dB step (−51 → the buttons
+      reach −49, the dial cannot).
+- [x] **3.6.1** — Hold-to-repeat: 300 ms initial delay, 100 ms interval, flat.
+      ~~(measured, not the mockup's 400/100)~~ **Correction 2026-09-22:
+      these are not measured anywhere** — the KDE widget's `autoRepeat`
+      values were copied from the Kotlin app (its commit `bc97159` says
+      so), and no repo holds a measurement (checklist 14/29). Kept for
+      widget parity. Done 2026-09-22: `StepperRepeatController` generalised
+      (`firstRepeatAt` / `interval` / `accel` — the settings stepper keeps
+      its 560 ms / accelerating schedule), `VolumeButtons` steps on
+      press-down through `AdaptivePressable.onPressedChanged`, stops on
+      release / cancel / a bound (`stepVolume` returns false) / disable
+      mid-hold (`AdaptivePressable.didUpdateWidget` releases the press for
+      every user of the widget). Known and recorded, not fixed: inside the
+      `SingleChildScrollView` the tap arena delays the press by
+      `kPressTimeout` (100 ms), so the first repeat lands ≈ 400 ms after
+      the touch and a quick tap steps at pointer-up. Measured on the S25
+      2026-09-22 (3.6.7): first repeat +303 / +308 ms after the press
+      step, then 102–104 ms; the arena delay itself is not visible in the
+      logs (different clocks) — **owner: record the feel here** before
+      deciding whether to subtract it.
+- [x] **3.6.2** — Every step path computes `clamp(base + dir·step)` on the
+      already-clamped synchronous value; clamp is idempotent. Done
+      2026-09-22: `AmpState.clampDb` is the one clamp (min/max);
+      `stepVolume` (buttons), `setVolumeDb` (dial) and the limit clamp all
+      write through one private `_writeVolume`; a bound step returns false
+      and sends nothing (a bound press on a *muted* amp still unmutes and
+      re-asserts, as KDE sends there).
+- [x] **3.6.3** — One fraction value feeds every meter (dial arc, any indicator bar);
+      never computed three times. Done by construction: `dialFraction()`
+      (`volume_dial_math.dart`) is the single function; the arc is the
+      only meter today — 3.10.x's toast must call it, not re-derive.
+- [x] **3.6.4** — Exception, by design: an actively dragged dial displays its own
       local position, not the round-tripped value; block scroll/wheel-style
-      deltas entirely while a drag is in progress.
-- [ ] **3.6.4b** — When user volume sends land here, a user re-target inside the
+      deltas entirely while a drag is in progress. Done 2026-09-22: the
+      drag value lives in `ControlScreen._dragDb` (gesture state, not a
+      copy) and the readout follows it even on a muted amp (KDE's label is
+      bound to the slider). Gap closed: the group going inert mid-drag
+      (Off / silent under the finger) now drops the drag uncommitted —
+      the dial's callbacks are nulled while disabled so its release never
+      arrived and the readout stayed stuck. **Wheel: N/A** — no
+      pointer-signal path exists in `lib/`; whoever adds one (tablet
+      trackpad, mouse) must ignore it while `VolumeDialState._lastDb !=
+      null`, as KDE's `onWheel` returns while `pressed`.
+- [x] **3.6.4b** — When user volume sends land here, a user re-target inside the
       post-boot hold must count as the hold's "send" (KDE `notifyVolume`
       sets `bootHoldSent`): flip `BootInProgress.startupSent` and restart
       the fallback from that send, so the user's value can confirm the
-      hold. Today only the machine's startup send does (3.2.4).
-- [ ] **3.6.5** — Auto-unmute on a *user* volume change (±, dial) — a client decision;
+      hold. Done 2026-09-22 with a separate flag, `BootInProgress.userSent`
+      (`holdConfirmable = startupSent || userSent`), the fallback restarted
+      from the user's send. **Deliberate deviation from the widget:** the
+      deferred +500 ms startup send still goes out, carrying the
+      re-targeted user value, even when the user's own confirmation already
+      released the hold — the widget sends the *configured default* there
+      (its `bootHoldIp` is cleared on release). A user send at +50…+394 ms
+      can be silently dropped (gotcha #9), and the deferred send is the
+      only recovery; it must never override the user. Also: the startup
+      send is clamped to the limits *in force at the send* (a Settings
+      change during a 16 s boot), so the post-boot limit clamp is a no-op.
+- [x] **3.6.5** — Auto-unmute on a *user* volume change (±, dial) — a client decision;
       the wire does not unmute (`docs/protocol.md`, "Volume and mute are
-      independent").
-- [ ] **3.6.6** — **Limit-change clamp:** immediate clamp when floor/ceiling change,
+      independent"). Done 2026-09-22: `mute off` **then** the volume (KDE
+      order), two sends with separate rollbacks so a failed unmute never
+      rolls the volume back; the optimistic `pendingMuted(false)` makes a
+      10-tick hold send exactly one mute-off; once the 400 ms mask expires
+      with the amp still muted the next gesture re-sends it (the gesture
+      retries the dropped command — desired). Corrections (startup send,
+      limit clamp) never unmute (3.7.1, counter-tested).
+- [x] **3.6.6** — **Limit-change clamp:** immediate clamp when floor/ceiling change,
       both directions, scoped to the connected amp, amp stays muted through
       it, one Apply changing both values coalesced into exactly one
       command, nothing sent when already in range; re-run on connection
-      landing and on power reaching On (checklist item 11).
-- [ ] **3.6.7** — Verified against gotchas #1/#2 by hand on the Galaxy S25 (release
+      landing and on power reaching On (checklist item 11). Done
+      2026-09-22, port of KDE `applyImmediateClamp`: `_applyLimitClamp`
+      runs in one coalescing microtask (`_scheduleLimitClamp`) triggered by
+      the settings listener (floor/ceiling changed) and by the owner's
+      `_afterWrite` hook — which runs after **every** state write (ingest,
+      tick, `_arm` incl. rollbacks, selection, seams) and fires on an
+      eligibility edge (`selected && online && On && boot == null`
+      false→true, or the selected ip changing while eligible). "Power
+      reaching On" is therefore "the boot record dropped" — by then the
+      amp sits at the clamped startup target, so a send inside gotcha #9's
+      window is never raced. One evaluation per trigger, no timer retry
+      (KDE parity). Phone note: settings are effective immediately, so
+      "one Apply" here means one synchronous run (`restoreDefaults`,
+      two seam writes) — proven to produce one command.
+- [x] **3.6.7** — Verified against gotchas #1/#2 by hand on the Galaxy S25 (release
       the button / the dial mid-broadcast) with a raw capture next to the
-      app; report recorded (checklist items 22, 23).
+      app; report recorded (checklist items 22, 23). Done 2026-09-22 (the
+      scripted half): `docs/protocol-verification-2026-09-22-volume.md`,
+      captures in `docs/captures/2026-09-22-volume-verification{,-app}.txt`,
+      `tool/protocol_probe/run6_volume.py` (listener + restore; envelope
+      in its header). Taps, two holds (17 and 7 sends at 300/100), three
+      dial releases, mute → step / drag → unmute, seven floor-driven
+      clamps (one command per excluding change, none in range, muted
+      stays muted) and a None-selected control tap — every `view` line
+      moved with the gesture, no jerk after any release; confirmations
+      81…288 ms. **Owner hands-on still to record here** (checklist 23):
+      the 300/100 feel incl. the ≈100 ms arena delay (3.6.1), dial
+      tracking on release, the muted → drag → unmute path.
+- [ ] **3.6.8** — *(deferred, owner decision 2026-09-22)* Paced sends **during** a
+      dial drag (at most one every 100 ms, like the button repeat, plus the
+      release value) so the amp follows the finger like the physical knob.
+      Release-only is the widget's behaviour and shipped first; revisit
+      after the 3.6.7 soak if live tracking is missed.
 
 ## Task 3.7.x — Mute wiring (independent; do early if convenient)
 
-- [ ] **3.7.0** — Mute is its own opcode, independent of volume; the owner exposes it
-      through the same pending mask as everything else.
-- [ ] **3.7.1** — Corrections sent while muted (limit clamps, startup volume) leave the
+Done 2026-09-22 together with 3.6.5 (owner decision: auto-unmute needs the
+real mute send).
+
+- [x] **3.7.0** — Mute is its own opcode, independent of volume; the owner exposes it
+      through the same pending mask as everything else. Done 2026-09-22:
+      `DevialetClientCommandSink.setMute` is real (`send mute` trace);
+      `toggleMute` was already masked through `pendingMuted`.
+- [x] **3.7.1** — Corrections sent while muted (limit clamps, startup volume) leave the
       amp muted; only Task 3.6.5's auto-unmute on a *user* volume change
-      unmutes.
-- [ ] **3.7.2** — Numeric readouts derive "Muted" from confirmed+masked state, not from
-      the button's own toggle (checklist item 9).
+      unmutes. Done 2026-09-22: `_writeVolume(userIntent: false)` cannot
+      touch the mute slot; counter-tested (startup send and clamp on a
+      muted amp: no mute call, view stays muted).
+- [x] **3.7.2** — Numeric readouts derive "Muted" from confirmed+masked state, not from
+      the button's own toggle (checklist item 9). Already true since 3.0.x
+      (`ControlViewState.isMuted` ← `displayedMuted`); during a dial drag
+      the finger's value wins over "Muted" (3.6.4).
 
 ## Task 3.8.x — Source selection wiring
 

@@ -10,8 +10,16 @@ import 'control_keys.dart';
 
 enum DeviceDotState { connected, off, none, booting }
 
+/// One leg of the booting pulse (1 → 0.35 or back); the full cycle is twice this.
+const Duration kDotPulseLeg = Duration(milliseconds: 550);
+
 /// The 10px status dot: copper glow (connected), hollow ring (off), dashed
-/// ring (none), pulsing amber (booting, 1.1 s opacity 1↔0.35).
+/// ring (none), pulsing amber (booting: opacity 1 → 0.35 → 1 over one
+/// 1.1 s cycle, i.e. 550 ms each way, as the KDE widget's `AmpHeader.qml`
+/// and the mockup's `dotPulse 1.1s`). The controller's `duration` is one
+/// *leg* because `repeat(reverse: true)` plays it both ways — 1100 ms here
+/// was the Task 3.5.3 bug, a pulse at half the widget's speed
+/// (checklist 15: the mockup's declared number described the whole cycle).
 class DeviceDot extends StatefulWidget {
   const DeviceDot({super.key, required this.state, this.size = 10});
 
@@ -25,7 +33,7 @@ class DeviceDot extends StatefulWidget {
 class _DeviceDotState extends State<DeviceDot> with SingleTickerProviderStateMixin {
   late final AnimationController _pulse = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1100),
+    duration: kDotPulseLeg,
   );
 
   @override

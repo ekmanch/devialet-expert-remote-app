@@ -17,13 +17,13 @@ class AmpState {
     required this.floorDb,
     required this.ceilingDb,
     required this.startupVolumeDb,
+    required this.stepDb,
   });
 
   /// Defaults mirror `AppSettings.defaults`; the owner overrides them with
-  /// the persisted settings on build (Task 3.3.x). Note the settings
-  /// ceiling default is −10 while `VolumeCodec.defaultSafetyMaxDb` still
-  /// clamps the wire at −15 until Task 3.4.7 / 1.1.3 — harmless until
-  /// user volume is sent (Task 3.6).
+  /// the persisted settings on build (Task 3.3.x). The wire ceiling is the
+  /// required `maxDb` the sink reads from the same settings at send time
+  /// (Task 3.4.7 / 1.1.3).
   static const AmpState initial = AmpState(
     amps: <String, TrackedAmp>{},
     selectedIp: null,
@@ -32,6 +32,7 @@ class AmpState {
     floorDb: -50.0,
     ceilingDb: -10.0,
     startupVolumeDb: -40.0,
+    stepDb: 1.0,
   );
 
   /// Keyed by sender IP. **Never evicted**: a silent amp flips offline via
@@ -53,6 +54,16 @@ class AmpState {
   /// Sent 500 ms after a self-initiated boot confirms (Task 3.2.2) and,
   /// later, after every source switch (Task 3.8.1). Persisted setting.
   final double startupVolumeDb;
+
+  /// One discrete input (VOL ± tap or repeat tick) moves this much and the
+  /// dial snaps to it (Task 3.6.0). Persisted setting (0.5 / 1 / 2).
+  final double stepDb;
+
+  /// Task 3.6.2: the one clamp every volume write passes through
+  /// (min/max, idempotent — `clamp(clamp(x)) == clamp(x)`).
+  double clampDb(double db) => db.clamp(floorDb, ceilingDb);
+
+  bool inRange(double db) => db >= floorDb && db <= ceilingDb;
 
   /// The amp whose broadcasts drive the control state: the explicit
   /// selection, or — only if the user never chose — the sole known amp
@@ -128,6 +139,7 @@ class AmpState {
     double? floorDb,
     double? ceilingDb,
     double? startupVolumeDb,
+    double? stepDb,
   }) {
     return AmpState(
       amps: amps ?? this.amps,
@@ -137,6 +149,7 @@ class AmpState {
       floorDb: floorDb ?? this.floorDb,
       ceilingDb: ceilingDb ?? this.ceilingDb,
       startupVolumeDb: startupVolumeDb ?? this.startupVolumeDb,
+      stepDb: stepDb ?? this.stepDb,
     );
   }
 }
@@ -221,6 +234,7 @@ ControlViewState deriveControlView(AmpState s) {
       volumeDb: s.floorDb,
       floorDb: s.floorDb,
       ceilingDb: s.ceilingDb,
+      stepDb: s.stepDb,
       sources: const <SourceItem>[],
       activeSourceIndex: null,
     );
@@ -236,6 +250,7 @@ ControlViewState deriveControlView(AmpState s) {
     volumeDb: amp.displayedVolumeDb,
     floorDb: s.floorDb,
     ceilingDb: s.ceilingDb,
+    stepDb: s.stepDb,
     sources: [
       for (final slot in amp.status.sources)
         if (slot.isEnabled) SourceItem(index: slot.index, name: slot.name),

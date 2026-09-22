@@ -61,6 +61,7 @@ class BootInProgress {
     required this.target,
     this.confirmedAt,
     this.startupSent = false,
+    this.userSent = false,
   });
 
   /// Unconfirmed past this → silently Off (20 s).
@@ -78,16 +79,32 @@ class BootInProgress {
   /// during the await cannot send twice.
   final bool startupSent;
 
+  /// Task 3.6.4b: the user sent a volume inside the confirmed hold (KDE
+  /// `bootHoldSent`). From then on a matching byte is a real confirmation
+  /// — the user's own command ends the misreport just as the startup send
+  /// would. It does **not** cancel the deferred startup send: a user value
+  /// sent inside gotcha #9's window can be silently dropped, and the
+  /// deferred send (carrying the re-targeted user value) is the only
+  /// recovery. Deliberate deviation from the widget, which sends the
+  /// configured default if the hold already ended.
+  final bool userSent;
+
   bool get isConfirmed => confirmedAt != null;
+
+  /// Whether a broadcast equal to the held value may release the hold:
+  /// only after *something* was sent (gotcha #8 "Watch out #2").
+  bool get holdConfirmable => startupSent || userSent;
   Duration? get sendAt => confirmedAt == null ? null : confirmedAt! + kStartupVolumeDelay;
   Duration? get holdDeadline => confirmedAt == null ? null : confirmedAt! + kBootHold;
 
-  BootInProgress copyWith({Duration? confirmedAt, double? target, bool? startupSent}) => BootInProgress(
-    deadline: deadline,
-    target: target ?? this.target,
-    confirmedAt: confirmedAt ?? this.confirmedAt,
-    startupSent: startupSent ?? this.startupSent,
-  );
+  BootInProgress copyWith({Duration? confirmedAt, double? target, bool? startupSent, bool? userSent}) =>
+      BootInProgress(
+        deadline: deadline,
+        target: target ?? this.target,
+        confirmedAt: confirmedAt ?? this.confirmedAt,
+        startupSent: startupSent ?? this.startupSent,
+        userSent: userSent ?? this.userSent,
+      );
 
   @override
   bool operator ==(Object other) =>
@@ -95,10 +112,11 @@ class BootInProgress {
       other.deadline == deadline &&
       other.target == target &&
       other.confirmedAt == confirmedAt &&
-      other.startupSent == startupSent;
+      other.startupSent == startupSent &&
+      other.userSent == userSent;
 
   @override
-  int get hashCode => Object.hash(deadline, target, confirmedAt, startupSent);
+  int get hashCode => Object.hash(deadline, target, confirmedAt, startupSent, userSent);
 }
 
 /// Everything the owner knows about one amp, keyed by its IP in
@@ -164,13 +182,14 @@ class TrackedAmp {
   ///   that packet's pre-shutdown byte is never shown.
   /// - unconfirmed past [BootInProgress.deadline] → dropped (silent Off).
   /// - confirmed, startup sent and the hold deadline passed → dropped.
-  /// - **a matching byte releases the hold only after the startup send
-  ///   went out** (KDE widget fix 2026-09-20, gotcha #8 "Watch out #2"):
-  ///   the first On packet carries the pre-shutdown byte, which equals
-  ///   the target whenever the amp was powered off at the startup volume
-  ///   — routine, since every source switch sets it. Until the send, the
-  ///   hold can only expire (fallback from arming); the owner re-arms the
-  ///   deadline from the send.
+  /// - **a matching byte releases the hold only after a send went out**
+  ///   (KDE widget fix 2026-09-20, gotcha #8 "Watch out #2"): the first On
+  ///   packet carries the pre-shutdown byte, which equals the target
+  ///   whenever the amp was powered off at the startup volume — routine,
+  ///   since every source switch sets it. Until the startup send or a user
+  ///   send inside the hold ([BootInProgress.holdConfirmable]), the hold
+  ///   can only expire (fallback from arming); the owner re-arms the
+  ///   deadline from whichever send happens.
   TrackedAmp resolvePending(Duration now) {
     PendingValue<T>? keep<T>(PendingValue<T>? pending, T actual) {
       if (pending == null) return null;
@@ -194,7 +213,7 @@ class TrackedAmp {
       }
     }
 
-    final holdBeforeSend = nextBoot != null && nextBoot.isConfirmed && !nextBoot.startupSent;
+    final holdBeforeSend = nextBoot != null && nextBoot.isConfirmed && !nextBoot.holdConfirmable;
     final PendingValue<double>? resolvedVolume;
     if (holdBeforeSend) {
       resolvedVolume =
