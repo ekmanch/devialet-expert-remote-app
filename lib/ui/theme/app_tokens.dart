@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Colour / gradient / shadow tokens lifted 1:1 from the mockups' CSS (v36;
-/// unchanged by v39)
+/// v39 changed no variables, only the light dB-readout gradient)
 /// variables (`:root` = dark, `.phone.light` = light). One place, so Task
 /// 3.4.x's Theme setting and Task 5.0.0's icon reuse them (TODO 2.0.11).
 ///
@@ -41,6 +41,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.wordmarkGradientColors,
     required this.settingsHeadingGradientColors,
     required this.glyphGoldColors,
+    required this.dialValueGradientColors,
     required this.listenArc,
   });
 
@@ -81,8 +82,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// only** (both v19 mockups: `linear-gradient(90deg, #a8710b, #d99a1f,
   /// #fbe6ab)` clipped to the letterforms — dark on the left, bright on
   /// the right, like foil-stamped print). `null` = flat `copperBright`
-  /// (dark theme). The mockups tried it on the dB readout and rejected it
-  /// as too busy on a number read in real time; keep it to branding text.
+  /// (dark theme). The dB readout has its own, narrower gradient — see
+  /// [dialValueGradientColors].
   final List<Color>? wordmarkGradientColors;
 
   /// Settings-screen section headings (v28/v29/v32): the accent moved off
@@ -98,6 +99,16 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// `#fcecc0 → #f0a623 (38 %) → #a8710b` — the same three stops as the
   /// connected device dot. `null` = flat [copperBright] (dark).
   final List<Color>? glyphGoldColors;
+
+  /// Light theme dB readout (`.phone.light .dial-value`): a two-stop
+  /// left→right gold clipped to the digits. v36 used `#c17f0e → #f0c873`
+  /// (never ported — the readout stayed flat `copperBright`); v39
+  /// brightened it to `#dca136 → #f3cf7c` ("Light-theme dB readout:
+  /// brighter gold") and that is what ships. Only two stops, same hue
+  /// family: over 4–5 characters a wider range showed as two colour
+  /// blocks instead of a sweep. `null` = flat [copperBright] (dark keeps
+  /// its glow instead).
+  final List<Color>? dialValueGradientColors;
   static const List<double> glyphGoldStops = [0.0, 0.38, 1.0];
   static const Alignment glyphGoldCenter = Alignment(-0.36, -0.44);
   /// `text-shadow: 0 3px 5px rgba(160,110,10,.35)` under a gold glyph.
@@ -147,6 +158,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     wordmarkGradientColors: null,
     settingsHeadingGradientColors: null,
     glyphGoldColors: null,
+    dialValueGradientColors: null,
     listenArc: Color(0xFFA06F4A),
   );
 
@@ -191,6 +203,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     wordmarkGradientColors: [Color(0xFFA8710B), Color(0xFFD99A1F), Color(0xFFFBE6AB)],
     settingsHeadingGradientColors: [Color(0xFFA8710B), Color(0xFFD99A1F), Color(0xFFEFC36A)],
     glyphGoldColors: [Color(0xFFFCECC0), Color(0xFFF0A623), Color(0xFFA8710B)],
+    dialValueGradientColors: [Color(0xFFDCA136), Color(0xFFF3CF7C)],
     listenArc: Color(0xFFC79A2E),
   );
 

@@ -259,9 +259,10 @@ class _DialRingPainter extends CustomPainter {
       old.strokeWidth != strokeWidth;
 }
 
-/// The dial's centre: value (34 mono, copper), unit (12 mono, kept in
-/// layout when hidden so nothing shifts) and the active source label
-/// (10.5 display, uppercase).
+/// The dial's centre: value (34 mono, copper; in light the v39 two-stop
+/// gold gradient clipped to the digits — `AppTokens.dialValueGradientColors`),
+/// unit (12 mono, kept in layout when hidden so nothing shifts) and the
+/// active source label (10.5 display, uppercase).
 class DialReadout extends StatelessWidget {
   const DialReadout({
     super.key,
@@ -278,16 +279,28 @@ class DialReadout extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
     final t = theme.tokens;
+    final value = Text(
+      valueText,
+      key: ControlKeys.dialValue,
+      style: theme.type
+          .mono(size: 34, weight: FontWeight.w500, letterSpacingEm: -0.01, color: t.copperBright, height: 1)
+          .copyWith(shadows: t.isDark ? [Shadow(color: t.accentTint(0.35), blurRadius: 18)] : null),
+    );
+    final gradient = t.dialValueGradientColors;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          valueText,
-          key: ControlKeys.dialValue,
-          style: theme.type
-              .mono(size: 34, weight: FontWeight.w500, letterSpacingEm: -0.01, color: t.copperBright, height: 1)
-              .copyWith(shadows: t.isDark ? [Shadow(color: t.accentTint(0.35), blurRadius: 18)] : null),
-        ),
+        gradient == null
+            ? value
+            : ShaderMask(
+                blendMode: BlendMode.srcIn,
+                shaderCallback: (bounds) => LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: gradient,
+                ).createShader(Offset.zero & bounds.size),
+                child: value,
+              ),
         Visibility(
           visible: unitVisible,
           maintainSize: true,

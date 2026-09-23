@@ -100,6 +100,27 @@ void main() {
     });
   });
 
+  group('dial readout (v39 light gradient)', () {
+    testWidgets('light: the dB value is masked with the v39 two-stop gold; dark: flat copper with its glow', (tester) async {
+      osBrightness(tester, Brightness.light);
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      final mask = find.ancestor(of: find.byKey(ControlKeys.dialValue), matching: find.byType(ShaderMask));
+      expect(mask, findsOneWidget);
+      final t = AppTheme.of(tester.element(find.byType(ControlScreen))).tokens;
+      expect(t.dialValueGradientColors, const [Color(0xFFDCA136), Color(0xFFF3CF7C)]);
+      final shader = tester.widget<ShaderMask>(mask).shaderCallback(const Rect.fromLTWH(0, 0, 80, 34));
+      expect(shader, isNotNull);
+      expect(tester.widget<Text>(find.byKey(ControlKeys.dialValue)).style!.shadows, isNull);
+
+      osBrightness(tester, Brightness.dark);
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      expect(find.ancestor(of: find.byKey(ControlKeys.dialValue), matching: find.byType(ShaderMask)), findsNothing);
+      final dark = tester.widget<Text>(find.byKey(ControlKeys.dialValue));
+      expect(dark.style!.color, AppTokens.dark.copperBright);
+      expect(dark.style!.shadows, isNotEmpty);
+    });
+  });
+
   group('source card and footer (v36)', () {
     testWidgets('no "Active source" eyebrow; the name is 15/600 like the amp name (owner mockup update 2026-09-23)', (tester) async {
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));

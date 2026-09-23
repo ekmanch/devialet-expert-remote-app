@@ -572,6 +572,12 @@ gotchas #1/#2 one input at a time.
       for the back control and the AIR mapping. Verified on the S25 in
       light: Control, amp picker, entry view with the keyboard, source
       sheet.
+      (e) Missed in the first pass, added the same day: the light theme's
+      dB readout takes v39's brighter two-stop gold
+      (`dialValueGradientColors`, `#dca136 → #f3cf7c`, `.phone.light
+      .dial-value` rule 10) clipped to the digits — the readout had been
+      flat `copperBright` since v19 (v36's `#c17f0e → #f0c873` was never
+      ported). Dark unchanged: flat copper + glow. Guard in `mockup_test`.
 - [x] **3.0.0** — One Riverpod-owned live amp state, injected into every surface as a
       *required* dependency; views never keep private copies of
       volume/mute/ip/power (checklist items 2, 5). Done 2026-09-19:
