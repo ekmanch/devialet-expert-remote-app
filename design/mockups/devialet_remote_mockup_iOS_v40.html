@@ -828,6 +828,17 @@
   .ip-header{align-items:flex-start;}
   .ip-header .sheet-back{margin-top:-3px;}
   .ip-sub{margin:3px 0 8px; padding:0 4px;}  /* same side padding as .sheet-title so both lines start at one x */
+
+  /* ---- v40: Control-screen vertical rhythm, from the app's
+     control_layout.dart (Task 2.0.21). Trimmed 30 so the Control
+     column fits a Galaxy S25 without scrolling. Settings keeps the
+     original rhythm, so everything is scoped to the first screen. */
+  .screens .screen:first-child .nav-header{padding-bottom:14px;}                 /* kControlHeaderBottomEyebrow */
+  .screens .screen:first-child .section-label.first{margin-top:18px;}       /* kControlSectionTopFirst */
+  .screens .screen:first-child .section-label:not(.first){margin-top:20px;} /* kControlSectionTop */
+  .screens .screen:first-child .dial-wrap{padding-top:4px; padding-bottom:0;} /* kControlDialTop / Bottom */
+  .screens .screen:first-child .vol-buttons{margin-top:14px;}               /* kControlVolumeButtonsTop */
+  .screens .screen:first-child .action-row{margin-top:18px;}                /* kControlActionRowTop */
 </style>
 </head>
 <body>
