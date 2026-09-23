@@ -16,10 +16,11 @@ class ManualEntryGlyph extends StatelessWidget {
 
   /// Optical sizing, measured on the S25 (2026-09-23): in the nominal box
   /// the slab painted 40 × 30 px against the amp dot's 40 × 40, half the
-  /// dot's ink, and read smaller. Drawn 15 % larger, with the slab
-  /// taller (11.2 of the 20 units), it paints ≈ 46 × 37 px and reads
-  /// level with the dot.
-  static const double opticalScale = 1.15;
+  /// dot's ink, and read smaller. At 1.15 (slab 11.2 of the 20 units) it
+  /// painted 46 × 36 and read level; the owner's updated mockup then
+  /// nudged it a touch past the dot, so 1.25 (≈ 50 × 39 px). The row's
+  /// leading slot is 20 dp; the box is 15 · 1.05 · 1.25 ≈ 19.7.
+  static const double opticalScale = 1.25;
 
   @override
   Widget build(BuildContext context) => PaintedGlyph(

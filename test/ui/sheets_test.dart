@@ -70,14 +70,53 @@ void main() {
       expect(textAt(tester, ControlKeys.deviceSub), 'Tap to connect');
     });
 
-    testWidgets('"Back to list" returns to the list view', (tester) async {
+    testWidgets('the entry view has a bare back chevron beside the title, no "Back to list" line; it returns to the list', (tester) async {
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
       await openAmpSheet(tester);
+      expect(find.byKey(ControlKeys.sheetBack), findsNothing, reason: 'list view: no back control');
       await tapRow(tester, 'Enter IP Manually');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('\u2039 Back to list'));
+      expect(find.text('\u2039 Back to list'), findsNothing);
+      expect(find.text('Connect to an amplifier by its address'), findsOneWidget, reason: 'subtitle stays');
+      final back = find.byKey(ControlKeys.sheetBack);
+      expect(tester.getSize(back), const Size(32, 44), reason: '44 dp box overhanging the content edge by 12');
+      final title = find.text('Enter IP Address');
+      expect(tester.getTopLeft(title).dx, greaterThanOrEqualTo(tester.getTopRight(back).dx), reason: 'title after the chevron');
+      expect((tester.getCenter(back).dy - tester.getCenter(title).dy).abs(), lessThan(1), reason: 'chevron on the title line');
+      final subtitle = find.text('Connect to an amplifier by its address');
+      expect((tester.getTopLeft(subtitle).dx - tester.getTopLeft(title).dx).abs(), lessThan(1), reason: 'subtitle indented under the title');
+      // Bare: no bordered/filled chip around the chevron (the mockup's boxed .sheet-back is not ported — owner).
+      final boxes = tester.widgetList<Container>(find.descendant(of: back, matching: find.byType(Container)));
+      expect(boxes.where((c) => c.decoration is BoxDecoration && ((c.decoration! as BoxDecoration).border != null || (c.decoration! as BoxDecoration).color != null)), isEmpty);
+      await tester.tap(back);
       await settleSheet(tester);
       expect(find.text('Choose Amplifier'), findsOneWidget);
+    });
+
+    testWidgets('"Air" is shown as AIR in the trigger and the sheet; AirPlay and the raw name are untouched', (tester) async {
+      final base = ControlViewState.forScenario(DebugScenario.connected);
+      final state = base.copyWith(
+        sources: [
+          const SourceItem(index: 3, name: 'AirPlay'),
+          const SourceItem(index: 14, name: 'Devialet Air'),
+          const SourceItem(index: 5, name: 'air'),
+        ],
+        activeSourceIndex: 14,
+      );
+      await pumpControl(tester, state: state);
+      expect(textAt(tester, ControlKeys.sourceName), 'Devialet AIR');
+      await tester.tap(find.byKey(ControlKeys.sourceTrigger));
+      await tester.pumpAndSettle();
+      expect(find.text('AirPlay'), findsOneWidget);
+      // The kind label "Devialet AIR" also matches by text, so count titles (15 px) only.
+      expect(
+        find.byWidgetPredicate((w) => w is Text && w.data == 'Devialet AIR' && w.style?.fontSize == 15),
+        findsNWidgets(2),
+        reason: 'trigger (behind) + card',
+      );
+      expect(find.text('AIR'), findsOneWidget);
+      expect(find.text('air'), findsNothing);
+      expect(find.text('Devialet Air'), findsNothing);
     });
   });
 

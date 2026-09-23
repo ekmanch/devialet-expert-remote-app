@@ -99,11 +99,12 @@ void main() {
   });
 
   group('source card and footer (v36)', () {
-    testWidgets('no "Active source" eyebrow; the name is 18/600', (tester) async {
+    testWidgets('no "Active source" eyebrow; the name is 15/600 like the amp name (owner mockup update 2026-09-23)', (tester) async {
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
       expect(find.text('Active source'), findsNothing);
       final name = tester.widget<Text>(find.byKey(ControlKeys.sourceName));
-      expect(name.style!.fontSize, 18);
+      expect(name.style!.fontSize, 15);
+      expect(name.style!.fontSize, tester.widget<Text>(find.byKey(ControlKeys.deviceName)).style!.fontSize);
       expect(name.style!.fontWeight, FontWeight.w600);
     });
 

@@ -7,14 +7,17 @@ import '../theme/app_theme.dart';
 /// 13 × 21 px on the S25 against the tick's 42 × 32 (owner, 2026-09-23).
 /// `textFaint`, 18 px box, 2-unit stroke.
 class ChevronMark extends StatelessWidget {
-  const ChevronMark({super.key, this.size = 18});
+  const ChevronMark({super.key, this.size = 18, this.color});
 
   final double size;
+
+  /// Defaults to `textFaint`; the sheets' back control uses `textDim`.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final t = AppTheme.of(context).tokens;
-    return CustomPaint(size: Size.square(size), painter: ChevronMarkPainter(color: t.textFaint));
+    return CustomPaint(size: Size.square(size), painter: ChevronMarkPainter(color: color ?? t.textFaint));
   }
 }
 

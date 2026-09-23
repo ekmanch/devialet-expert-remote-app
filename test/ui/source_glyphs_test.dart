@@ -14,6 +14,16 @@ void main() {
     expect(sourceGlyphFor(null), '\u2013');
   });
 
+  test('display name: the word Air is always AIR; AirPlay and everything else untouched', () {
+    expect(sourceDisplayName('Air'), 'AIR');
+    expect(sourceDisplayName('air'), 'AIR');
+    expect(sourceDisplayName('AIR'), 'AIR');
+    expect(sourceDisplayName('Devialet Air'), 'Devialet AIR');
+    expect(sourceDisplayName('AirPlay'), 'AirPlay');
+    expect(sourceDisplayName('Optical 1'), 'Optical 1');
+    expect(sourceDisplayName('Fairport'), 'Fairport');
+  });
+
   test('v36 kind labels by live name; unknown names get none', () {
     expect(sourceKindFor('Optical 1'), 'Digital in');
     expect(sourceKindFor('UPnP'), 'Network');

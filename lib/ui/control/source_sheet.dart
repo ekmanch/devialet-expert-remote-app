@@ -79,7 +79,7 @@ class SourceSheet extends ConsumerWidget {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  source.name,
+                                  sourceDisplayName(source.name),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.type.body(size: 15, color: selected ? t.copperBright : t.text),

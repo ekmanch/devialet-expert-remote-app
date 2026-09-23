@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../theme/app_theme.dart';
+import 'check_mark.dart';
+import 'header_icon_button.dart';
 
 /// Handle + title + subtitle + scrollable body, per the mockups' sheet
 /// panel (padding 10 18 20; handle 36×4 Android / 36×5 iOS; title 17/600
@@ -8,7 +10,10 @@ import '../theme/app_theme.dart';
 /// information). [subtitleLeading] sits before the subtitle (the amp
 /// picker's listening arcs); [backdrop] paints behind everything at
 /// [backdropOffset] from the panel's top-right corner, clipped by the
-/// sheet frame (the source sheet's corner arcs).
+/// sheet frame (the source sheet's corner arcs). [onBack] puts a bare
+/// back chevron beside the title (a 44 dp [HeaderIconButton] overhanging
+/// the content edge by 12 like the Android back arrow) and indents the
+/// subtitle under the title — the amp picker's manual-entry view.
 class SheetScaffold extends StatelessWidget {
   const SheetScaffold({
     super.key,
@@ -18,7 +23,16 @@ class SheetScaffold extends StatelessWidget {
     this.subtitleLeading,
     this.backdrop,
     this.backdropOffset = Offset.zero,
+    this.onBack,
+    this.backKey,
   });
+
+  final VoidCallback? onBack;
+  final Key? backKey;
+
+  /// The back button's visible width inside the content edge
+  /// (44 − 12 overhang); the title and subtitle start after it.
+  static const double backSlot = HeaderIconButton.size - 12;
 
   final String title;
   final String subtitle;
@@ -37,6 +51,21 @@ class SheetScaffold extends StatelessWidget {
     final handle = theme.style.sheetHandleSize;
     final subtitleText = Text(subtitle, style: theme.type.mono(size: 12, color: t.textDim));
     final leading = subtitleLeading;
+    final onBack = this.onBack;
+    final Widget titleText = Text(title, style: theme.type.display(size: 17, color: t.text));
+    final Widget header = onBack == null
+        ? titleText
+        : Row(
+            children: [
+              HeaderIconButton(
+                key: backKey,
+                onTap: onBack,
+                overhang: -12,
+                child: Transform.flip(flipX: true, child: ChevronMark(size: 22, color: t.textDim)),
+              ),
+              Expanded(child: titleText),
+            ],
+          );
     final content = Padding(
       padding: const EdgeInsets.fromLTRB(18, 10, 18, 20),
       child: Column(
@@ -47,16 +76,18 @@ class SheetScaffold extends StatelessWidget {
             child: Container(
               width: handle.width,
               height: handle.height,
-              margin: EdgeInsets.only(top: theme.style.isCupertino ? 4 : 2, bottom: 14),
+              // The 44 dp back row centres the title 12 lower than the bare
+              // title would sit, so its margin gives that back.
+              margin: EdgeInsets.only(top: theme.style.isCupertino ? 4 : 2, bottom: onBack == null ? 14 : 2),
               decoration: BoxDecoration(
                 color: t.isDark ? t.surface3 : t.divider,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
           ),
-          Text(title, style: theme.type.display(size: 17, color: t.text)),
+          header,
           Padding(
-            padding: const EdgeInsets.only(top: 2, bottom: 14),
+            padding: EdgeInsets.only(top: 2, bottom: 14, left: onBack == null ? 0 : backSlot),
             child: leading == null
                 ? subtitleText
                 : Row(children: [leading, const SizedBox(width: 10), Flexible(child: subtitleText)]),

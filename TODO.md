@@ -542,6 +542,28 @@ gotchas #1/#2 one input at a time.
       like the tick; 13 × 21 px as a character → 21 × 38 px painted,
       against the tick's 42 × 32) on the amp row, the source trigger and
       the settings rows.
+- [x] **2.0.19** — **Owner's mockup update, 2026-09-23 (four changes;
+      mockups v39, `design/mockups/*_v39.html`, committed by the owner).**
+      (a) Source trigger name 18 → 15/600, the amp name's size (18 drew
+      disproportionate attention); guard also asserts equality with the
+      device-card name. (b) Keyboard glyph `opticalScale` 1.15 → 1.25:
+      measured 50 × 38 px / 948 ink against the dot's 40 × 40 / 1236 — a
+      touch past the dot, as the update has it; still inside the 20 dp
+      slot (19.7). (c) Manual-entry view: the "‹ Back to list" line is
+      gone; `SheetScaffold.onBack` puts a bare back chevron (44 dp
+      `HeaderIconButton`, overhang −12, `ChevronMark` flipped, `textDim`)
+      beside the title and indents the subtitle under it. The v36
+      mockup's boxed `.sheet-back` is **not** ported — the owner dislikes
+      boxed icons (checklist 15, same call as the gear). Keyed
+      `ControlKeys.sheetBack`. (d) `sourceDisplayName`: the word "Air" is
+      always shown as "AIR" (Devialet's acronym, Asynchronous Intelligent
+      Route; owner decision) — word-bounded so AirPlay is untouched; the
+      raw name stays the protocol/matching key. Guards in `sheets_test`
+      (back control geometry, no chip, AIR in trigger + sheet),
+      `mockup_v36_test` (15 px), `source_glyphs_test`; counter-runs red
+      for the back control and the AIR mapping. Verified on the S25 in
+      light: Control, amp picker, entry view with the keyboard, source
+      sheet.
 - [x] **3.0.0** — One Riverpod-owned live amp state, injected into every surface as a
       *required* dependency; views never keep private copies of
       volume/mute/ip/power (checklist items 2, 5). Done 2026-09-19:

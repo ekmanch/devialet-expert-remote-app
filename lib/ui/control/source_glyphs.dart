@@ -31,6 +31,14 @@ String sourceGlyphFor(String? name) => switch (sourceGlyphKindFor(name)) {
   SourceGlyphKind.none => '–',
 };
 
+/// The name as shown: the amp's own text, except that the word "Air"
+/// (Devialet's Asynchronous Intelligent Route — an acronym) is always
+/// "AIR", as Devialet's own documentation sometimes has it and the owner
+/// prefers (2026-09-23). Word-bounded, so "AirPlay" is untouched. The raw
+/// name stays the protocol/matching key everywhere else.
+String sourceDisplayName(String name) => name.replaceAllMapped(_air, (_) => 'AIR');
+final RegExp _air = RegExp(r'\bair\b', caseSensitive: false);
+
 /// The source sheet's mono "kind" label (v36), best-effort from the live
 /// name like the glyph; `null` for a name the mockup doesn't cover, so
 /// the row shows no label rather than a guess.

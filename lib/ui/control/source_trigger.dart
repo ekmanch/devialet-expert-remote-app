@@ -6,10 +6,13 @@ import '../theme/app_theme.dart';
 import '../widgets/check_mark.dart';
 import 'control_keys.dart';
 import 'source_glyph.dart';
+import 'source_glyphs.dart';
 
-/// Closed source row: glyph chip, name (18/600, elided), caret. No
-/// "Active source" eyebrow since v36 — the SOURCE section header already
-/// says it. Placeholder "No source" when nothing is selected (TODO 2.0.9).
+/// Closed source row: glyph chip, name (15/600 like the amp name — v36
+/// had 18, shrunk on the owner's 2026-09-23 mockup update because it drew
+/// disproportionate attention), painted caret. No "Active source" eyebrow
+/// since v36 — the SOURCE section header already says it. Placeholder
+/// "No source" when nothing is selected (TODO 2.0.9).
 class SourceTrigger extends StatelessWidget {
   const SourceTrigger({super.key, required this.state, required this.onTap});
 
@@ -44,11 +47,11 @@ class SourceTrigger extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                source?.name ?? 'No source',
+                source == null ? 'No source' : sourceDisplayName(source.name),
                 key: ControlKeys.sourceName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.type.body(size: 18, weight: FontWeight.w600, color: t.text),
+                style: theme.type.body(size: 15, weight: FontWeight.w600, color: t.text),
               ),
             ),
             const SizedBox(width: 12),

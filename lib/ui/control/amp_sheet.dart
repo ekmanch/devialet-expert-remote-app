@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../widgets/arcs.dart';
 import '../widgets/check_mark.dart';
 import '../widgets/sheet_scaffold.dart';
+import 'control_keys.dart';
 import 'device_card.dart';
 import 'manual_entry_glyph.dart';
 
@@ -58,6 +59,10 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
     return SheetScaffold(
       title: _showManual ? 'Enter IP Address' : 'Choose Amplifier',
       subtitle: _showManual ? 'Connect to an amplifier by its address' : 'Amplifiers found on your network',
+      // The entry view's way back is a bare chevron beside the title (the
+      // owner's 2026-09-23 mockup update), not a "Back to list" line.
+      onBack: _showManual ? () => setState(() => _showManual = false) : null,
+      backKey: ControlKeys.sheetBack,
       // The listening arcs only exist (and so only animate) on the list view.
       subtitleLeading: _showManual ? null : const ListeningArcs(),
       child: _showManual ? _buildManual(context) : _buildList(context, state),
@@ -152,14 +157,6 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() => _showManual = false),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text('‹ Back to list', style: theme.type.mono(size: 12, color: t.copperBright)),
-          ),
-        ),
         AdaptiveTextField(
           controller: _ip,
           placeholder: '192.168.0.1',
@@ -208,7 +205,7 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
 class _AmpRow extends StatelessWidget {
   /// The leading slot, shared by every row (dot, None ring, keyboard) so
   /// the titles line up: wide enough for the keyboard glyph's optically
-  /// scaled box (15 · 1.05 · 1.15 ≈ 18.1).
+  /// scaled box (15 · 1.05 · 1.25 ≈ 19.7).
   static const double leadingBox = 20;
 
   const _AmpRow({
