@@ -196,10 +196,11 @@ the raw datagrams directly, which covers the inbound side.
 
 ## Task 2.0.x — Control screen UI from the v19 mockups (UI only)
 
-Adopt the design mockups for the **Control screen only**:
+Adopt the design mockups for the **Control screen only** (built from
+v19; the v36 pass is 2.0.15 — the current files are):
 
-- Android: `design/mockups/devialet_remote_mockup_Android_v19.html`
-- iOS: `design/mockups/devialet_remote_mockup_iOS_v19.html`
+- Android: `design/mockups/devialet_remote_mockup_Android_v36.html`
+- iOS: `design/mockups/devialet_remote_mockup_iOS_v36.html`
 
 Scope: widgets, layout, theming and every *visual state* of the Control
 screen, driven by a debug/fake state object — **no protocol wiring, no
@@ -321,6 +322,10 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
 - [x] **2.0.10** — **Footer status:** static "Connected" / "Not connected" (the
       third word was dropped with the silent-amp decision above; the
       mockup's hint sentence was replaced, owner decision 2026-09-19).
+      **Superseded by v36 (2.0.15, 2026-09-22):** both mockups dropped
+      the footer slot altogether, so the status word went with it; the
+      device card's subtitle ("· Connected" / "Tap to connect") is the
+      one place the link state is shown.
 - [x] **2.0.11** — **Theme tokens** (copper/graphite palette, dark + light variants)
       lifted from the mockup CSS into one place so Task 3.4.x's Theme
       setting and Task 5.0.0's icon can reuse them. Fonts in the mockups
@@ -356,6 +361,9 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
         (tofu → replace with painted icons in `stroke_icons.dart`);
         ✔ 2026-09-21 S25 screenshots (Android variant): the source
         sheet's ◉ ◫ ◍ ◈ ◐ ◇ ✓ all render; ⌨ and the iOS variant unchecked;
+        since 2.0.15 Spotify is painted, not ◐ (the character was
+        undersized), and the light theme's gold glyph gradient + drop
+        shadow are ported — eye-check both with the rest of 2.0.15;
       - dial: drag feel around the ring, the bottom dead zone, a press on
         the readout doing nothing, −/+ taps; readout following the finger;
       - press feedback: Android ripple, iOS spring scale; the power
@@ -409,6 +417,51 @@ gotchas #1/#2 one input at a time.
       `AppTokens.wordmarkGradientColors` (null in dark) + a `ShaderMask`
       in `ControlHeader`; `test/ui/wordmark_sheen_test.dart`; checked on
       the S25 (light, Android variant).
+- [x] **2.0.15** — **v19 → v36 mockup pass (owner request 2026-09-22),** both
+      variants, Control + Settings + sheets. Ported 2026-09-22
+      (`test/ui/mockup_v36_test.dart`, 23 tests; nine guards counter-run
+      red; 331 tests green):
+      - light accent `--copper-bright` `#d98c0f` → `#c79a2e` (token +
+        Cupertino primary); wordmark 13 → 15 (Android), eyebrow 12 → 14
+        (iOS);
+      - header icon buttons are bare glyphs in a 44 dp target with a
+        neutral press disc (`HeaderIconButton`; gear glyph 23 dp, the new
+        cog outline in `stroke_icons.dart`; Android Settings back arrow
+        30 px). The mockup's negative margins (gear −10 right, back arrow
+        −12 left) are painted with an `OverflowBox`; **the overhang is
+        not tappable** (hit tests stop at the content edge), so the live
+        target is 34 × 44 / 32 × 44 dp — accepted, note if it bites in
+        the soak;
+      - source card: no "Active source" eyebrow, name 18/600; control
+        footer and settings footer lines removed (see 2.0.10);
+      - source sheet: outlined cards (1.5 px, r16, 8 apart), mono "kind"
+        label (`sourceKindFor`, the mockup's six names; **an unknown name
+        gets no label** rather than a guess), copper outline on the
+        active card, static corner arcs (`SheetArcs`), painted Spotify
+        glyph (`SourceGlyph`); light theme glyphs gold-gradient + shadow
+        (in v19 too — never ported until now);
+      - amp picker: animated "listening" arcs next to the subtitle
+        (`ListeningArcs`, 1.8 s, 250 ms stagger, list view only; static
+        under reduced motion). Tests open it with `openAmpSheet` /
+        `settleSheet`, not `pumpAndSettle` (never settles);
+      - contrast (v26): sheet subtitles, amp-row subtitles and settings
+        descriptions `textFaint` → `textDim`;
+      - settings (v28/v29/v32): stepper values, entry field and the
+        selected step are plain `text` colour (the `numericAccent` token
+        is gone); the accent moved to the section headings — light a
+        gold gradient, dark flat copper, weight 700, Settings only
+        (`SectionLabel(accent: true)`);
+      - iOS Settings back control is the plain text colour in both
+        themes (v30);
+      - **not ported / n.a.:** the selected step's declared weight 700 —
+        JetBrains Mono is bundled up to 600 here *and* in the mockup's
+        Google Fonts link, so the browser renders 600 too; kept 600
+        (checklist 15). iOS status bar "plain text in both themes" (v31)
+        is the OS's own bar, nothing to do in-app.
+      - [ ] **Eye check on the S25, both variants, both themes** (the 2.0.13
+        list plus: gear/back-arrow press disc and alignment, source cards
+        and kind labels, Spotify glyph, corner arcs clipping at the sheet
+        edge, listening-arc timing, settings heading gradient at 11 px).
 - [x] **3.0.0** — One Riverpod-owned live amp state, injected into every surface as a
       *required* dependency; views never keep private copies of
       volume/mute/ip/power (checklist items 2, 5). Done 2026-09-19:

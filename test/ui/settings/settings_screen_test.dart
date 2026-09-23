@@ -65,7 +65,6 @@ void main() {
         'System',
         'Version',
         'View on GitHub',
-        'Devialet Expert Pro Remote',
       ]) {
         expect(find.text(text), findsOneWidget, reason: text);
       }

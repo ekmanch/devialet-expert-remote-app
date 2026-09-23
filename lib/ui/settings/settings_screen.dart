@@ -12,6 +12,7 @@ import '../platform/adaptive_pressable.dart';
 import '../platform/adaptive_sheet.dart';
 import '../platform/platform_style.dart';
 import '../theme/app_theme.dart';
+import '../widgets/header_icon_button.dart';
 import '../widgets/section_label.dart';
 import 'db_stepper.dart';
 import 'segmented_control.dart';
@@ -72,8 +73,9 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
-/// Android: 38×38 icon button "‹" + left title 22/600. iOS: "‹ Remote"
-/// text back control in copper (plain text colour in light — gold is
+/// Android: a bare "‹" glyph (30 px) in a 44 dp target overhanging the
+/// content edge by 12 (v36) + left title 22/600. iOS: "‹ Remote" text
+/// back control in the plain text colour in both themes (v30 — gold is
 /// reserved for the wordmark) + centred title 16/600.
 class _SettingsTopBar extends StatelessWidget {
   const _SettingsTopBar();
@@ -85,7 +87,7 @@ class _SettingsTopBar extends StatelessWidget {
     void back() => Navigator.of(context).maybePop();
 
     if (theme.style.headerKind == HeaderKind.eyebrow) {
-      final color = t.isDark ? t.copperBright : t.text;
+      final color = t.text;
       return Padding(
         padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
         child: SizedBox(
@@ -122,24 +124,11 @@ class _SettingsTopBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(0, 6, 0, 4),
       child: Row(
         children: [
-          AdaptivePressable(
+          HeaderIconButton(
             key: SettingsUiKeys.backButton,
             onTap: back,
-            borderRadius: BorderRadius.circular(12),
-            pressedScale: 0.92,
-            pressedOpacity: 0.8,
-            builder: (context, pressed) => Container(
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: t.surface,
-                border: Border.all(color: t.divider),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: t.cardShadow,
-              ),
-              child: Text('\u2039', style: theme.type.display(size: 18, color: t.textDim, height: 1)),
-            ),
+            overhang: -12,
+            child: Text('\u2039', style: theme.type.display(size: 30, color: t.textDim, height: 1)),
           ),
           const SizedBox(width: 12),
           Text('Settings', key: SettingsUiKeys.title, style: theme.type.display(size: 22, color: t.text)),
@@ -154,8 +143,6 @@ class _SettingsTopBar extends StatelessWidget {
 /// (checklist item 26: a broken store must look broken).
 class SettingsBody extends ConsumerWidget {
   const SettingsBody({super.key});
-
-  static const String footerText = 'Devialet Expert Pro Remote';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -187,7 +174,7 @@ class SettingsBody extends ConsumerWidget {
             ),
             child: Text(note, style: theme.type.mono(size: 12, height: 1.4, color: t.warningBright)),
           ),
-        const SectionLabel('Volume', first: true),
+        const SectionLabel('Volume', first: true, accent: true),
         SettingsGroup(
           children: [
             SettingsStackedRow(
@@ -213,7 +200,7 @@ class SettingsBody extends ConsumerWidget {
             ),
           ],
         ),
-        const SectionLabel('Volume Limits'),
+        const SectionLabel('Volume Limits', accent: true),
         SettingsGroup(
           children: [
             SettingsStackedRow(
@@ -243,7 +230,7 @@ class SettingsBody extends ConsumerWidget {
             ),
           ],
         ),
-        const SectionLabel('Appearance'),
+        const SectionLabel('Appearance', accent: true),
         SettingsGroup(
           children: [
             SettingsRow(
@@ -260,7 +247,7 @@ class SettingsBody extends ConsumerWidget {
             ),
           ],
         ),
-        const SectionLabel('About'),
+        const SectionLabel('About', accent: true),
         SettingsGroup(
           children: [
             SettingsRow(
@@ -282,15 +269,6 @@ class SettingsBody extends ConsumerWidget {
               },
             ),
           ],
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 22),
-          child: Text(
-            footerText,
-            key: SettingsUiKeys.footer,
-            textAlign: TextAlign.center,
-            style: theme.type.mono(size: 11, letterSpacingEm: 0.02, color: t.textFaint),
-          ),
         ),
       ],
     );

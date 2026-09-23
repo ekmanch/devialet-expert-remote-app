@@ -15,7 +15,6 @@ abstract final class SettingsUiKeys {
   static const versionRow = ValueKey('settings.versionRow');
   static const versionValue = ValueKey('settings.versionValue');
   static const githubRow = ValueKey('settings.githubRow');
-  static const footer = ValueKey('settings.footer');
   static final startupStepper = DbStepperKeys('settings.startup');
   static final floorStepper = DbStepperKeys('settings.floor');
   static final ceilingStepper = DbStepperKeys('settings.ceiling');

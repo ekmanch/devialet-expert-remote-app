@@ -28,7 +28,7 @@ abstract final class ControlKeys {
   static const sourceTrigger = ValueKey('control.sourceTrigger');
   static const sourceName = ValueKey('control.sourceName');
   static const sourceRows = ValueKey('control.sourceRows');
-  static const footer = ValueKey('control.footer');
+  static ValueKey<String> sourceCard(int index) => ValueKey('control.sourceCard.$index');
   static const column = ValueKey('control.column');
   static const debugBar = ValueKey('debug.bar');
   static const debugPrev = ValueKey('debug.prev');

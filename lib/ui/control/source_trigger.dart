@@ -4,10 +4,11 @@ import '../../domain/control_view_state.dart';
 import '../platform/adaptive_pressable.dart';
 import '../theme/app_theme.dart';
 import 'control_keys.dart';
-import 'source_glyphs.dart';
+import 'source_glyph.dart';
 
-/// Closed source row: glyph chip, "Active source" eyebrow, name (elided),
-/// caret. Placeholder "No source" when nothing is selected (TODO 2.0.9).
+/// Closed source row: glyph chip, name (18/600, elided), caret. No
+/// "Active source" eyebrow since v36 — the SOURCE section header already
+/// says it. Placeholder "No source" when nothing is selected (TODO 2.0.9).
 class SourceTrigger extends StatelessWidget {
   const SourceTrigger({super.key, required this.state, required this.onTap});
 
@@ -34,36 +35,19 @@ class SourceTrigger extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
+            SizedBox(
               width: 34,
               height: 34,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
-              child: Text(
-                sourceGlyphFor(source?.name),
-                style: TextStyle(fontSize: 16, color: t.copperBright, height: 1),
-              ),
+              child: Center(child: SourceGlyph(name: source?.name, size: 16)),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Text(
-                      'Active source',
-                      style: theme.type.mono(size: 12, letterSpacingEm: 0.04, color: t.textFaint),
-                    ),
-                  ),
-                  Text(
-                    source?.name ?? 'No source',
-                    key: ControlKeys.sourceName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.type.body(size: 15, weight: FontWeight.w600, color: t.text),
-                  ),
-                ],
+              child: Text(
+                source?.name ?? 'No source',
+                key: ControlKeys.sourceName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.type.body(size: 18, weight: FontWeight.w600, color: t.text),
               ),
             ),
             const SizedBox(width: 12),

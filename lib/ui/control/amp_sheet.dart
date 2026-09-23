@@ -6,6 +6,7 @@ import '../../domain/amp_state_owner.dart';
 import '../platform/adaptive_pressable.dart';
 import '../platform/adaptive_text_field.dart';
 import '../theme/app_theme.dart';
+import '../widgets/arcs.dart';
 import '../widgets/sheet_scaffold.dart';
 import 'device_card.dart';
 
@@ -55,6 +56,8 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
     return SheetScaffold(
       title: _showManual ? 'Enter IP Address' : 'Choose Amplifier',
       subtitle: _showManual ? 'Connect to an amplifier by its address' : 'Amplifiers found on your network',
+      // The listening arcs only exist (and so only animate) on the list view.
+      subtitleLeading: _showManual ? null : const ListeningArcs(),
       child: _showManual ? _buildManual(context) : _buildList(context, state),
     );
   }
@@ -251,7 +254,7 @@ class _AmpRow extends StatelessWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.type.mono(size: 12, color: t.textFaint),
+                      style: theme.type.mono(size: 12, color: t.textDim),
                     ),
                   ),
                 ],

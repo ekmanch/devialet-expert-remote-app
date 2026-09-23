@@ -22,8 +22,7 @@ void main() {
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(ControlKeys.deviceCard));
-    await tester.pumpAndSettle();
+    await openAmpSheet(tester);
     await tapRow(tester, 'Enter IP Manually');
     await tester.pumpAndSettle();
     expect(find.byType(TextField), findsOneWidget);
@@ -43,8 +42,7 @@ void main() {
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(ControlKeys.deviceCard));
-    await tester.pumpAndSettle();
+    await openAmpSheet(tester);
     await tapRow(tester, 'Enter IP Manually');
     await tester.pumpAndSettle();
     expect(find.byType(CupertinoTextField), findsOneWidget);

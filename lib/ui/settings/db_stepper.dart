@@ -165,6 +165,8 @@ class _DbStepperState extends State<DbStepper> {
     return blocked ? DimmedGroup(dimmed: true, child: button) : button;
   }
 
+  /// v28/v29: the value is plain text in both themes (the accent moved to
+  /// the section headings); the tap-to-type underline is `textDim`.
   Widget _valueLabel(AppTheme theme) {
     final t = theme.tokens;
     return AdaptivePressable(
@@ -178,11 +180,11 @@ class _DbStepperState extends State<DbStepper> {
         decoration: BoxDecoration(
           // The mockup hints "tap to type" with a dashed underline while
           // pressed; a solid hairline stands in (Flutter has no dashed border).
-          border: Border(bottom: BorderSide(color: pressed ? t.copperDim : const Color(0x00000000))),
+          border: Border(bottom: BorderSide(color: pressed ? t.textDim : const Color(0x00000000))),
         ),
         child: Text(
           formatWholeDb(widget.value),
-          style: theme.type.mono(size: 15, weight: FontWeight.w600, color: t.numericAccent),
+          style: theme.type.mono(size: 15, weight: FontWeight.w600, color: t.text),
         ),
       ),
     );
@@ -190,7 +192,7 @@ class _DbStepperState extends State<DbStepper> {
 
   Widget _entryField(AppTheme theme) {
     final t = theme.tokens;
-    final style = theme.type.mono(size: 15, weight: FontWeight.w600, color: t.numericAccent);
+    final style = theme.type.mono(size: 15, weight: FontWeight.w600, color: t.text);
     final formatters = [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)];
     final Widget field;
     if (theme.style.isCupertino) {
@@ -203,9 +205,9 @@ class _DbStepperState extends State<DbStepper> {
         keyboardType: TextInputType.number,
         inputFormatters: formatters,
         style: style,
-        cursorColor: t.numericAccent,
+        cursorColor: t.text,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: t.numericAccent, width: 1.5))),
+        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: t.textDim, width: 1.5))),
         onSubmitted: (_) => _commit(),
       );
     } else {
@@ -218,13 +220,13 @@ class _DbStepperState extends State<DbStepper> {
         keyboardType: TextInputType.number,
         inputFormatters: formatters,
         style: style,
-        cursorColor: t.numericAccent,
+        cursorColor: t.text,
         decoration: InputDecoration(
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          border: UnderlineInputBorder(borderSide: BorderSide(color: t.numericAccent, width: 1.5)),
-          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.numericAccent, width: 1.5)),
-          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.numericAccent, width: 1.5)),
+          border: UnderlineInputBorder(borderSide: BorderSide(color: t.textDim, width: 1.5)),
+          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.textDim, width: 1.5)),
+          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: t.textDim, width: 1.5)),
         ),
         onSubmitted: (_) => _commit(),
       );

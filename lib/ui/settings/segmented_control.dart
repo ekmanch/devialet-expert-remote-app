@@ -4,8 +4,11 @@ import '../platform/adaptive_pressable.dart';
 import '../theme/app_theme.dart';
 
 /// The mockup's `.segmented`: a surface-3 track (r12, padding 3, gap 2)
-/// of equal-width options; the selected one gets an accent outline and
-/// accent text, weight 600 — outline only, no sliding pill.
+/// of equal-width options; the selected one gets a `text`-coloured
+/// outline and text (v28/v29: neutral, the accent lives in the section
+/// headings) — outline only, no sliding pill. Weight 600: the mockup
+/// declares 700 in dark, but JetBrains Mono is loaded up to 600 there as
+/// here, so 600 is what it renders (checklist item 15).
 class SegmentedControl<T> extends StatelessWidget {
   const SegmentedControl({
     super.key,
@@ -47,7 +50,7 @@ class SegmentedControl<T> extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      border: Border.all(color: selected ? t.numericAccent : const Color(0x00000000)),
+                      border: Border.all(color: selected ? t.text : const Color(0x00000000)),
                       borderRadius: BorderRadius.circular(9),
                     ),
                     child: Text(
@@ -55,7 +58,7 @@ class SegmentedControl<T> extends StatelessWidget {
                       style: theme.type.mono(
                         size: 13,
                         weight: selected ? FontWeight.w600 : FontWeight.w400,
-                        color: selected ? t.numericAccent : t.textDim,
+                        color: selected ? t.text : t.textDim,
                       ),
                     ),
                   );

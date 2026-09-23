@@ -14,7 +14,6 @@ import '../widgets/dimmed_group.dart';
 import '../widgets/section_label.dart';
 import 'action_row.dart';
 import 'amp_sheet.dart';
-import 'control_footer.dart';
 import 'control_header.dart';
 import 'control_keys.dart';
 import 'control_layout.dart';
@@ -132,7 +131,6 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
           blockTaps: state.hasAmp,
           child: SourceTrigger(state: state, onTap: _openSourceSheet),
         ),
-        ControlFooter(state: state),
         const DebugStateDriver(),
       ],
     );

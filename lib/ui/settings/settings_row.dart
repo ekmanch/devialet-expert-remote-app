@@ -57,7 +57,8 @@ class SettingsRow extends StatelessWidget {
   }
 }
 
-/// Label 14.5/600 + optional description 12 mono faint (line-height 1.4).
+/// Label 14.5/600 + optional description 12 mono `textDim` (line-height
+/// 1.4; v26 moved it up from faint — it carries real information).
 class SettingsRowHeading extends StatelessWidget {
   const SettingsRowHeading({super.key, required this.label, this.description});
 
@@ -75,7 +76,7 @@ class SettingsRowHeading extends StatelessWidget {
         if (description != null)
           Padding(
             padding: const EdgeInsets.only(top: 3),
-            child: Text(description!, style: theme.type.mono(size: 12, height: 1.4, color: t.textFaint)),
+            child: Text(description!, style: theme.type.mono(size: 12, height: 1.4, color: t.textDim)),
           ),
       ],
     );

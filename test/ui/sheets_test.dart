@@ -10,11 +10,6 @@ import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
 import 'support/pump_control.dart';
 
 void main() {
-  Future<void> openAmpSheet(WidgetTester tester) async {
-    await tester.tap(find.byKey(ControlKeys.deviceCard));
-    await tester.pumpAndSettle();
-  }
-
   group('amp sheet', () {
     testWidgets('None first, then a divider, then amps; unresolved amp is tagged', (tester) async {
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
@@ -38,14 +33,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Choose Amplifier'), findsNothing);
       expect(textAt(tester, ControlKeys.deviceName), 'No Amplifier');
-      expect(textAt(tester, ControlKeys.footer), 'Not connected');
+      expect(textAt(tester, ControlKeys.deviceSub), 'Tap to connect');
 
       await openAmpSheet(tester);
       await tapRow(tester, 'Devialet Expert 220 Pro');
       await tester.pumpAndSettle();
       expect(textAt(tester, ControlKeys.deviceName), 'Devialet Expert 220 Pro');
       expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.23 \u00b7 Connected');
-      expect(textAt(tester, ControlKeys.footer), 'Connected');
     });
 
     testWidgets('manual IP: invalid stays, valid connects as an unresolved amp', (tester) async {
@@ -79,7 +73,7 @@ void main() {
       await tapRow(tester, 'Enter IP Manually');
       await tester.pumpAndSettle();
       await tester.tap(find.text('\u2039 Back to list'));
-      await tester.pumpAndSettle();
+      await settleSheet(tester);
       expect(find.text('Choose Amplifier'), findsOneWidget);
     });
   });
@@ -157,4 +151,5 @@ void main() {
       expect(tester.widget<Text>(find.byKey(ControlKeys.sourceName)).overflow, TextOverflow.ellipsis);
     });
   });
+
 }

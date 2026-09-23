@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Colour / gradient / shadow tokens lifted 1:1 from the v19 mockups' CSS
+/// Colour / gradient / shadow tokens lifted 1:1 from the v36 mockups' CSS
 /// variables (`:root` = dark, `.phone.light` = light). One place, so Task
 /// 3.4.x's Theme setting and Task 5.0.0's icon reuse them (TODO 2.0.11).
 ///
@@ -37,8 +37,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.scrimMaterial,
     required this.scrimCupertino,
     required this.dotGlow,
-    required this.numericAccent,
     required this.wordmarkGradientColors,
+    required this.settingsHeadingGradientColors,
+    required this.glyphGoldColors,
+    required this.listenArc,
   });
 
   final Brightness brightness;
@@ -74,12 +76,6 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// transparent in light, where the dot is a radial gradient instead.
   final Color dotGlow;
 
-  /// Settings-page numerics (stepper values, the selected step). The
-  /// mockup keeps the dial's copper gradient for the one hero readout but
-  /// uses a quieter flat beige in light mode where four numbers sit in a
-  /// cluster ("the same gradient repeated four times read as patterned").
-  final Color numericAccent;
-
   /// Foil-text sheen on the "DEVIALET" wordmark / eyebrow, **light theme
   /// only** (both v19 mockups: `linear-gradient(90deg, #a8710b, #d99a1f,
   /// #fbe6ab)` clipped to the letterforms — dark on the left, bright on
@@ -87,6 +83,32 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// (dark theme). The mockups tried it on the dB readout and rejected it
   /// as too busy on a number read in real time; keep it to branding text.
   final List<Color>? wordmarkGradientColors;
+
+  /// Settings-screen section headings (v28/v29/v32): the accent moved off
+  /// the numbers onto the headings. Light = a gradient like the wordmark
+  /// but ending in a deeper gold so 11px caps stay legible on white
+  /// (`#a8710b → #d99a1f (55 %) → #efc36a`); `null` = flat [copperBright]
+  /// (dark: "flat copper + glow; gradients are light-only").
+  final List<Color>? settingsHeadingGradientColors;
+  static const List<double> settingsHeadingGradientStops = [0.0, 0.55, 1.0];
+
+  /// Light theme source glyphs (`.phone.light .source-icon`): the gold
+  /// radial gradient clipped to the glyph, `circle at 32% 28%`,
+  /// `#fcecc0 → #f0a623 (38 %) → #a8710b` — the same three stops as the
+  /// connected device dot. `null` = flat [copperBright] (dark).
+  final List<Color>? glyphGoldColors;
+  static const List<double> glyphGoldStops = [0.0, 0.38, 1.0];
+  static const Alignment glyphGoldCenter = Alignment(-0.36, -0.44);
+  /// `text-shadow: 0 3px 5px rgba(160,110,10,.35)` under a gold glyph.
+  static const Color glyphGoldShadow = Color(0x59A06E0A);
+
+  /// The amp picker's "listening" arcs (`.listen-arcs .la`): a muted
+  /// copper in dark (`#a06f4a`), the accent in light.
+  final Color listenArc;
+
+  /// Bare header icon buttons' press feedback (v36): a neutral
+  /// `rgba(127,127,127,.16)` disc, the same in both themes.
+  static const Color iconPressHighlight = Color(0x297F7F7F);
 
   /// `rgba(var(--accent-rgb), alpha)` in the CSS.
   Color accentTint(double alpha) => copperBright.withValues(alpha: alpha);
@@ -121,8 +143,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
     scrimMaterial: Color(0x8C000000),
     scrimCupertino: Color(0x6B08080A),
     dotGlow: Color(0x8CE3A06A),
-    numericAccent: Color(0xFFE3A06A),
     wordmarkGradientColors: null,
+    settingsHeadingGradientColors: null,
+    glyphGoldColors: null,
+    listenArc: Color(0xFFA06F4A),
   );
 
   static const AppTokens light = AppTokens(
@@ -132,7 +156,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
     surface2: Color(0xFFFFFFFF),
     surface3: Color(0xFFFFFFFF),
     copper: Color(0xFFC17F4E),
-    copperBright: Color(0xFFD98C0F),
+    // v36: `#c79a2e` (was `#d98c0f`), and `--accent-rgb` with it.
+    copperBright: Color(0xFFC79A2E),
     copperDim: Color(0xFFDDBB6E),
     text: Color(0xFF18140F),
     textDim: Color(0xFF6F6A61),
@@ -162,8 +187,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
     scrimMaterial: Color(0x8C000000),
     scrimCupertino: Color(0x6B08080A),
     dotGlow: Color(0x00000000),
-    numericAccent: Color(0xFFC2924F),
     wordmarkGradientColors: [Color(0xFFA8710B), Color(0xFFD99A1F), Color(0xFFFBE6AB)],
+    settingsHeadingGradientColors: [Color(0xFFA8710B), Color(0xFFD99A1F), Color(0xFFEFC36A)],
+    glyphGoldColors: [Color(0xFFFCECC0), Color(0xFFF0A623), Color(0xFFA8710B)],
+    listenArc: Color(0xFFC79A2E),
   );
 
   static AppTokens forBrightness(Brightness b) => b == Brightness.dark ? dark : light;

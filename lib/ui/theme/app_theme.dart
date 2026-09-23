@@ -58,9 +58,9 @@ CupertinoThemeData buildCupertinoTheme(AppTypography type) {
   const dark = AppTokens.dark;
   const light = AppTokens.light;
   return CupertinoThemeData(
-    primaryColor: const CupertinoDynamicColor.withBrightness(
-      color: Color(0xFFD98C0F),
-      darkColor: Color(0xFFE3A06A),
+    primaryColor: CupertinoDynamicColor.withBrightness(
+      color: light.copperBright,
+      darkColor: dark.copperBright,
     ),
     scaffoldBackgroundColor: CupertinoDynamicColor.withBrightness(
       color: light.bg,

@@ -30,7 +30,6 @@ class _Expected {
     required this.muteButton,
     required this.sourceTrigger,
     required this.volButtonsEnabled,
-    required this.footer,
     required this.sourceName,
     required this.dialSourceLabel,
   });
@@ -52,7 +51,6 @@ class _Expected {
   /// The VOL −/+ buttons' own `enabled` flag (Task 3.5.1), independent of
   /// the ancestor `DimmedGroup` measured by [dialWrap].
   final bool volButtonsEnabled;
-  final String footer;
   final String sourceName;
   final String dialSourceLabel;
 }
@@ -72,7 +70,6 @@ const _connected = _Expected(
   muteButton: 1.0,
   sourceTrigger: 1.0,
   volButtonsEnabled: true,
-  footer: 'Connected',
   sourceName: 'Optical 1',
   dialSourceLabel: 'OPTICAL 1',
 );
@@ -92,7 +89,6 @@ const _noAmp = _Expected(
   muteButton: 1.0,
   sourceTrigger: 0.5,
   volButtonsEnabled: false,
-  footer: 'Not connected',
   sourceName: 'No source',
   dialSourceLabel: 'NO SOURCE',
 );
@@ -114,7 +110,6 @@ final Map<DebugScenario, _Expected> _expected = {
     muteButton: 0.4,
     sourceTrigger: 0.4,
     volButtonsEnabled: false,
-    footer: 'Connected',
     sourceName: 'Optical 1',
     dialSourceLabel: 'OPTICAL 1',
   ),
@@ -133,7 +128,6 @@ final Map<DebugScenario, _Expected> _expected = {
     muteButton: 0.4,
     sourceTrigger: 0.4,
     volButtonsEnabled: false,
-    footer: 'Connected',
     sourceName: 'Optical 1',
     dialSourceLabel: 'OPTICAL 1',
   ),
@@ -154,7 +148,6 @@ final Map<DebugScenario, _Expected> _expected = {
     muteButton: 1.0,
     sourceTrigger: 1.0,
     volButtonsEnabled: true,
-    footer: 'Connected',
     sourceName: 'Optical 1',
     dialSourceLabel: 'OPTICAL 1',
   ),
@@ -187,7 +180,6 @@ void main() {
           final pressable = find.descendant(of: find.byKey(key), matching: find.byType(AdaptivePressable));
           expect(tester.widget<AdaptivePressable>(pressable).enabled, e.volButtonsEnabled, reason: '$key');
         }
-        expect(textAt(tester, ControlKeys.footer), e.footer);
         expect(textAt(tester, ControlKeys.sourceName), e.sourceName);
         expect(textAt(tester, ControlKeys.dialSourceLabel), e.dialSourceLabel);
       });

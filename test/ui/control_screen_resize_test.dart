@@ -62,8 +62,7 @@ void main() {
 
   testWidgets('a manual-IP draft survives a width-class change', (tester) async {
     await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.notConnected));
-    await tester.tap(find.byKey(ControlKeys.deviceCard));
-    await tester.pumpAndSettle();
+    await openAmpSheet(tester);
     await tapRow(tester, 'Enter IP Manually');
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(EditableText), '192.0.2.9');

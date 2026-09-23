@@ -4,13 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/amp_state_owner.dart';
 import '../platform/adaptive_pressable.dart';
 import '../theme/app_theme.dart';
+import '../widgets/arcs.dart';
 import '../widgets/dimmed_group.dart';
 import '../widgets/sheet_scaffold.dart';
 import 'control_keys.dart';
+import 'source_glyph.dart';
 import 'source_glyphs.dart';
 
-/// "Select source": one row per enabled source, active row in copper with
-/// a check; empty state when the amp has none / no amp (TODO 2.0.9).
+/// "Select source": one outlined card per enabled source (v36: 1.5 px
+/// divider border, r16, 8 apart) with the glyph, the name, a mono "kind"
+/// label and a check; the active card's border, name and check are
+/// copper. Empty state when the amp has none / no amp (TODO 2.0.9).
+/// Decorative arcs bleed off the panel's top-right corner.
 ///
 /// The sheet watches the live view state, so if the amp goes Off / Booting
 /// while it is open the rows dim to 0.4 and go inert **in place** — the
@@ -31,6 +36,8 @@ class SourceSheet extends ConsumerWidget {
     return SheetScaffold(
       title: 'Select source',
       subtitle: state.hasAmp ? state.selectedAmp!.displayName : 'No amplifier connected',
+      backdrop: const SheetArcs(),
+      backdropOffset: SheetArcs.offset,
       child: state.sources.isEmpty
           ? const _SourceEmptyState()
           : DimmedGroup(
@@ -39,7 +46,8 @@ class SourceSheet extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final source in state.sources)
+                  for (final (i, source) in state.sources.indexed) ...[
+                    if (i > 0) const SizedBox(height: 8),
                     AdaptivePressable(
                       // Belt and braces with the group above: the row is
                       // inert by itself too (checklist item 6).
@@ -48,29 +56,24 @@ class SourceSheet extends ConsumerWidget {
                         notifier.selectSource(source.index);
                         Navigator.of(context).pop();
                       },
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       builder: (context, pressed) {
                         final selected = source.index == state.activeSourceIndex;
+                        final kind = sourceKindFor(source.name);
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
+                          key: ControlKeys.sourceCard(source.index),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                           decoration: BoxDecoration(
                             color: pressed ? t.surface2 : null,
-                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: selected ? t.copperBright : t.divider, width: 1.5),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: Row(
                             children: [
-                              Container(
+                              SizedBox(
                                 width: 32,
                                 height: 32,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: selected && t.isDark ? t.accentTint(0.18) : null,
-                                  borderRadius: BorderRadius.circular(9),
-                                ),
-                                child: Text(
-                                  sourceGlyphFor(source.name),
-                                  style: TextStyle(fontSize: 15, color: t.copperBright, height: 1),
-                                ),
+                                child: Center(child: SourceGlyph(name: source.name, size: 15)),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -81,6 +84,11 @@ class SourceSheet extends ConsumerWidget {
                                   style: theme.type.body(size: 15, color: selected ? t.copperBright : t.text),
                                 ),
                               ),
+                              if (kind != null) ...[
+                                const SizedBox(width: 12),
+                                Text(kind, style: theme.type.mono(size: 11, color: t.textFaint)),
+                              ],
+                              const SizedBox(width: 10),
                               Opacity(
                                 opacity: selected ? 1 : 0,
                                 child: Text('✓', style: TextStyle(fontSize: 14, color: t.copperBright)),
@@ -90,6 +98,7 @@ class SourceSheet extends ConsumerWidget {
                         );
                       },
                     ),
+                  ],
                 ],
               ),
             ),

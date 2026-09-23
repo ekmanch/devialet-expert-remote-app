@@ -17,6 +17,7 @@ import 'package:devialet_expert_remote_app/ui/platform/platform_style.dart';
 import 'package:devialet_expert_remote_app/ui/theme/app_theme.dart';
 import 'package:devialet_expert_remote_app/ui/theme/app_tokens.dart';
 import 'package:devialet_expert_remote_app/ui/theme/app_typography.dart';
+import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_screen.dart';
 import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
 import 'package:devialet_expert_remote_app/ui/settings/url_opener.dart';
@@ -97,6 +98,20 @@ Future<void> pumpControl(
   await tester.pump();
   seedFromControlView(containerOf(tester).read(ampStateProvider.notifier), state);
   await tester.pump();
+}
+
+/// Opens the amp picker and lets the sheet route animate in. Not
+/// `pumpAndSettle`: the picker's listening arcs (v36) animate for as long
+/// as the list view is shown, so the tree never settles. [settleSheet]
+/// does the same wait after any other change that lands on that view.
+Future<void> openAmpSheet(WidgetTester tester) async {
+  await tester.tap(find.byKey(ControlKeys.deviceCard));
+  await settleSheet(tester);
+}
+
+Future<void> settleSheet(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 500));
 }
 
 Future<void> resizeWindow(WidgetTester tester, Size size) async {

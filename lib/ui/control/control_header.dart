@@ -1,13 +1,15 @@
 import 'package:flutter/widgets.dart';
 
-import '../platform/adaptive_pressable.dart';
 import '../platform/platform_style.dart';
 import '../theme/app_theme.dart';
+import '../widgets/header_icon_button.dart';
 import '../widgets/stroke_icons.dart';
 import 'control_keys.dart';
 
 /// Wordmark + title (Android) or eyebrow + large title (iOS), with the
-/// settings gear, which pushes the Settings screen (Task 3.4.x).
+/// settings gear, which pushes the Settings screen (Task 3.4.x). The gear
+/// is a bare 23 dp glyph in a 44 dp target (v36), overhanging the content
+/// edge by 10 so the glyph lines up with the cards.
 class ControlHeader extends StatelessWidget {
   const ControlHeader({super.key, this.onSettingsTap});
 
@@ -33,7 +35,7 @@ class ControlHeader extends StatelessWidget {
                   padding: EdgeInsets.only(bottom: eyebrow ? 2 : 4),
                   child: _Wordmark(
                     style: theme.type.display(
-                      size: eyebrow ? 12 : 13,
+                      size: eyebrow ? 14 : 15,
                       letterSpacingEm: eyebrow ? 0.2 : 0.22,
                       color: t.copperBright,
                     ),
@@ -52,24 +54,11 @@ class ControlHeader extends StatelessWidget {
           const SizedBox(width: 12),
           Padding(
             padding: EdgeInsets.only(top: eyebrow ? 2 : 0),
-            child: AdaptivePressable(
+            child: HeaderIconButton(
               key: ControlKeys.gearButton,
               onTap: onSettingsTap,
-              borderRadius: BorderRadius.circular(12),
-              pressedScale: 0.92,
-              pressedOpacity: 0.8,
-              builder: (context, pressed) => Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: t.surface,
-                  border: Border.all(color: t.divider),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: t.cardShadow,
-                ),
-                alignment: Alignment.center,
-                child: StrokeIcon(StrokeIconKind.gear, color: t.textDim, size: 19),
-              ),
+              overhang: 10,
+              child: StrokeIcon(StrokeIconKind.gear, color: t.textDim, size: 23),
             ),
           ),
         ],

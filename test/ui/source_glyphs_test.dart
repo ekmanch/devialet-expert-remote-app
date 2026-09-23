@@ -13,4 +13,21 @@ void main() {
     expect(sourceGlyphFor('Chromecast Audio'), '\u25c9');
     expect(sourceGlyphFor(null), '\u2013');
   });
+
+  test('v36 kind labels by live name; unknown names get none', () {
+    expect(sourceKindFor('Optical 1'), 'Digital in');
+    expect(sourceKindFor('UPnP'), 'Network');
+    expect(sourceKindFor('Roon Ready'), 'Roon');
+    expect(sourceKindFor('AirPlay'), 'Apple AirPlay');
+    expect(sourceKindFor('Spotify'), 'Spotify Connect');
+    expect(sourceKindFor('AIR'), 'Devialet AIR');
+    expect(sourceKindFor('Chromecast Audio'), isNull);
+  });
+
+  test('only Spotify is painted; every other glyph is the character', () {
+    expect(isSpotifySource('Spotify'), isTrue);
+    expect(isSpotifySource('spotify connect'), isTrue);
+    expect(isSpotifySource('AirPlay'), isFalse);
+    expect(isSpotifySource(null), isFalse);
+  });
 }
