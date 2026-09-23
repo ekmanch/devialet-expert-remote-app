@@ -194,13 +194,20 @@ the raw datagrams directly, which covers the inbound side.
       LAN: an enabled slot ≥ 6 confirms the float fallback; sending 9.0
       tells whether the 9 → 14 alias is firmware-wide or per-unit.
 
-## Task 2.0.x — Control screen UI from the v19 mockups (UI only)
+## Task 2.0.x — Control screen UI from the mockups (UI only)
 
 Adopt the design mockups for the **Control screen only** (built from
-v19; the v36 pass is 2.0.15 — the current files are):
+v19; the v36 pass is 2.0.15, the v39 update 2.0.19 — **the current files
+are**):
 
-- Android: `design/mockups/devialet_remote_mockup_Android_v36.html`
-- iOS: `design/mockups/devialet_remote_mockup_iOS_v36.html`
+- Android: `design/mockups/devialet_remote_mockup_Android_v39.html`
+- iOS: `design/mockups/devialet_remote_mockup_iOS_v39.html`
+
+Only this block and `CLAUDE.md` name the *current* mockup; every other
+version number in this file and in code comments is provenance (the
+version that introduced a rule) and stays as history when the mockup is
+bumped. The guards live in `test/ui/mockup_test.dart` (version-agnostic
+name for the same reason).
 
 Scope: widgets, layout, theming and every *visual state* of the Control
 screen, driven by a debug/fake state object — **no protocol wiring, no
@@ -356,7 +363,8 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
       class (checklist items 14, 16). Checklist for the soak (both run
       configs, `UI_VARIANT=android` and `=ios`):
       - cycle all six scenarios with the debug bar; compare each against
-        the v19 mockup side by side (fonts, sizes, spacing, colours);
+        the current mockup (v39) side by side (fonts, sizes, spacing,
+        colours);
       - glyph coverage of ◉ ◫ ◍ ◈ ◐ ◇ ⌨ ✓ in the trigger and the sheets
         (tofu → replace with painted icons in `stroke_icons.dart`);
         ✔ 2026-09-21 S25 screenshots (Android variant): the source
@@ -420,7 +428,7 @@ gotchas #1/#2 one input at a time.
       the S25 (light, Android variant).
 - [x] **2.0.15** — **v19 → v36 mockup pass (owner request 2026-09-22),** both
       variants, Control + Settings + sheets. Ported 2026-09-22
-      (`test/ui/mockup_v36_test.dart`, 23 tests; nine guards counter-run
+      (`test/ui/mockup_test.dart`, 23 tests; nine guards counter-run
       red; 331 tests green):
       - light accent `--copper-bright` `#d98c0f` → `#c79a2e` (token +
         Cupertino primary); wordmark 13 → 15 (Android), eyebrow 12 → 14
@@ -474,7 +482,7 @@ gotchas #1/#2 one input at a time.
       in the sheet, 16.8 in the trigger). `sourceGlyphFor` keeps the
       character table as documentation only. Verified 2026-09-23 on the
       S25 (Android variant, dark + light: gradient and shadow on all six).
-      Guard: `mockup_v36_test` asserts every card's and the trigger's
+      Guard: `mockup_test` asserts every card's and the trigger's
       paint box is the shared size and no glyph character is a `Text`;
       counter-run red by oversizing the Air glyph. **Mockup deviation
       (checklist 15):** the mockups still declare the characters — in a
@@ -486,7 +494,7 @@ gotchas #1/#2 one input at a time.
       into `lib/ui/widgets/painted_glyph.dart` (`PaintedGlyph`,
       `GlyphPainter`) so both sheets share it. Verified on the S25 in both
       themes; guard + counter-run (undersized Dark glyph) in
-      `mockup_v36_test`.
+      `mockup_test`.
       **Round three, same day (owner screenshots), all verified on the S25
       in light:** (a) the sun's gold radiates from its centre
       (`PaintedGlyph.gradientCenter`/`gradientRadius`, `ThemeGlyph` passes
@@ -500,7 +508,7 @@ gotchas #1/#2 one input at a time.
       headings take Settings' gold gradient / flat-copper 700
       (`SectionLabel(accent: true)`) — the mockup still declares them
       faint there, checklist 15 deviation. Guards for all four in
-      `mockup_v36_test` (337 green); counter-runs red for the Source
+      `mockup_test` (337 green); counter-runs red for the Source
       accent and the sun centring.
 - [x] **2.0.17** — **Sheets lift above the keyboard (owner bug report
       2026-09-23).** The manual-IP entry sat fully under the S25's keyboard:
@@ -526,7 +534,7 @@ gotchas #1/#2 one input at a time.
       `PaintedGlyph`: a 15.2 × 10.4 slab filling the ring's footprint (so
       it carries the dot's mass), four key ticks, a space bar; copper in
       dark, gold gradient + shadow in light; bare `SizedBox` chip. Guard
-      in `mockup_v36_test` for both themes (size, mask/shadow, no ⌨, no
+      in `mockup_test` for both themes (size, mask/shadow, no ⌨, no
       bordered chip).
       **Optical sizing pass (owner, same day):** "same box" was the wrong
       target — an outlined shape reads lighter than a filled disc of the
@@ -560,7 +568,7 @@ gotchas #1/#2 one input at a time.
       Route; owner decision) — word-bounded so AirPlay is untouched; the
       raw name stays the protocol/matching key. Guards in `sheets_test`
       (back control geometry, no chip, AIR in trigger + sheet),
-      `mockup_v36_test` (15 px), `source_glyphs_test`; counter-runs red
+      `mockup_test` (15 px), `source_glyphs_test`; counter-runs red
       for the back control and the AIR mapping. Verified on the S25 in
       light: Control, amp picker, entry view with the keyboard, source
       sheet.
@@ -1146,7 +1154,7 @@ real mute send).
       remote-originated changes; the transient cue does not.
 - [ ] **3.10.2** — Don't reuse the OS's own volume OSD look; users mistake it for the
       device's volume. No mockup exists for this cue yet — sketch it in the
-      v19 HTML before building.
+      current mockup HTML (v39 today; bump it) before building.
 
 ## Task 3.11.x — Expanded-width two-pane layout (tablets; after 2.0.x and 3.4.x)
 
@@ -1158,7 +1166,7 @@ process that shouldn't gate early tasks. Everything in this task is
 previewed on an **Android tablet emulator or a resizable desktop window**
 via both UI variants; the real-iPad check is Task 4.4.0.
 
-- [ ] **3.11.0** — **Tablet mockup pass** in the v19 HTML (both variants) before any
+- [ ] **3.11.0** — **Tablet mockup pass** in the current mockup HTML (v39 today, both variants) before any
       code: which pane pairs are shown at expanded width (Control +
       Settings; Control + amp/source lists), what medium width does
       (probably still single-pane, wider column), pane proportions, where

@@ -28,9 +28,11 @@ import 'package:devialet_expert_remote_app/ui/widgets/stroke_icons.dart';
 import 'support/pump_control.dart';
 import 'support/pump_settings.dart';
 
-/// The v19 → v36 mockup pass (Task 2.0.15). Each group names the mockup
-/// version that introduced the rule. The test binding's OS brightness
-/// defaults to *light*; dark-theme checks pin it.
+/// Guards for the mockup ports: the v19 → v36 pass (Task 2.0.15) and the
+/// rounds since (2.0.16–2.0.19, mockups v39). Each group names the mockup
+/// version that introduced its rule; the current mockup files are named
+/// in TODO.md "Task 2.0.x". The test binding's OS brightness defaults to
+/// *light*; dark-theme checks pin it.
 void main() {
   void osBrightness(WidgetTester tester, Brightness b) {
     tester.platformDispatcher.platformBrightnessTestValue = b;

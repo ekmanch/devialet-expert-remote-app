@@ -261,8 +261,11 @@ platform-specific.
 - Mockups before code: a new screen, dialog, or visual state gets a pass in
   the existing HTML mockups (`design/mockups/`) before it's built in
   Flutter, unless it's a trivial variant of something already mocked. Bump
-  the mockup's version number for each round of changes (`_v19` → `_v20`,
+  the mockup's version number for each round of changes (`_v39` → `_v40`,
   etc.); only overwrite an existing version number when explicitly told to.
+  The current mockup files are named in `TODO.md` under "Task 2.0.x"; a
+  version number anywhere else is the version that introduced a rule, not
+  a pointer to the current file.
 - Prefer flagging ambiguity over guessing — protocol/state behavior,
   task dependencies, numbering, or design decisions not covered by `docs/`
   or `TODO.md`. Ask rather than assume.

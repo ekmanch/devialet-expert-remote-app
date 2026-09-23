@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Colour / gradient / shadow tokens lifted 1:1 from the v36 mockups' CSS
+/// Colour / gradient / shadow tokens lifted 1:1 from the mockups' CSS (v36;
+/// unchanged by v39)
 /// variables (`:root` = dark, `.phone.light` = light). One place, so Task
 /// 3.4.x's Theme setting and Task 5.0.0's icon reuse them (TODO 2.0.11).
 ///
