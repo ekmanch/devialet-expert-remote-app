@@ -8,6 +8,7 @@ import '../widgets/ring_spinner.dart';
 import '../widgets/stroke_icons.dart';
 import '../widgets/widest_label.dart';
 import 'control_keys.dart';
+import 'control_layout.dart';
 
 class ActionButtonColors {
   const ActionButtonColors({required this.background, required this.border, required this.foreground});
@@ -34,7 +35,7 @@ class ActionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 22),
+      padding: const EdgeInsets.only(top: kControlActionRowTop),
       child: Row(
         children: [
           Expanded(

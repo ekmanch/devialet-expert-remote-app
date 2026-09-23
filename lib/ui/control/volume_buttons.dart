@@ -6,6 +6,7 @@ import '../platform/adaptive_pressable.dart';
 import '../settings/stepper_repeat.dart';
 import '../theme/app_theme.dart';
 import 'control_keys.dart';
+import 'control_layout.dart';
 
 /// Hold-to-repeat for VOL − / + (Task 3.6.1): one step on press, the next
 /// after [kVolumeHoldDelay], then one every [kVolumeRepeatInterval], flat.
@@ -38,7 +39,7 @@ class VolumeButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.only(top: kControlVolumeButtonsTop),
       child: Row(
         children: [
           Expanded(

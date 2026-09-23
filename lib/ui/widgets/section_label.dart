@@ -5,6 +5,8 @@ import '../theme/app_tokens.dart';
 
 /// `.section-label`: 11px/600 Space Grotesk, 0.16em, uppercase, faint.
 /// Top margin 22 for the first section, 26 otherwise; 12 below, 2 left.
+/// [top] overrides the top margin — the Control screen tightens its
+/// rhythm to fit the Galaxy S25 without scrolling (2.0.21).
 ///
 /// [accent] is the v28/v29/v32 variant: weight 700 and the accent moved
 /// here from the numbers — a gold gradient clipped to the letters in
@@ -13,11 +15,12 @@ import '../theme/app_tokens.dart';
 /// declares the faint version there, checklist 15 deviation).
 /// The faint version remains for any future non-accented section.
 class SectionLabel extends StatelessWidget {
-  const SectionLabel(this.text, {super.key, this.first = false, this.accent = false});
+  const SectionLabel(this.text, {super.key, this.first = false, this.accent = false, this.top});
 
   final String text;
   final bool first;
   final bool accent;
+  final double? top;
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +49,7 @@ class SectionLabel extends StatelessWidget {
             child: label,
           );
     return Padding(
-      padding: EdgeInsets.only(top: first ? 22 : 26, bottom: 12, left: 2),
+      padding: EdgeInsets.only(top: top ?? (first ? 22 : 26), bottom: 12, left: 2),
       // `width: fit-content`, so the gradient spans the letters, not the row.
       child: Align(alignment: Alignment.centerLeft, child: child),
     );

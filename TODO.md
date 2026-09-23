@@ -397,10 +397,10 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
       - **S25 soak 2026-09-19 (owner):** everything renders fine in both
         variants. The column does not quite fit the screen *with the
         debug bar* (≈ 66 dp: 32 dp chips + 16 dp padding + 18 dp margin).
-        The bar is gone since 2.0.20 (2026-09-23); re-check the fit on the
-        S25 and only then decide whether the dial needs scaling down from
-        220 dp or the vertical rhythm tightening — leave the mockup
-        numbers until then
+        Resolved in 2.0.21 (2026-09-23): with the bar gone the column
+        still overshot the S25 by 18 dp; the vertical rhythm was
+        tightened by 30 dp (dial stays 220 dp) and it fits with ≈ 12 dp
+        to spare
         (checklist item 14: measure, don't guess).
 
 ## Task 3.0.x-3.3.x — Software architecture: state owner + persistence layer
@@ -592,6 +592,28 @@ gotchas #1/#2 one input at a time.
       it (the `tool/protocol_probe` harness covers dev-machine probing),
       or give it a hidden debug-only entry (e.g. long-press the Settings
       "Version" row) — the owner's call; nothing chosen yet.
+- [x] **2.0.21** — **Control column fits the S25 without scrolling (owner,
+      2026-09-23).** After 2.0.20 the column still scrolled by ≈ 18 dp
+      (owner's top/bottom screenshots: 54 px at 3.0). Measured, not
+      guessed: a fit guard at the phone's real geometry (`wm size`
+      1080 × 2340, density 480 → 3.0, `dumpsys window` status bar 103 px /
+      nav bar 45 px → 730.7 dp available) with the **bundled fonts loaded**
+      (`test/ui/support/app_fonts.dart`; the test framework's placeholder
+      font made the same column 55 dp taller, so any fit assertion needs
+      the real faces) reported 18.3 dp of overshoot — the phone's number.
+      Trim, Control screen only (`control_layout.dart` constants; Settings
+      keeps the mockup rhythm): header bottom 20/18 → 16/14, first
+      section top 22 → 18, later sections 26 → 20 (`SectionLabel.top`),
+      dial padding 8/4 → 4/0, volume buttons top 18 → 14, action row top
+      22 → 18 = 30 dp; content padding 6/28 and the 220 dp dial unchanged.
+      Result: column 715 → 685 dp, ≈ 12 dp slack; on the S25 a swipe up
+      changes zero pixels. Guard `control_screen_fit_test` (no scroll
+      extent + ≥ 8 dp slack); counter-run with the mockup values red at
+      18.3. **Mockup deviation (checklist 14/15):** v39 declares the old
+      rhythm — its phone frame is taller than the S25's usable area; port
+      the trimmed values into the next mockup round. iOS geometry not
+      measured (no device); the iPhone-15 class has ≈ 32 dp more usable
+      height, so it fits by arithmetic, unverified.
 - [x] **3.0.0** — One Riverpod-owned live amp state, injected into every surface as a
       *required* dependency; views never keep private copies of
       volume/mute/ip/power (checklist items 2, 5). Done 2026-09-19:

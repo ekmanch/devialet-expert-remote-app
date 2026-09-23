@@ -81,14 +81,14 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
       children: [
         ControlHeader(onSettingsTap: _openSettings),
         DeviceCard(state: state, onTap: _openAmpSheet),
-        const SectionLabel('Volume', first: true, accent: true),
+        const SectionLabel('Volume', first: true, accent: true, top: kControlSectionTopFirst),
         DimmedGroup(
           key: ControlKeys.dialWrap,
           dimmed: !state.volumeGroupEnabled,
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                padding: const EdgeInsets.only(top: kControlDialTop, bottom: kControlDialBottom),
                 child: VolumeDial(
                   key: _dialKey,
                   minDb: state.floorDb,
@@ -122,7 +122,7 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
           dimmed: !state.hasAmp,
           child: ActionRow(state: state, onMute: notifier.toggleMute, onPower: notifier.togglePower),
         ),
-        const SectionLabel('Source', accent: true),
+        const SectionLabel('Source', accent: true, top: kControlSectionTop),
         DimmedGroup(
           key: ControlKeys.sourceTrigger,
           dimmed: !state.volumeGroupEnabled,

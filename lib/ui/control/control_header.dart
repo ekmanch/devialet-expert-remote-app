@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../widgets/header_icon_button.dart';
 import '../widgets/stroke_icons.dart';
 import 'control_keys.dart';
+import 'control_layout.dart';
 
 /// Wordmark + title (Android) or eyebrow + large title (iOS), with the
 /// settings gear, which pushes the Settings screen (Task 3.4.x). The gear
@@ -23,7 +24,9 @@ class ControlHeader extends StatelessWidget {
 
     return Padding(
       key: ControlKeys.header,
-      padding: eyebrow ? const EdgeInsets.fromLTRB(2, 14, 2, 18) : const EdgeInsets.fromLTRB(0, 16, 0, 20),
+      padding: eyebrow
+          ? const EdgeInsets.fromLTRB(2, 14, 2, kControlHeaderBottomEyebrow)
+          : const EdgeInsets.fromLTRB(0, 16, 0, kControlHeaderBottom),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
