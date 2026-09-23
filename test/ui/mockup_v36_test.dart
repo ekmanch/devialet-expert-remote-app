@@ -8,6 +8,7 @@ import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
 import 'package:devialet_expert_remote_app/ui/control/amp_sheet.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_screen.dart';
 import 'package:devialet_expert_remote_app/ui/control/device_card.dart';
+import 'package:devialet_expert_remote_app/ui/control/manual_entry_glyph.dart';
 import 'package:devialet_expert_remote_app/ui/control/source_glyph.dart';
 import 'package:devialet_expert_remote_app/ui/control/source_glyphs.dart';
 import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
@@ -203,6 +204,50 @@ void main() {
       expect(find.descendant(of: find.byType(AmpSheet), matching: find.byType(CheckMark)), findsAtLeastNWidgets(2));
     });
 
+    for (final brightness in Brightness.values) {
+      testWidgets('${brightness.name}: "Enter IP Manually" is a painted keyboard in the shared box, bare, gold like the rest', (tester) async {
+        osBrightness(tester, brightness);
+        await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+        await openAmpSheet(tester);
+        expect(find.text('\u2328'), findsNothing, reason: 'no ⌨ character');
+        final row = find.ancestor(of: find.text('Enter IP Manually'), matching: find.byType(AdaptivePressable)).first;
+        final glyph = tester.widget<PaintedGlyph>(find.descendant(of: row, matching: find.byType(PaintedGlyph)));
+        expect(glyph.size, 15);
+        final paints = tester
+            .widgetList<CustomPaint>(find.descendant(of: row, matching: find.byWidgetPredicate((w) => w is CustomPaint && w.painter is ManualEntryGlyphPainter)))
+            .toList();
+        expect(glyph.opticalScale, ManualEntryGlyph.opticalScale);
+        expect(paints.map((p) => p.size), everyElement(const Size.square(15 * 1.05 * ManualEntryGlyph.opticalScale)));
+        if (brightness == Brightness.light) {
+          expect(paints.map((p) => (p.painter! as ManualEntryGlyphPainter).shadow), [AppTokens.glyphGoldShadow, null], reason: 'shadow + gold mask');
+          expect(find.descendant(of: row, matching: find.byType(ShaderMask)), findsOneWidget);
+        } else {
+          final t = AppTheme.of(tester.element(find.byType(ControlScreen))).tokens;
+          expect(paints.single.painter!, isA<ManualEntryGlyphPainter>().having((p) => p.color, 'color', t.copperBright));
+        }
+        // Bare on the row: no bordered chip around the glyph.
+        final boxes = tester.widgetList<Container>(find.descendant(of: row, matching: find.byType(Container)));
+        expect(boxes.where((c) => c.decoration is BoxDecoration && (c.decoration! as BoxDecoration).border != null), isEmpty);
+        // Same leading slot as the amp rows: every title starts at one x.
+        final amps = ControlViewState.forScenario(DebugScenario.connected).knownAmps.map((a) => a.displayName);
+        final x = ['None', ...amps, 'Enter IP Manually']
+            .map((s) => tester.getTopLeft(find.descendant(of: find.byType(AmpSheet), matching: find.text(s))).dx)
+            .toSet();
+        expect(x, hasLength(1), reason: 'titles line up: $x');
+        // The trailing chevron is painted at the tick's size, not the › character.
+        expect(find.descendant(of: find.byType(AmpSheet), matching: find.text('›')), findsNothing);
+        expect(tester.widget<ChevronMark>(find.descendant(of: row, matching: find.byType(ChevronMark))).size, 18);
+      });
+    }
+
+    testWidgets('chevrons are painted on the source trigger and the settings rows too', (tester) async {
+      await pumpSettings(tester);
+      expect(find.text('\u203a'), findsNothing);
+      expect(find.byType(ChevronMark), findsAtLeastNWidgets(2), reason: 'theme row, GitHub row');
+      await tester.tap(find.byKey(SettingsUiKeys.backButton));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: find.byKey(ControlKeys.sourceTrigger), matching: find.byType(ChevronMark)), findsOneWidget);
+    });
   });
 
   group('amp picker listening arcs (v36)', () {

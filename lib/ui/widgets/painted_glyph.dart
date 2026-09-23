@@ -19,6 +19,7 @@ class PaintedGlyph extends StatelessWidget {
     required this.painter,
     this.gradientCenter = AppTokens.glyphGoldCenter,
     this.gradientRadius = 0.75,
+    this.opticalScale = 1.0,
   });
 
   /// The CSS font size of the chip (16 in the trigger, 15 in the sheets).
@@ -31,13 +32,19 @@ class PaintedGlyph extends StatelessWidget {
   final Alignment gradientCenter;
   final double gradientRadius;
 
+  /// Optical sizing: an outlined, detailed shape reads lighter than a
+  /// filled disc drawn in the same box, so such a glyph may be drawn a
+  /// little larger than the box's nominal `size * 1.05`. Measured on the
+  /// S25, not guessed — see `ManualEntryGlyph`.
+  final double opticalScale;
+
   @override
   Widget build(BuildContext context) {
     final t = AppTheme.of(context).tokens;
     final gold = t.glyphGoldColors;
 
     Widget glyph(Color color, {Color? shadow}) =>
-        CustomPaint(size: Size.square(size * 1.05), painter: painter(color, shadow));
+        CustomPaint(size: Size.square(size * 1.05 * opticalScale), painter: painter(color, shadow));
 
     if (gold == null) return glyph(t.copperBright);
 

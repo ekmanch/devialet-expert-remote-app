@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../platform/adaptive_pressable.dart';
 import '../theme/app_theme.dart';
+import '../widgets/check_mark.dart';
 
 /// Inline settings row: label (+ description) on the left, optional
 /// trailing value and chevron on the right. Tappable when [onTap] is set
@@ -42,7 +43,7 @@ class SettingsRow extends StatelessWidget {
           ],
           if (chevron) ...[
             const SizedBox(width: 10),
-            Text('\u203a', style: theme.type.body(size: 15, color: t.textFaint)),
+            const ChevronMark(),
           ],
         ],
       ),

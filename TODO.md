@@ -515,6 +515,33 @@ gotchas #1/#2 one input at a time.
       field, hint and Connect all visible with the number pad up. Guard:
       `sheets_test` "keyboard" group, both variants, with a 320 px fake
       inset; counter-run red by dropping the inset from the reserve.
+- [x] **2.0.18** — **Painted "Enter IP Manually" glyph, box removed.** The
+      row's ⌨ rendered as a colour emoji on Samsung, inside a bordered box
+      the mockup never declared (`.source-option .source-icon` has no
+      border) and that clashed with the bare header icons. Candidates
+      (keyboard / keypad / entry field) previewed to the owner 2026-09-23;
+      **pick: A, keyboard, gold like the other glyphs** (the mockup's
+      `textDim` for this row is overruled — owner decision, checklist 15).
+      `ManualEntryGlyph` / `ManualEntryGlyphPainter` through
+      `PaintedGlyph`: a 15.2 × 10.4 slab filling the ring's footprint (so
+      it carries the dot's mass), four key ticks, a space bar; copper in
+      dark, gold gradient + shadow in light; bare `SizedBox` chip. Guard
+      in `mockup_v36_test` for both themes (size, mask/shadow, no ⌨, no
+      bordered chip).
+      **Optical sizing pass (owner, same day):** "same box" was the wrong
+      target — an outlined shape reads lighter than a filled disc of the
+      same box. Measured on the S25 (light, 1080 px wide) from
+      screenshots, gold-ink bounding box / ink pixels:
+      amp dot 40 × 40 / 1236; keyboard as first drawn 40 × 30 / 630; after
+      `PaintedGlyph.opticalScale` 1.15 + a taller slab (11.2 units)
+      46 × 36 / 842 — reads level. Also: every amp row shares one 20 dp
+      leading slot (`_AmpRow.leadingBox`, the keyboard row too), so all
+      titles start at the same x (measured 184 px for None / amp /
+      Enter IP; guard asserts one x across the rows, counter-run red at
+      {60, 72}); and the trailing `›` is painted (`ChevronMark`, 18 px box
+      like the tick; 13 × 21 px as a character → 21 × 38 px painted,
+      against the tick's 42 × 32) on the amp row, the source trigger and
+      the settings rows.
 - [x] **3.0.0** — One Riverpod-owned live amp state, injected into every surface as a
       *required* dependency; views never keep private copies of
       volume/mute/ip/power (checklist items 2, 5). Done 2026-09-19:

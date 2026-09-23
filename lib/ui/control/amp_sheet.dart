@@ -10,6 +10,7 @@ import '../widgets/arcs.dart';
 import '../widgets/check_mark.dart';
 import '../widgets/sheet_scaffold.dart';
 import 'device_card.dart';
+import 'manual_entry_glyph.dart';
 
 /// "Choose Amplifier" (TODO 2.0.3): "None" first (italic, dashed dot,
 /// "Don't connect to any amplifier"), divider, discovered amps
@@ -129,20 +130,14 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 32,
+                const SizedBox(
+                  width: _AmpRow.leadingBox,
                   height: 32,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: t.surface,
-                    border: Border.all(color: t.divider),
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: Text('⌨', style: TextStyle(fontSize: 15, color: t.textDim, height: 1)),
+                  child: Center(child: ManualEntryGlyph(size: 15)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: Text('Enter IP Manually', style: theme.type.body(size: 15, color: t.text))),
-                Text('›', style: theme.type.body(size: 15, color: t.textFaint)),
+                const ChevronMark(),
               ],
             ),
           ),
@@ -211,9 +206,10 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
 }
 
 class _AmpRow extends StatelessWidget {
-  /// The leading slot: wide enough for a [DeviceDot.defaultSize] dot
-  /// plus the None ring's glow.
-  static const double leadingBox = 16;
+  /// The leading slot, shared by every row (dot, None ring, keyboard) so
+  /// the titles line up: wide enough for the keyboard glyph's optically
+  /// scaled box (15 · 1.05 · 1.15 ≈ 18.1).
+  static const double leadingBox = 20;
 
   const _AmpRow({
     required this.selected,

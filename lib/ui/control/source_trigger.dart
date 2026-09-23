@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../domain/control_view_state.dart';
 import '../platform/adaptive_pressable.dart';
 import '../theme/app_theme.dart';
+import '../widgets/check_mark.dart';
 import 'control_keys.dart';
 import 'source_glyph.dart';
 
@@ -51,7 +52,7 @@ class SourceTrigger extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Text('›', style: theme.type.body(size: 15, color: t.textFaint)),
+            const ChevronMark(),
           ],
         ),
       ),
