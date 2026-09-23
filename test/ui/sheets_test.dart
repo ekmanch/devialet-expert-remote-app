@@ -1,5 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:devialet_expert_remote_app/config/ui_variant.dart';
+import 'package:devialet_expert_remote_app/ui/widgets/sheet_scaffold.dart';
+import 'package:devialet_expert_remote_app/ui/platform/adaptive_text_field.dart';
 
 import 'package:devialet_expert_remote_app/domain/amp_state_owner.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
@@ -152,4 +155,29 @@ void main() {
     });
   });
 
+  group('keyboard (2026-09-23)', () {
+    for (final variant in UiVariant.values) {
+      testWidgets('${variant.name}: the manual-IP field stays above the keyboard; the sheet never grows past the screen', (tester) async {
+        await pumpControl(tester, variant: variant, state: ControlViewState.forScenario(DebugScenario.connected));
+        await openAmpSheet(tester);
+        await tester.tap(find.text('Enter IP Manually'));
+        await settleSheet(tester);
+        final screenHeight = tester.view.physicalSize.height / tester.view.devicePixelRatio;
+        final fieldBefore = tester.getRect(find.byType(AdaptiveTextField));
+        expect(fieldBefore.bottom, lessThan(screenHeight));
+
+        const keyboard = 320.0;
+        tester.view.viewInsets = const FakeViewPadding(bottom: keyboard);
+        await settleSheet(tester);
+        final field = tester.getRect(find.byType(AdaptiveTextField));
+        expect(field.bottom, lessThanOrEqualTo(screenHeight - keyboard), reason: 'field visible above the keyboard');
+        expect(field.top, greaterThanOrEqualTo(0));
+        expect(tester.getRect(find.byType(SheetScaffold)).top, greaterThanOrEqualTo(0), reason: 'sheet not pushed off the top');
+
+        tester.view.viewInsets = FakeViewPadding.zero;
+        await settleSheet(tester);
+        expect(tester.getRect(find.byType(AdaptiveTextField)), fieldBefore, reason: 'back where it was once the keyboard goes');
+      });
+    }
+  });
 }

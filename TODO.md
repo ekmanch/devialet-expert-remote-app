@@ -502,6 +502,19 @@ gotchas #1/#2 one input at a time.
       faint there, checklist 15 deviation. Guards for all four in
       `mockup_v36_test` (337 green); counter-runs red for the Source
       accent and the sun centring.
+- [x] **2.0.17** — **Sheets lift above the keyboard (owner bug report
+      2026-09-23).** The manual-IP entry sat fully under the S25's keyboard:
+      neither modal route pads for `viewInsets` (Material's `useSafeArea`
+      is top-only) and `_SheetFrame` padded only `viewPadding.bottom`.
+      Fixed in `adaptive_sheet.dart` for both variants: the panel reserves
+      `max(viewPadding.bottom, viewInsets.bottom)` (the keyboard covers the
+      nav-bar strip, so never both) and its content cap becomes
+      `min(72 % of the window, what's left above the keyboard − top safe
+      area − 24)`, so the field scrolls into view instead of the sheet
+      growing off-screen. Verified on the S25 (light, Android variant):
+      field, hint and Connect all visible with the number pad up. Guard:
+      `sheets_test` "keyboard" group, both variants, with a 320 px fake
+      inset; counter-run red by dropping the inset from the reserve.
 - [x] **3.0.0** — One Riverpod-owned live amp state, injected into every surface as a
       *required* dependency; views never keep private copies of
       volume/mute/ip/power (checklist items 2, 5). Done 2026-09-19:
