@@ -402,21 +402,6 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
         tightened by 30 dp (dial stays 220 dp) and it fits with ≈ 12 dp
         to spare
         (checklist item 14: measure, don't guess).
-
-## Task 3.0.x-3.3.x — Software architecture: state owner + persistence layer
-
-**Design first, then implement the core.** A written design (in
-`docs/app-overview.md` or a new `docs/architecture.md`) precedes any
-control wiring, because checklist items **1, 2, 3 and 7** are all owner-
-level concerns: a late broadcast can only be masked correctly by the one
-place that knows *when* it sent; two surfaces guessing independently will
-diverge; rapid repeat only works if the optimistic write is synchronous in
-the owner; and a post-boot report is only trustworthy after the owner has
-set a value and waited. Wiring buttons before this exists reintroduces
-gotchas #1/#2 one input at a time.
-
-### 3.0.x — State owner (Riverpod)
-
 - [x] **2.0.14** — **Wordmark foil sheen (owner request 2026-09-22):** the
       "DEVIALET" wordmark / eyebrow in the **light theme** gets the
       mockups' gradient clipped to the letterforms — `#a8710b → #d99a1f →
@@ -614,6 +599,58 @@ gotchas #1/#2 one input at a time.
       the trimmed values into the next mockup round. iOS geometry not
       measured (no device); the iPhone-15 class has ≈ 32 dp more usable
       height, so it fits by arithmetic, unverified.
+- [ ] **2.0.22** — **Control screen adapts to shorter phones (owner
+      request 2026-09-23).** 2.0.21 made the column fit the S25 with fixed
+      spacing constants tuned to its 730.7 dp of usable height; a shorter
+      phone still scrolls, and a taller one gets empty space at the bottom.
+      A control screen should fit on one screen wherever it reasonably can
+      (a scrolling remote feels broken), so the layout adapts to the
+      available height instead:
+      - **Flexible gaps:** the vertical rhythm in `control_layout.dart`
+        becomes a range per gap — a floor (tightest acceptable) and a
+        ceiling (the mockup's value) — and leftover height is distributed
+        between them. Control sizes stay fixed; only the space between
+        them flexes.
+      - **Hero element scales:** the dial sizes itself from the remaining
+        height within a min/max (220 dp max as today; 180 dp min is a
+        stated guess, checklist 14). Ring stroke, readout type and the
+        drag hit band (`dialHitTest`'s r 68 inner edge) scale with it, so
+        the gesture feel stays proportional.
+      - **Never shrink touch targets:** VOL ±, mute, power and the source
+        card keep their sizes (≥ 48 dp Android / 44 pt iOS minimums).
+      - **Scroll stays as the last resort** for screens below the floor;
+        the `SingleChildScrollView` is not removed.
+      - **Reference screens (checklist 14, measure):** S25 (730.7 dp,
+        must look unchanged from 2.0.21), a small phone (≈ 640 dp usable,
+        compact Android; the iPhone SE's 667 pt minus its status bar is
+        the iOS equivalent) and a tall phone (≈ 800 dp, gaps and dial
+        stop at their ceilings rather than stretching). Extend
+        `control_screen_fit_test` into a table over these heights with
+        the bundled fonts loaded; counter-run with the fixed 2.0.21
+        constants restored (small screen must go red).
+      - Settings stays a scrolling list: it's a content screen, where
+        scrolling is expected.
+      - Fold the floor/ceiling values and the dial range into the next
+        mockup round, so a later mockup sync doesn't undo them.
+      Scope: compact width, portrait phones only; expanded width is Task
+      3.11.x. Hands-on check on the S25 in both variants; no small
+      physical phone exists, so the small-screen case is verified by the
+      fit test and an emulator.
+
+## Task 3.0.x-3.3.x — Software architecture: state owner + persistence layer
+
+**Design first, then implement the core.** A written design (in
+`docs/app-overview.md` or a new `docs/architecture.md`) precedes any
+control wiring, because checklist items **1, 2, 3 and 7** are all owner-
+level concerns: a late broadcast can only be masked correctly by the one
+place that knows *when* it sent; two surfaces guessing independently will
+diverge; rapid repeat only works if the optimistic write is synchronous in
+the owner; and a post-boot report is only trustworthy after the owner has
+set a value and waited. Wiring buttons before this exists reintroduces
+gotchas #1/#2 one input at a time.
+
+### 3.0.x — State owner (Riverpod)
+
 - [x] **3.0.0** — One Riverpod-owned live amp state, injected into every surface as a
       *required* dependency; views never keep private copies of
       volume/mute/ip/power (checklist items 2, 5). Done 2026-09-19:
