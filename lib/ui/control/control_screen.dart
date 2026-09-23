@@ -82,7 +82,7 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
       children: [
         ControlHeader(onSettingsTap: _openSettings),
         DeviceCard(state: state, onTap: _openAmpSheet),
-        const SectionLabel('Volume', first: true),
+        const SectionLabel('Volume', first: true, accent: true),
         DimmedGroup(
           key: ControlKeys.dialWrap,
           dimmed: !state.volumeGroupEnabled,
@@ -123,7 +123,7 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
           dimmed: !state.hasAmp,
           child: ActionRow(state: state, onMute: notifier.toggleMute, onPower: notifier.togglePower),
         ),
-        const SectionLabel('Source'),
+        const SectionLabel('Source', accent: true),
         DimmedGroup(
           key: ControlKeys.sourceTrigger,
           dimmed: !state.volumeGroupEnabled,

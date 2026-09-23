@@ -361,9 +361,10 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
         (tofu → replace with painted icons in `stroke_icons.dart`);
         ✔ 2026-09-21 S25 screenshots (Android variant): the source
         sheet's ◉ ◫ ◍ ◈ ◐ ◇ ✓ all render; ⌨ and the iOS variant unchecked;
-        since 2.0.15 Spotify is painted, not ◐ (the character was
-        undersized), and the light theme's gold glyph gradient + drop
-        shadow are ported — eye-check both with the rest of 2.0.15;
+        since 2.0.16 **all six** are painted, not characters (on the
+        S25 ◉ ◍ ◈ rendered tiny and ◇ large — checked 2026-09-23, both
+        themes, uniform now), and the light theme's gold glyph gradient +
+        drop shadow are ported;
       - dial: drag feel around the ring, the bottom dead zone, a press on
         the readout doing nothing, −/+ taps; readout following the finger;
       - press feedback: Android ripple, iOS spring scale; the power
@@ -460,8 +461,47 @@ gotchas #1/#2 one input at a time.
         is the OS's own bar, nothing to do in-app.
       - [ ] **Eye check on the S25, both variants, both themes** (the 2.0.13
         list plus: gear/back-arrow press disc and alignment, source cards
-        and kind labels, Spotify glyph, corner arcs clipping at the sheet
-        edge, listening-arc timing, settings heading gradient at 11 px).
+        and kind labels, corner arcs clipping at the sheet edge,
+        listening-arc timing, settings heading gradient at 11 px). Source
+        glyphs: done in 2.0.16.
+- [x] **2.0.16** — **Painted source glyphs (owner request 2026-09-23).** The
+      v36 mockup's Unicode ◉ ◫ ◍ ◈ ◐ ◇ came out of the S25's font at
+      wildly different sizes (◉ ◍ ◈ tiny, ◇ large, painted ◐ in between),
+      in the sheet and the trigger card alike. All six (plus the "–"
+      placeholder) are now painted by `SourceGlyphPainter` in the 20-unit
+      box the v36 Spotify SVG used (7.6-radius ring / 15.2-wide square or
+      diamond, 1.6 stroke), so they share one size: `size × 1.05` (15.75
+      in the sheet, 16.8 in the trigger). `sourceGlyphFor` keeps the
+      character table as documentation only. Verified 2026-09-23 on the
+      S25 (Android variant, dark + light: gradient and shadow on all six).
+      Guard: `mockup_v36_test` asserts every card's and the trigger's
+      paint box is the shared size and no glyph character is a `Text`;
+      counter-run red by oversizing the Air glyph. **Mockup deviation
+      (checklist 15):** the mockups still declare the characters — in a
+      desktop browser they render evenly, so the mockup is left as is;
+      port SVGs there only if a later mockup round touches the glyphs.
+      **Same day, same fix for the theme sheet** (owner screenshot: ◐ ☾ ☀
+      tiny too): `ThemeGlyph` / `ThemeGlyphPainter` (half ring, crescent,
+      sun) in the same box, and the gold mask + shadow wrapper extracted
+      into `lib/ui/widgets/painted_glyph.dart` (`PaintedGlyph`,
+      `GlyphPainter`) so both sheets share it. Verified on the S25 in both
+      themes; guard + counter-run (undersized Dark glyph) in
+      `mockup_v36_test`.
+      **Round three, same day (owner screenshots), all verified on the S25
+      in light:** (a) the sun's gold radiates from its centre
+      (`PaintedGlyph.gradientCenter`/`gradientRadius`, `ThemeGlyph` passes
+      centre + 0.5 for Light only — the off-centre mockup gradient lit one
+      ray more than the rest); (b) the selected-row tick is painted
+      (`CheckMark`, 18 px, 2-unit stroke, flat copper) in the theme, source
+      and amp sheets — the 14 px ✓ character didn't read as a highlight;
+      (c) `DeviceDot.defaultSize` 10 → 13 (card + amp list; the mockup's
+      10 px read as a speck next to the 15.75 px glyph boxes) and the amp
+      row's leading slot 12 → 16; (d) the Control screen's VOLUME / SOURCE
+      headings take Settings' gold gradient / flat-copper 700
+      (`SectionLabel(accent: true)`) — the mockup still declares them
+      faint there, checklist 15 deviation. Guards for all four in
+      `mockup_v36_test` (337 green); counter-runs red for the Source
+      accent and the sun centring.
 - [x] **3.0.0** — One Riverpod-owned live amp state, injected into every surface as a
       *required* dependency; views never keep private copies of
       volume/mute/ip/power (checklist items 2, 5). Done 2026-09-19:

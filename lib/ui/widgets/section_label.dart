@@ -6,10 +6,12 @@ import '../theme/app_tokens.dart';
 /// `.section-label`: 11px/600 Space Grotesk, 0.16em, uppercase, faint.
 /// Top margin 22 for the first section, 26 otherwise; 12 below, 2 left.
 ///
-/// [accent] is the Settings-screen variant (v28/v29/v32): weight 700 and
-/// the accent moved here from the numbers — a gold gradient clipped to
-/// the letters in light, flat `copperBright` in dark. The Control screen
-/// keeps the faint version.
+/// [accent] is the v28/v29/v32 variant: weight 700 and the accent moved
+/// here from the numbers — a gold gradient clipped to the letters in
+/// light, flat `copperBright` in dark. Settings since v28; the Control
+/// screen too since 2026-09-23 (owner: match Settings — the mockup still
+/// declares the faint version there, checklist 15 deviation).
+/// The faint version remains for any future non-accented section.
 class SectionLabel extends StatelessWidget {
   const SectionLabel(this.text, {super.key, this.first = false, this.accent = false});
 

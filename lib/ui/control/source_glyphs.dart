@@ -1,19 +1,35 @@
-/// The mockups' Unicode source glyphs, keyed on the *live* name (names are
+/// Which painted glyph a source gets, keyed on the *live* name (names are
 /// per-unit, so this is a best-effort visual, never protocol logic).
-/// Coverage on device is a Task 2.0.13 check; if any renders as tofu,
-/// replace with painted icons in `stroke_icons.dart`. Spotify's glyph is
-/// the text fallback only: `SourceGlyph` paints it (see [isSpotifySource]).
-String sourceGlyphFor(String? name) {
-  if (name == null) return '–';
+///
+/// Every glyph is painted (`SourceGlyph`), never a Unicode character: the
+/// mockups' ◉ ◫ ◍ ◈ ◐ ◇ come out of the phone's font at wildly different
+/// sizes (2026-09-23 S25: ◉ ◍ ◈ tiny, ◇ large), so the six are drawn in
+/// one 20-unit box and always match (checklist 15/18).
+enum SourceGlyphKind { optical, upnp, roon, airplay, spotify, air, none }
+
+SourceGlyphKind sourceGlyphKindFor(String? name) {
+  if (name == null) return SourceGlyphKind.none;
   final n = name.toLowerCase();
-  if (n.contains('optical')) return '◉'; // ◉
-  if (n.contains('upnp')) return '◫'; // ◫
-  if (n.contains('roon')) return '◍'; // ◍
-  if (n.contains('airplay')) return '◈'; // ◈
-  if (n.contains('spotify')) return '◐'; // ◐
-  if (n.contains('air')) return '◇'; // ◇
-  return '◉';
+  if (n.contains('optical')) return SourceGlyphKind.optical;
+  if (n.contains('upnp')) return SourceGlyphKind.upnp;
+  if (n.contains('roon')) return SourceGlyphKind.roon;
+  if (n.contains('airplay')) return SourceGlyphKind.airplay; // before 'air'
+  if (n.contains('spotify')) return SourceGlyphKind.spotify;
+  if (n.contains('air')) return SourceGlyphKind.air;
+  return SourceGlyphKind.optical;
 }
+
+/// The mockup character each painted glyph stands in for (documentation
+/// and the glyph table's tests only — nothing renders these).
+String sourceGlyphFor(String? name) => switch (sourceGlyphKindFor(name)) {
+  SourceGlyphKind.optical => '◉',
+  SourceGlyphKind.upnp => '◫',
+  SourceGlyphKind.roon => '◍',
+  SourceGlyphKind.airplay => '◈',
+  SourceGlyphKind.spotify => '◐',
+  SourceGlyphKind.air => '◇',
+  SourceGlyphKind.none => '–',
+};
 
 /// The source sheet's mono "kind" label (v36), best-effort from the live
 /// name like the glyph; `null` for a name the mockup doesn't cover, so
@@ -28,7 +44,3 @@ String? sourceKindFor(String name) {
   if (n.contains('air')) return 'Devialet AIR';
   return null;
 }
-
-/// The ◐ character renders far smaller than the other glyphs in most
-/// fonts, so Spotify is drawn as a painted half-filled ring instead.
-bool isSpotifySource(String? name) => name != null && name.toLowerCase().contains('spotify');

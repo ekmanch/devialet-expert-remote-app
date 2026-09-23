@@ -7,6 +7,7 @@ import '../platform/adaptive_pressable.dart';
 import '../platform/adaptive_text_field.dart';
 import '../theme/app_theme.dart';
 import '../widgets/arcs.dart';
+import '../widgets/check_mark.dart';
 import '../widgets/sheet_scaffold.dart';
 import 'device_card.dart';
 
@@ -76,8 +77,8 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
         _AmpRow(
           selected: noneSelected,
           leading: Container(
-            width: 10,
-            height: 10,
+            width: DeviceDot.defaultSize,
+            height: DeviceDot.defaultSize,
             decoration: noneSelected
                 ? BoxDecoration(
                     shape: BoxShape.circle,
@@ -210,6 +211,10 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
 }
 
 class _AmpRow extends StatelessWidget {
+  /// The leading slot: wide enough for a [DeviceDot.defaultSize] dot
+  /// plus the None ring's glow.
+  static const double leadingBox = 16;
+
   const _AmpRow({
     required this.selected,
     required this.leading,
@@ -241,7 +246,7 @@ class _AmpRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            SizedBox.square(dimension: 12, child: Center(child: leading)),
+            SizedBox.square(dimension: _AmpRow.leadingBox, child: Center(child: leading)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -262,7 +267,7 @@ class _AmpRow extends StatelessWidget {
             ),
             Opacity(
               opacity: selected ? 1 : 0,
-              child: Text('✓', style: TextStyle(fontSize: 14, color: t.copperBright)),
+              child: const CheckMark(),
             ),
           ],
         ),

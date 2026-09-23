@@ -7,8 +7,10 @@ import '../../domain/settings/app_settings.dart';
 import '../../domain/settings/settings_owner.dart';
 import '../platform/adaptive_pressable.dart';
 import '../theme/app_theme.dart';
+import '../widgets/check_mark.dart';
 import '../widgets/sheet_scaffold.dart';
 import 'settings_keys.dart';
+import 'theme_glyph.dart';
 
 /// "Choose Theme": Follow System / Dark / Light. Applies at once through
 /// the settings owner (the app root follows it) and closes after the
@@ -20,12 +22,6 @@ class ThemeSheet extends ConsumerStatefulWidget {
     AppThemeMode.system => 'Follow System',
     AppThemeMode.dark => 'Dark',
     AppThemeMode.light => 'Light',
-  };
-
-  static String glyphFor(AppThemeMode mode) => switch (mode) {
-    AppThemeMode.system => '\u25d0',
-    AppThemeMode.dark => '\u263e',
-    AppThemeMode.light => '\u2600',
   };
 
   @override
@@ -83,7 +79,7 @@ class _ThemeSheetState extends ConsumerState<ThemeSheet> {
                           color: selected && t.isDark ? t.accentTint(0.18) : null,
                           borderRadius: BorderRadius.circular(9),
                         ),
-                        child: Text(ThemeSheet.glyphFor(mode), style: TextStyle(fontSize: 15, color: t.copperBright, height: 1)),
+                        child: ThemeGlyph(mode: mode, size: 15),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -94,7 +90,7 @@ class _ThemeSheetState extends ConsumerState<ThemeSheet> {
                       ),
                       Opacity(
                         opacity: selected ? 1 : 0,
-                        child: Text('\u2713', style: TextStyle(fontSize: 14, color: t.copperBright)),
+                        child: const CheckMark(),
                       ),
                     ],
                   ),

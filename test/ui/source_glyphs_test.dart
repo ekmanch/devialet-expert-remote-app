@@ -24,10 +24,14 @@ void main() {
     expect(sourceKindFor('Chromecast Audio'), isNull);
   });
 
-  test('only Spotify is painted; every other glyph is the character', () {
-    expect(isSpotifySource('Spotify'), isTrue);
-    expect(isSpotifySource('spotify connect'), isTrue);
-    expect(isSpotifySource('AirPlay'), isFalse);
-    expect(isSpotifySource(null), isFalse);
+  test('painted kind by live name; AirPlay before Air; unknown falls back to optical', () {
+    expect(sourceGlyphKindFor('Optical 1'), SourceGlyphKind.optical);
+    expect(sourceGlyphKindFor('UPnP'), SourceGlyphKind.upnp);
+    expect(sourceGlyphKindFor('Roon Ready'), SourceGlyphKind.roon);
+    expect(sourceGlyphKindFor('AirPlay'), SourceGlyphKind.airplay);
+    expect(sourceGlyphKindFor('spotify connect'), SourceGlyphKind.spotify);
+    expect(sourceGlyphKindFor('AIR'), SourceGlyphKind.air);
+    expect(sourceGlyphKindFor('Chromecast Audio'), SourceGlyphKind.optical);
+    expect(sourceGlyphKindFor(null), SourceGlyphKind.none);
   });
 }

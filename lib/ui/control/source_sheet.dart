@@ -6,6 +6,7 @@ import '../platform/adaptive_pressable.dart';
 import '../theme/app_theme.dart';
 import '../widgets/arcs.dart';
 import '../widgets/dimmed_group.dart';
+import '../widgets/check_mark.dart';
 import '../widgets/sheet_scaffold.dart';
 import 'control_keys.dart';
 import 'source_glyph.dart';
@@ -91,7 +92,7 @@ class SourceSheet extends ConsumerWidget {
                               const SizedBox(width: 10),
                               Opacity(
                                 opacity: selected ? 1 : 0,
-                                child: Text('✓', style: TextStyle(fontSize: 14, color: t.copperBright)),
+                                child: const CheckMark(),
                               ),
                             ],
                           ),

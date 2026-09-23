@@ -21,7 +21,14 @@ const Duration kDotPulseLeg = Duration(milliseconds: 550);
 /// was the Task 3.5.3 bug, a pulse at half the widget's speed
 /// (checklist 15: the mockup's declared number described the whole cycle).
 class DeviceDot extends StatefulWidget {
-  const DeviceDot({super.key, required this.state, this.size = 10});
+  const DeviceDot({super.key, required this.state, this.size = defaultSize});
+
+  /// The mockup declares 10 px; on the S25 that read as a speck next to
+  /// the 15.75 px glyph boxes (owner, 2026-09-23), so the card and the
+  /// amp list use 13 — the painted glyphs' ring diameter (7.6 · 2 / 20 of
+  /// the box ≈ 12) plus a hair, since a filled disc reads smaller than
+  /// a ring of the same size.
+  static const double defaultSize = 13;
 
   final DeviceDotState state;
   final double size;

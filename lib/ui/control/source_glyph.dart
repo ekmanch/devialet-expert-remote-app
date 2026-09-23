@@ -1,14 +1,10 @@
 import 'package:flutter/widgets.dart';
 
-import '../theme/app_theme.dart';
-import '../theme/app_tokens.dart';
+import '../widgets/painted_glyph.dart';
 import 'source_glyphs.dart';
 
-/// A source's glyph as the mockups render it: the Unicode symbol from
-/// [sourceGlyphFor], or a painted half-filled ring for Spotify (the ◐
-/// character is far smaller than its siblings in most fonts). Flat
-/// `copperBright` in dark; in light the gold radial gradient clipped to
-/// the glyph plus its soft drop shadow (`.phone.light .source-icon`).
+/// A source's glyph, painted (see [SourceGlyphKind]) through
+/// [PaintedGlyph], so all six share one size and the light theme's gold.
 class SourceGlyph extends StatelessWidget {
   const SourceGlyph({super.key, required this.name, required this.size});
 
@@ -20,83 +16,74 @@ class SourceGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = AppTheme.of(context).tokens;
-    final gold = t.glyphGoldColors;
-    final spotify = isSpotifySource(name);
-
-    Widget glyph(Color color, {Color? shadow}) => spotify
-        ? CustomPaint(
-            size: Size.square(size * 1.05),
-            painter: _SpotifyGlyphPainter(color: color, shadow: shadow),
-          )
-        : Text(
-            sourceGlyphFor(name),
-            style: TextStyle(
-              fontSize: size,
-              color: color,
-              height: 1,
-              shadows: shadow == null ? null : [Shadow(color: shadow, offset: const Offset(0, 3), blurRadius: 5)],
-            ),
-          );
-
-    if (gold == null) return glyph(t.copperBright);
-
-    // The shadow is a separate, unmasked copy underneath: `ShaderMask`
-    // would tint the shadow gold too.
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        glyph(const Color(0x00000000), shadow: AppTokens.glyphGoldShadow),
-        ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) => RadialGradient(
-            center: AppTokens.glyphGoldCenter,
-            radius: 0.75,
-            colors: gold,
-            stops: AppTokens.glyphGoldStops,
-          ).createShader(Offset.zero & bounds.size),
-          child: glyph(const Color(0xFFFFFFFF)),
-        ),
-      ],
+    final kind = sourceGlyphKindFor(name);
+    return PaintedGlyph(
+      size: size,
+      painter: (color, shadow) => SourceGlyphPainter(kind: kind, color: color, shadow: shadow),
     );
   }
 }
 
-/// `<circle r=7.6 stroke-width=1.6/>` + the left half filled
-/// (`M10 2.4 A7.6 7.6 0 0 0 10 17.6 Z`) in a 20-unit viewBox.
-class _SpotifyGlyphPainter extends CustomPainter {
-  const _SpotifyGlyphPainter({required this.color, this.shadow});
+/// Paints one [SourceGlyphKind] in the shared 20-unit box: a 7.6-radius
+/// ring (or a 15.2-wide square / diamond) with a 1.6 stroke.
+///
+/// - optical ◉: ring + filled centre dot
+/// - upnp ◫: square + vertical bisector
+/// - roon ◍: ring + vertical hatching
+/// - airplay ◈: diamond + filled inner diamond
+/// - spotify ◐: ring + left half filled
+/// - air ◇: diamond
+/// - none –: short horizontal dash
+class SourceGlyphPainter extends GlyphPainter {
+  const SourceGlyphPainter({required this.kind, required super.color, super.shadow});
 
-  final Color color;
-  final Color? shadow;
+  final SourceGlyphKind kind;
+
+  static const _c = GlyphPainter.centre;
+  static const _r = GlyphPainter.radius;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final scale = size.shortestSide / 20;
-    canvas.scale(scale, scale);
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
-      ..color = color;
-    final half = Path()
-      ..moveTo(10, 2.4)
-      ..arcToPoint(const Offset(10, 17.6), radius: const Radius.circular(7.6), clockwise: false)
-      ..close();
-    final shadowColor = shadow;
-    if (shadowColor != null) {
-      final blur = Paint()
-        ..color = shadowColor
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
-      canvas.save();
-      canvas.translate(0, 3 / scale);
-      canvas.drawCircle(const Offset(10, 10), 7.6, blur..style = PaintingStyle.stroke..strokeWidth = 1.6);
-      canvas.drawPath(half, blur..style = PaintingStyle.fill);
-      canvas.restore();
+  void draw(Canvas canvas, Color color, MaskFilter? mask) {
+    final stroke = GlyphPainter.strokePaint(color, mask);
+    final fill = GlyphPainter.fillPaint(color, mask);
+
+    switch (kind) {
+      case SourceGlyphKind.optical:
+        canvas.drawCircle(_c, _r, stroke);
+        canvas.drawCircle(_c, 3.4, fill);
+      case SourceGlyphKind.upnp:
+        final box = RRect.fromRectAndRadius(Rect.fromCircle(center: _c, radius: _r), const Radius.circular(1.6));
+        canvas.drawRRect(box, stroke);
+        canvas.drawLine(const Offset(10, 2.4), const Offset(10, 17.6), stroke);
+      case SourceGlyphKind.roon:
+        canvas.drawCircle(_c, _r, stroke);
+        canvas.save();
+        canvas.clipPath(Path()..addOval(Rect.fromCircle(center: _c, radius: _r - 1.6)));
+        final hatch = GlyphPainter.strokePaint(color, mask, width: 1.2)..strokeCap = StrokeCap.butt;
+        for (final x in const [5.2, 7.6, 10.0, 12.4, 14.8]) {
+          canvas.drawLine(Offset(x, 2), Offset(x, 18), hatch);
+        }
+        canvas.restore();
+      case SourceGlyphKind.airplay:
+        canvas.drawPath(_diamond(_r), stroke);
+        canvas.drawPath(_diamond(3.4), fill);
+      case SourceGlyphKind.spotify:
+        canvas.drawCircle(_c, _r, stroke);
+        canvas.drawPath(GlyphPainter.leftHalf(), fill);
+      case SourceGlyphKind.air:
+        canvas.drawPath(_diamond(_r), stroke);
+      case SourceGlyphKind.none:
+        canvas.drawLine(const Offset(5.5, 10), const Offset(14.5, 10), stroke);
     }
-    canvas.drawCircle(const Offset(10, 10), 7.6, ring);
-    canvas.drawPath(half, Paint()..color = color);
   }
 
+  static Path _diamond(double r) => Path()
+    ..moveTo(_c.dx, _c.dy - r)
+    ..lineTo(_c.dx + r, _c.dy)
+    ..lineTo(_c.dx, _c.dy + r)
+    ..lineTo(_c.dx - r, _c.dy)
+    ..close();
+
   @override
-  bool shouldRepaint(_SpotifyGlyphPainter old) => old.color != color || old.shadow != shadow;
+  bool shouldRepaint(covariant SourceGlyphPainter old) => old.kind != kind || super.shouldRepaint(old);
 }

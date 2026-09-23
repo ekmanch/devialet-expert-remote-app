@@ -5,14 +5,21 @@ import 'package:devialet_expert_remote_app/config/ui_variant.dart';
 import 'package:devialet_expert_remote_app/domain/settings/app_settings.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
+import 'package:devialet_expert_remote_app/ui/control/amp_sheet.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_screen.dart';
+import 'package:devialet_expert_remote_app/ui/control/device_card.dart';
+import 'package:devialet_expert_remote_app/ui/control/source_glyph.dart';
+import 'package:devialet_expert_remote_app/ui/control/source_glyphs.dart';
 import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
 import 'package:devialet_expert_remote_app/ui/settings/settings_keys.dart';
 import 'package:devialet_expert_remote_app/ui/settings/settings_screen.dart';
+import 'package:devialet_expert_remote_app/ui/settings/theme_glyph.dart';
 import 'package:devialet_expert_remote_app/ui/theme/app_theme.dart';
 import 'package:devialet_expert_remote_app/ui/theme/app_tokens.dart';
 import 'package:devialet_expert_remote_app/ui/theme/app_typography.dart';
 import 'package:devialet_expert_remote_app/ui/widgets/arcs.dart';
+import 'package:devialet_expert_remote_app/ui/widgets/check_mark.dart';
+import 'package:devialet_expert_remote_app/ui/widgets/painted_glyph.dart';
 import 'package:devialet_expert_remote_app/ui/widgets/header_icon_button.dart';
 import 'package:devialet_expert_remote_app/ui/widgets/section_label.dart';
 import 'package:devialet_expert_remote_app/ui/widgets/stroke_icons.dart';
@@ -109,11 +116,13 @@ void main() {
     });
   });
 
-  group('source sheet (v23/v26 cards, kinds, arcs, painted Spotify)', () {
+  group('source sheet (v23/v26 cards, kinds, arcs, painted glyphs)', () {
     Future<void> open(WidgetTester tester) async {
       await tester.tap(find.byKey(ControlKeys.sourceTrigger));
       await tester.pumpAndSettle();
     }
+
+    final glyphPaint = find.byWidgetPredicate((w) => w is CustomPaint && w.painter is SourceGlyphPainter);
 
     testWidgets('every source is a card with its kind label; the active card is outlined in copper', (tester) async {
       osBrightness(tester, Brightness.dark);
@@ -126,13 +135,29 @@ void main() {
       expect(borderColorOf(tester, ControlKeys.sourceCard(0)), t.copperBright);
       expect(borderColorOf(tester, ControlKeys.sourceCard(1)), t.divider);
       expect(find.byType(SheetArcs), findsOneWidget);
-      // Spotify is painted, not the ◐ character.
-      expect(find.text('◐'), findsNothing);
-      expect(
-        find.descendant(of: find.byKey(ControlKeys.sourceCard(4)), matching: find.byType(CustomPaint)),
-        findsOneWidget,
+      // Every glyph is painted, never the mockup's character (the
+      // phone's font renders ◉ ◍ ◈ tiny and ◇ large — 2026-09-23 S25).
+      for (final ch in ['◉', '◫', '◍', '◈', '◐', '◇']) {
+        expect(find.text(ch), findsNothing, reason: ch);
+      }
+      final kinds = <SourceGlyphKind>[];
+      for (final i in const [0, 1, 2, 3, 4, 14]) {
+        final paint = tester.widget<CustomPaint>(
+          find.descendant(of: find.byKey(ControlKeys.sourceCard(i)), matching: glyphPaint),
+        );
+        expect(paint.size, const Size.square(15 * 1.05), reason: 'card $i: one shared box');
+        kinds.add((paint.painter! as SourceGlyphPainter).kind);
+      }
+      expect(kinds, SourceGlyphKind.values.where((k) => k != SourceGlyphKind.none));
+      final trigger = tester.widget<CustomPaint>(
+        find.descendant(of: find.byKey(ControlKeys.sourceTrigger), matching: glyphPaint),
       );
-      expect(find.text('◉'), findsNWidgets(2), reason: 'Optical: trigger and card');
+      expect(trigger.size, const Size.square(16 * 1.05));
+      expect((trigger.painter! as SourceGlyphPainter).kind, SourceGlyphKind.optical);
+      // The selected-row tick is painted at 18, never the ✓ character.
+      expect(find.text('\u2713'), findsNothing);
+      expect(find.byType(CheckMark), findsNWidgets(6), reason: 'one per card, hidden by opacity when unselected');
+      expect(tester.widgetList<CheckMark>(find.byType(CheckMark)).map((c) => c.size), everyElement(18));
     });
 
     testWidgets('light: glyphs are gold-masked with a shadow copy underneath', (tester) async {
@@ -143,11 +168,15 @@ void main() {
         find.descendant(of: find.byKey(ControlKeys.sourceCard(0)), matching: find.byType(ShaderMask)),
         findsOneWidget,
       );
-      expect(
-        find.descendant(of: find.byKey(ControlKeys.sourceCard(4)), matching: find.byType(CustomPaint)),
-        findsNWidgets(2),
-        reason: 'shadow + masked ring',
-      );
+      for (final i in const [0, 1, 2, 3, 4, 14]) {
+        final paints = tester
+            .widgetList<CustomPaint>(
+              find.descendant(of: find.byKey(ControlKeys.sourceCard(i)), matching: glyphPaint),
+            )
+            .map((p) => p.painter! as SourceGlyphPainter)
+            .toList();
+        expect(paints.map((p) => p.shadow), [AppTokens.glyphGoldShadow, null], reason: 'card $i: shadow + masked');
+      }
     });
 
     testWidgets('dark: no gold mask', (tester) async {
@@ -159,6 +188,21 @@ void main() {
         findsNothing,
       );
     });
+  });
+
+  group('amp picker and device card dots (2026-09-23 sizing)', () {
+    testWidgets('the card dot and every amp-row dot are 13 in a 16 leading slot; the tick is painted', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      expect(tester.widget<DeviceDot>(find.byKey(ControlKeys.deviceDot)).size, DeviceDot.defaultSize);
+      expect(DeviceDot.defaultSize, 13);
+      await openAmpSheet(tester);
+      final dots = tester.widgetList<DeviceDot>(find.descendant(of: find.byType(AmpSheet), matching: find.byType(DeviceDot)));
+      expect(dots, isNotEmpty);
+      expect(dots.map((d) => d.size), everyElement(13));
+      expect(find.text('✓'), findsNothing);
+      expect(find.descendant(of: find.byType(AmpSheet), matching: find.byType(CheckMark)), findsAtLeastNWidgets(2));
+    });
+
   });
 
   group('amp picker listening arcs (v36)', () {
@@ -199,6 +243,70 @@ void main() {
   });
 
   group('settings (v28/v29/v30/v36)', () {
+    final themeGlyph = find.byWidgetPredicate((w) => w is CustomPaint && w.painter is ThemeGlyphPainter);
+
+    Future<void> openThemeSheet(WidgetTester tester) async {
+      await tester.tap(find.byKey(SettingsUiKeys.themeRow));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('theme sheet glyphs are painted in the shared box, never the mockup characters', (tester) async {
+      osBrightness(tester, Brightness.dark);
+      await pumpSettings(tester);
+      await openThemeSheet(tester);
+      for (final ch in ['\u25d0', '\u263e', '\u2600']) {
+        expect(find.text(ch), findsNothing, reason: ch);
+      }
+      for (final mode in AppThemeMode.values) {
+        final paint = tester.widget<CustomPaint>(
+          find.descendant(of: find.byKey(SettingsUiKeys.themeOption(mode)), matching: themeGlyph),
+        );
+        expect(paint.size, const Size.square(15 * 1.05), reason: '${mode.name}: one shared box');
+        expect((paint.painter! as ThemeGlyphPainter).mode, mode);
+        expect((paint.painter! as ThemeGlyphPainter).shadow, isNull, reason: 'dark: flat, no shadow');
+      }
+    });
+
+    testWidgets('light: the sun\'s gold radiates from its centre; the other glyphs keep the mockup\'s off-centre', (tester) async {
+      osBrightness(tester, Brightness.light);
+      await pumpSettings(tester);
+      await openThemeSheet(tester);
+      PaintedGlyph glyphOf(AppThemeMode mode) => tester.widget<PaintedGlyph>(
+        find.descendant(of: find.byKey(SettingsUiKeys.themeOption(mode)), matching: find.byType(PaintedGlyph)),
+      );
+      expect(glyphOf(AppThemeMode.light).gradientCenter, Alignment.center);
+      expect(glyphOf(AppThemeMode.light).gradientRadius, 0.5);
+      expect(glyphOf(AppThemeMode.dark).gradientCenter, AppTokens.glyphGoldCenter);
+      expect(glyphOf(AppThemeMode.system).gradientRadius, 0.75);
+    });
+
+    testWidgets('the selected-row tick is painted at 18 in every sheet, never the ✓ character', (tester) async {
+      await pumpSettings(tester);
+      await openThemeSheet(tester);
+      expect(find.text('\u2713'), findsNothing);
+      final themeTick = tester.widget<CheckMark>(
+        find.descendant(of: find.byKey(SettingsUiKeys.themeOption(AppThemeMode.system)), matching: find.byType(CheckMark)),
+      );
+      expect(themeTick.size, 18);
+      expect(find.byType(CheckMark), findsNWidgets(3), reason: 'one per row, hidden by opacity when unselected');
+      expect(tester.widgetList<CheckMark>(find.byType(CheckMark)).map((c) => c.size), everyElement(18));
+    });
+
+    testWidgets('light: theme sheet glyphs are gold-masked with a shadow copy underneath', (tester) async {
+      osBrightness(tester, Brightness.light);
+      await pumpSettings(tester);
+      await openThemeSheet(tester);
+      for (final mode in AppThemeMode.values) {
+        final paints = tester
+            .widgetList<CustomPaint>(
+              find.descendant(of: find.byKey(SettingsUiKeys.themeOption(mode)), matching: themeGlyph),
+            )
+            .map((p) => p.painter! as ThemeGlyphPainter)
+            .toList();
+        expect(paints.map((p) => p.shadow), [AppTokens.glyphGoldShadow, null], reason: '${mode.name}: shadow + masked');
+      }
+    });
+
     testWidgets('no footer line', (tester) async {
       await pumpSettings(tester);
       expect(find.text('Devialet Expert Pro Remote'), findsNothing);
@@ -244,7 +352,7 @@ void main() {
       });
     }
 
-    testWidgets('light: settings headings are gold-gradient bold; control headings stay faint', (tester) async {
+    testWidgets('light: settings and control headings are gold-gradient bold (control matched 2026-09-23)', (tester) async {
       osBrightness(tester, Brightness.light);
       await pumpSettings(tester);
       final t = AppTheme.of(tester.element(find.byType(SettingsScreen))).tokens;
@@ -256,11 +364,24 @@ void main() {
 
       await tester.tap(find.byKey(SettingsUiKeys.backButton));
       await tester.pumpAndSettle();
-      final control = find.byWidgetPredicate((w) => w is SectionLabel && w.text == 'Volume');
+      for (final name in ['Volume', 'Source']) {
+        final control = find.byWidgetPredicate((w) => w is SectionLabel && w.text == name);
+        expect(find.descendant(of: control, matching: find.byType(ShaderMask)), findsOneWidget, reason: name);
+        final controlText = tester.widget<Text>(find.descendant(of: control, matching: find.byType(Text)));
+        expect(controlText.style!.color, t.copperBright, reason: name);
+        expect(controlText.style!.fontWeight, FontWeight.w700, reason: name);
+      }
+    });
+
+    testWidgets('dark: control headings are flat copper bold like Settings', (tester) async {
+      osBrightness(tester, Brightness.dark);
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      final t = AppTheme.of(tester.element(find.byType(ControlScreen))).tokens;
+      final control = find.byWidgetPredicate((w) => w is SectionLabel && w.text == 'Source');
       expect(find.descendant(of: control, matching: find.byType(ShaderMask)), findsNothing);
-      final controlText = tester.widget<Text>(find.descendant(of: control, matching: find.byType(Text)));
-      expect(controlText.style!.color, t.textFaint);
-      expect(controlText.style!.fontWeight, FontWeight.w600);
+      final text = tester.widget<Text>(find.descendant(of: control, matching: find.byType(Text)));
+      expect(text.style!.color, t.copperBright);
+      expect(text.style!.fontWeight, FontWeight.w700);
     });
 
     testWidgets('dark: settings headings are flat copper bold, no gradient', (tester) async {
