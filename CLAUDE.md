@@ -309,9 +309,9 @@ platform-specific.
   app config: the UI variant switch, the window width/height class),
   `lib/ui/` (`theme/` tokens + typography, `platform/` the only widgets
   that branch on the variant, `widgets/` shared primitives, `control/` the
-  Control screen, `debug/` the Task 1 network test screen — no longer
-  reachable from the UI since the debug bar was removed on 2026-09-23,
-  see TODO 2.0.20), `tool/protocol_probe/` (dev-machine protocol harness, not
-  part of the app).
+  Control screen; the debug bar and the Task 1 manual network screen that
+  once lived in `debug/` are gone since 2026-09-23, TODO 2.0.20),
+  `tool/protocol_probe/` (dev-machine protocol harness, not part of the
+  app).
 - Repo/branching: `devialet-expert-remote-app`, feature work on branches like
   `feature/amp-selection`.

@@ -587,11 +587,11 @@ gotchas #1/#2 one input at a time.
       its keys and its two tests dropped, `widget_test` asserts its
       absence. `SimulatedAmp` stays (TEST-NET routing in `main.dart`,
       its own tests, the `DebugScenario` fixtures every UI test uses).
-      **Open:** `lib/ui/debug/debug_network_screen.dart` (the Task 1
-      manual UDP screen) is now unreachable from the UI. Decide: delete
-      it (the `tool/protocol_probe` harness covers dev-machine probing),
-      or give it a hidden debug-only entry (e.g. long-press the Settings
-      "Version" row) — the owner's call; nothing chosen yet.
+      **Follow-up, same day (owner):** `lib/ui/debug/debug_network_screen.dart`
+      (the Task 1 manual UDP screen) was left unreachable by this; deleted
+      too — a manual IP goes in through the amp picker now, and
+      `tool/protocol_probe/` covers dev-machine probing. `lib/ui/debug/`
+      is gone with it; `lib/domain/debug/` (the simulated amp) stays.
 - [x] **2.0.21** — **Control column fits the S25 without scrolling (owner,
       2026-09-23).** After 2.0.20 the column still scrolled by ≈ 18 dp
       (owner's top/bottom screenshots: 54 px at 3.0). Measured, not
