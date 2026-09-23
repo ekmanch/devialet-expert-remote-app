@@ -260,16 +260,4 @@ void main() {
       expect(textAt(tester, ControlKeys.muteLabel), 'Unmute');
     });
   });
-
-  testWidgets('debug bar cycles scenarios in both directions', (tester) async {
-    await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
-    await tester.ensureVisible(find.byKey(ControlKeys.debugNext));
-    await tester.tap(find.byKey(ControlKeys.debugNext));
-    await tester.pump();
-    expect(textAt(tester, ControlKeys.powerLabel), 'Power On');
-    await tester.tap(find.byKey(ControlKeys.debugPrev));
-    await tester.tap(find.byKey(ControlKeys.debugPrev));
-    await tester.pump();
-    expect(textAt(tester, ControlKeys.dialValue), 'Muted');
-  });
 }

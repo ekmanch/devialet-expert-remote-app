@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/window_class.dart';
 import '../../domain/amp_state_owner.dart';
-import '../debug/debug_state_driver.dart';
 import '../platform/adaptive_page_route.dart';
 import '../platform/adaptive_sheet.dart';
 import '../settings/settings_screen.dart';
@@ -131,7 +130,6 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
           blockTaps: state.hasAmp,
           child: SourceTrigger(state: state, onTap: _openSourceSheet),
         ),
-        const DebugStateDriver(),
       ],
     );
 

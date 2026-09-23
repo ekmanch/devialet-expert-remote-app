@@ -31,9 +31,4 @@ abstract final class ControlKeys {
   static ValueKey<String> sourceCard(int index) => ValueKey('control.sourceCard.$index');
   static const column = ValueKey('control.column');
   static const sheetBack = ValueKey('control.sheetBack');
-  static const debugBar = ValueKey('debug.bar');
-  static const debugPrev = ValueKey('debug.prev');
-  static const debugNext = ValueKey('debug.next');
-  static const debugNet = ValueKey('debug.net');
-  static const debugPrefsOff = ValueKey('debug.prefsOff');
 }

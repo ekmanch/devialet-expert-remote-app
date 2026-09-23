@@ -1,12 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_screen.dart';
 
 import 'ui/support/pump_control.dart';
 
 void main() {
-  testWidgets('home is the Control screen and the debug bar reaches the network test screen', (
+  testWidgets('home is the Control screen; no debug bar under the column (removed 2026-09-23)', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(hermeticApp());
@@ -14,11 +13,7 @@ void main() {
 
     expect(find.byType(ControlScreen), findsOneWidget);
     expect(find.text('Expert Pro Remote'), findsOneWidget);
-
-    await tester.ensureVisible(find.byKey(ControlKeys.debugNet));
-    await tester.tap(find.byKey(ControlKeys.debugNet));
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('MANUAL TEST SCREEN'), findsOneWidget);
+    expect(find.textContaining('SIM \u00b7'), findsNothing);
+    expect(find.text('Net'), findsNothing);
   });
 }

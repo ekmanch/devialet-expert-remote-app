@@ -397,9 +397,10 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
       - **S25 soak 2026-09-19 (owner):** everything renders fine in both
         variants. The column does not quite fit the screen *with the
         debug bar* (≈ 66 dp: 32 dp chips + 16 dp padding + 18 dp margin).
-        Decide after the debug bar is gone (release builds already omit
-        it) whether the dial needs scaling down from 220 dp or the
-        vertical rhythm tightening — leave the mockup numbers until then
+        The bar is gone since 2.0.20 (2026-09-23); re-check the fit on the
+        S25 and only then decide whether the dial needs scaling down from
+        220 dp or the vertical rhythm tightening — leave the mockup
+        numbers until then
         (checklist item 14: measure, don't guess).
 
 ## Task 3.0.x-3.3.x — Software architecture: state owner + persistence layer
@@ -578,6 +579,19 @@ gotchas #1/#2 one input at a time.
       .dial-value` rule 10) clipped to the digits — the readout had been
       flat `copperBright` since v19 (v36's `#c17f0e → #f0c873` was never
       ported). Dark unchanged: flat copper + glow. Guard in `mockup_test`.
+- [x] **2.0.20** — **Debug state driver removed (owner, 2026-09-23).** The
+      bar under the Control column (2.0.12: cycle six synthetic scenarios,
+      `PREFS OFF` chip, "Net" to the Task 1 test screen) made sense before
+      the real wiring existed; now every state is reachable by using the
+      app, so it is gone: `lib/ui/debug/debug_state_driver.dart` deleted,
+      its keys and its two tests dropped, `widget_test` asserts its
+      absence. `SimulatedAmp` stays (TEST-NET routing in `main.dart`,
+      its own tests, the `DebugScenario` fixtures every UI test uses).
+      **Open:** `lib/ui/debug/debug_network_screen.dart` (the Task 1
+      manual UDP screen) is now unreachable from the UI. Decide: delete
+      it (the `tool/protocol_probe` harness covers dev-machine probing),
+      or give it a hidden debug-only entry (e.g. long-press the Settings
+      "Version" row) — the owner's call; nothing chosen yet.
 - [x] **3.0.0** — One Riverpod-owned live amp state, injected into every surface as a
       *required* dependency; views never keep private copies of
       volume/mute/ip/power (checklist items 2, 5). Done 2026-09-19:
@@ -772,8 +786,9 @@ gotchas #1/#2 one input at a time.
       3.4.x's; the hook lives here). Done 2026-09-20: `hydrateSettings()`
       in `main()` before `runApp` — load, heal (3.4.7 ranges, 3.4.10 pair →
       −40/−39, step, theme, selection consistency), write repairs back; an
-      unopenable store runs on defaults in memory and shows `PREFS OFF` in
-      the debug bar (checklist 26).
+      unopenable store runs on defaults in memory and showed `PREFS OFF` in
+      the debug bar (checklist 26; the bar went in 2.0.20 — Settings'
+      persistence note is the surviving surface).
 - [x] **3.3.3** — Testable against a disposable instance
       (`SharedPreferences.setMockInitialValues`, `ProviderContainer`
       overrides); nothing writes the real store from a test (checklist

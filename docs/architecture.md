@@ -244,7 +244,8 @@ no-op until Task 3.8, so that optimistic change still reverts after 400 ms.
 
 ## 11. Debug simulated amp (`lib/domain/debug/simulated_amp.dart`)
 
-Opt-in from the debug bar: synthetic status packets for 192.0.2.22/.23/.24
+Opt-in (was the debug bar's job until 2026-09-23; now only the TEST-NET
+routing in `main.dart` and tests): synthetic status packets for 192.0.2.22/.23/.24
 (TEST-NET-1, never routable) built with `buildStatusPacket` and parsed with
 `tryParse`, fed through `AmpStateOwner.ingest` at the amp's real 5 Hz.
 `seedFromControlView` reproduces any `ControlViewState` fixture, which is
@@ -258,7 +259,7 @@ broadcasting Off; the first On packet carries the pre-shutdown byte, then
 raw 111 (−42.0) until any volume command lands; volume commands within
 200 ms of the first On are dropped (gotcha #9); other commands apply after
 100 ms; power-off is immediate. Its deadlines are evaluated on its own
-200 ms tick against the injected clock. So the debug bar's "Booting" now
+200 ms tick against the injected clock. So a simulated "Booting" now
 completes, the owner sends the startup volume to the sim, and the misreport
 is held and corrected — the whole loop without hardware. "Not responding"
 stops broadcasting and the view flips after the real 8 s; the user's
@@ -299,7 +300,8 @@ diff), the mid-drag disable and the mid-hold disable.
 - `hydrated_settings.dart`: `hydrateSettings()` runs in `main()` before
   `runApp`: open → load → heal → write repairs back; an unopenable store
   falls back to defaults on an in-memory store with `storeUnavailable`
-  set (the debug bar shows `PREFS OFF`; Settings surfaces it in 3.4.x).
+  set (Settings surfaces it as the persistence note; the debug bar's
+  `PREFS OFF` chip went with the bar on 2026-09-23).
   `hydratedSettingsProvider` throws unless overridden (required injection).
 - `settings_owner.dart`: `SettingsNotifier` — intents update state
   synchronously and persist the changed keys in a constraint-safe order
