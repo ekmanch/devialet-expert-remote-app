@@ -943,7 +943,7 @@ from the KDE widget's settings page.
 
 ### Values and rules (wired to Task 3.3.x)
 
-- [ ] **3.4.7** — Three persisted dB values over −96..0: floor **−50.0**, ceiling
+- [x] **3.4.7** — Three persisted dB values over −96..0: floor **−50.0**, ceiling
       **−10.0**, startup **−40.0** Change `VolumeCodec.defaultSafetyMaxDb`, the UI
       range and the −15 pinning test **together, once**, reading from the settings
       object (gotcha #6, checklist item 28; the required-parameter part is Task 1.1.3).

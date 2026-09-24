@@ -99,9 +99,8 @@ class AppSettings {
   });
 
   /// Owner decisions 2026-09-14 (limits, startup) and 3.4.9 (step). The
-  /// ceiling default is −10 while `VolumeCodec.defaultSafetyMaxDb` still
-  /// clamps the wire at −15 until Task 3.4.7 / 1.1.3 — harmless until
-  /// user volume is sent (Task 3.6).
+  /// ceiling is the wire-side `maxDb` too: the command sink reads it from
+  /// the settings at send time (Task 3.4.7 / 1.1.3, done 2026-09-20).
   static const AppSettings defaults = AppSettings(
     floorDb: -50.0,
     ceilingDb: -10.0,
