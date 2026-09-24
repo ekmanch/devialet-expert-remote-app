@@ -197,11 +197,11 @@ the raw datagrams directly, which covers the inbound side.
 ## Task 2.0.x — Control screen UI from the mockups (UI only)
 
 Adopt the design mockups for the **Control screen only** (built from
-v19; the v36 pass is 2.0.15, the v39 update 2.0.19 — **the current files
-are**):
+v19; the v36 pass is 2.0.15, the v39 update 2.0.19, the v40 rhythm sync
+2.0.21 — **the current files are**):
 
-- Android: `design/mockups/devialet_remote_mockup_Android_v39.html`
-- iOS: `design/mockups/devialet_remote_mockup_iOS_v39.html`
+- Android: `design/mockups/devialet_remote_mockup_Android_v40.html`
+- iOS: `design/mockups/devialet_remote_mockup_iOS_v40.html`
 
 Only this block and `CLAUDE.md` name the *current* mockup; every other
 version number in this file and in code comments is provenance (the
@@ -363,7 +363,7 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
       class (checklist items 14, 16). Checklist for the soak (both run
       configs, `UI_VARIANT=android` and `=ios`):
       - cycle all six scenarios with the debug bar; compare each against
-        the current mockup (v39) side by side (fonts, sizes, spacing,
+        the current mockup (v40) side by side (fonts, sizes, spacing,
         colours);
       - glyph coverage of ◉ ◫ ◍ ◈ ◐ ◇ ⌨ ✓ in the trigger and the sheets
         (tofu → replace with painted icons in `stroke_icons.dart`);
@@ -594,9 +594,15 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
       Result: column 715 → 685 dp, ≈ 12 dp slack; on the S25 a swipe up
       changes zero pixels. Guard `control_screen_fit_test` (no scroll
       extent + ≥ 8 dp slack); counter-run with the mockup values red at
-      18.3. **Mockup deviation (checklist 14/15):** v39 declares the old
-      rhythm — its phone frame is taller than the S25's usable area; port
-      the trimmed values into the next mockup round. iOS geometry not
+      18.3. **Mockup deviation (checklist 14/15), closed 2026-09-24:** v39
+      declared the old rhythm — its phone frame is taller than the S25's
+      usable area. The owner's **v40** (commit 39b71b5, 2026-09-23,
+      `design/mockups/*_v40.html`) ports the six `control_layout.dart`
+      constants into both variants, scoped to the Control screen
+      (`.screens .screen:first-child …`: header 16 / eyebrow 14, first
+      section 18, later sections 20, dial 4/0, VOL buttons 14, action row
+      18); Settings keeps the original rhythm. Mockup and app agree again;
+      2.0.22's flexible ranges still go into the round after. iOS geometry not
       measured (no device); the iPhone-15 class has ≈ 32 dp more usable
       height, so it fits by arithmetic, unverified.
 - [ ] **2.0.22** — **Control screen adapts to shorter phones (owner
@@ -1234,7 +1240,7 @@ real mute send).
       remote-originated changes; the transient cue does not.
 - [ ] **3.10.2** — Don't reuse the OS's own volume OSD look; users mistake it for the
       device's volume. No mockup exists for this cue yet — sketch it in the
-      current mockup HTML (v39 today; bump it) before building.
+      current mockup HTML (v40 today; bump it) before building.
 
 ## Task 3.11.x — Expanded-width two-pane layout (tablets; after 2.0.x and 3.4.x)
 
@@ -1246,7 +1252,7 @@ process that shouldn't gate early tasks. Everything in this task is
 previewed on an **Android tablet emulator or a resizable desktop window**
 via both UI variants; the real-iPad check is Task 4.4.0.
 
-- [ ] **3.11.0** — **Tablet mockup pass** in the current mockup HTML (v39 today, both variants) before any
+- [ ] **3.11.0** — **Tablet mockup pass** in the current mockup HTML (v40 today, both variants) before any
       code: which pane pairs are shown at expanded width (Control +
       Settings; Control + amp/source lists), what medium width does
       (probably still single-pane, wider column), pane proportions, where
