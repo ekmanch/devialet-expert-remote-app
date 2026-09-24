@@ -117,6 +117,23 @@ void main() {
       expect(liveView(c).volumeDb, -40.0);
     });
 
+    test('a source switch moves the slot and applies the forced volume after 100 ms (3.8.1)', () async {
+      final c = make();
+      final sim = c.read(simulatedAmpProvider.notifier);
+      final owner = c.read(ampStateProvider.notifier);
+      sim.apply(DebugScenario.connected); // at −25, slot 0
+      clock.set(const Duration(seconds: 1));
+      await owner.selectSource(3);
+      expect((liveView(c).activeSourceIndex, liveView(c).volumeDb), (3, -40.0), reason: 'optimistic, both slots');
+      clock.set(const Duration(seconds: 1, milliseconds: 100));
+      sim.tick();
+      expect(sim.amps[ip]!.source, 3);
+      expect(sim.amps[ip]!.volumeRaw, 115, reason: 'the forced −40 landed');
+      expect(c.read(confirmedAmpStateProvider)!.activeSourceIndex, 3);
+      expect(c.read(ampStateProvider).amps[ip]!.pendingSource, isNull, reason: 'confirmed');
+      expect(c.read(ampStateProvider).amps[ip]!.pendingVolumeDb, isNull, reason: 'confirmed');
+    });
+
     test('power-off is immediate and remembers the last raw byte for the next boot', () async {
       final c = make();
       final sim = c.read(simulatedAmpProvider.notifier);

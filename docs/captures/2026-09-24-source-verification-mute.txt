@@ -1,0 +1,13 @@
+   0.000 === RUN 7b: mute on network inputs wall=2026-09-24T20:55:50.009 ===
+   0.000 ENVELOPE: no power; mute on/off; source 0/1 + volume -40 (maxdb -25); restore slot 0 / unmute / -38.0
+   1.200 start state: power=True src=0 mute=False vol=-40.0
+   1.251 A. mute ON on slot 0 (Optical 1)                        -> OK   44 ms   (state src=0 mute=True vol=-40.0)
+   2.454 A. mute OFF on slot 0                                   -> OK  193 ms   (state src=0 mute=False vol=-40.0)
+   3.645 switch to slot 1 + forced -40 -> 190 ms
+   9.654 B. mute ON on slot 1 (UPnP), 4 s after the switch       -> NOT APPLIED   (state src=1 mute=False vol=-40.0)
+  12.661 B. mute ON again (repeat)                               -> NOT APPLIED   (state src=1 mute=False vol=-40.0)
+  14.045 switch to slot 0 + forced -40 -> 383 ms
+  16.247 C. mute ON on slot 0 again, 2 s after switching back    -> OK  199 ms   (state src=0 mute=True vol=-40.0)
+  17.449 C. mute OFF                                             -> OK  197 ms   (state src=0 mute=False vol=-40.0)
+  18.050 restore volume -38.0                                    -> OK   95 ms   (state src=0 mute=False vol=-38.0)
+  18.050 final state (18.044574321000255, 'eno1', True, 0, False, -38.0, 119)

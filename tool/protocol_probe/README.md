@@ -35,6 +35,16 @@ here is imported by `lib/`. Python 3, standard library only.
   (app force-stopped first; the double is stored as
   `<base64 prefix>-25.0`), and restored afterwards.
 
+- `run7_source.py <log> watch <s>` / `restore <db>` — the 2026-09-24
+  source-switch / forced-volume run
+  (`docs/protocol-verification-2026-09-24-source.md`). Listen-only while
+  `run7_gestures.sh` drives the phone (tap points in its header and in the
+  report); the app's sends come from its `[amp]` trace. `restore` takes
+  the pre-run volume (−38.0 that day). Same ceiling pinning as run6. The
+  mute-on-network-inputs follow-up (run7b) was a scratch script; its log
+  is `docs/captures/2026-09-24-source-verification-mute.txt` and its
+  envelope is in that log's first lines.
+
 Run from this directory with the amp powered on and idle:
 `python3 run1.py run1.log`. The amp IP is hardcoded in `harness.py`
 (`AMP`); the interface names (`eno1`, `wlan0`) are this dev machine's.

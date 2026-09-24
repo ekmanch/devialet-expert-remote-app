@@ -59,10 +59,11 @@ type leaves the transport.
   with `receivedAt` so each broadcast is a distinct value. Feedback
   (3.10.x) listens here, never to the gesture (checklist 25).
 
-Views keep no copies of volume / mute / power / source / selection. The
-only widget-local value is the dial's in-progress drag (`_dragDb` in
-`control_screen.dart`), which is gesture state, not a copy — it is
-discarded on release and the owner's value takes over (TODO 3.6.4).
+Views keep no copies of volume / mute / power / source / selection, and
+since 3.8.2 not of *which sheet is open* either (`AmpState.visibleSheet`,
+§16). The only widget-local value is the dial's in-progress drag
+(`_dragDb` in `control_screen.dart`), which is gesture state, not a copy —
+it is discarded on release and the owner's value takes over (TODO 3.6.4).
 
 ## 4. Raw model (`amp_state.dart`, `amp_tracker.dart`)
 
@@ -155,8 +156,21 @@ sequence unmasked (checklist 20).
 
 `setVolumeDb`, `stepVolume`, `toggleMute`, `selectSource`: gate on
 `commandsAllowed` (On and connected — 3.2.1), quantize/clamp, **write the
-pending slot synchronously**, then `await sink…`; on a throw, clear the
+pending slot synchronously**, then `await sink…`; on a throw, restore the
 slot (rollback, checklist 3).
+
+`selectSource` (3.8.0 / 3.8.1, KDE `selectSource()`): after the gate and
+the enabled-slot bounds check, **one write** arms `pendingSource` and
+`pendingVolumeDb` at `startupVolumeTarget` (the startup setting clamped
+to the limits in force), then **one sink call** sends source×2 and
+volume×2 with zero delay. Mute is untouched (3.7.1) and the boot record is
+untouched. Inside a confirmed post-boot hold the volume slot *is* the
+hold, so its existing deadline is kept when later than the 400 ms window
+(a switch never shortens a hold) and the rollback restores the slot's
+previous value instead of nulling it (nulling would drop the hold and
+show −42). Not routed through `_writeVolume(userIntent: false)` on
+purpose: that would be a second sink call after an `await`, a `send
+volume` trace instead of `send source`, and a second write.
 
 **Volume (3.6.x, 2026-09-22).** Every volume write goes through one
 private `_writeVolume(ip, target, userIntent:)`; the target is already
@@ -215,8 +229,10 @@ late On after the 20 s timeout) creates an already-confirmed record in
 send, no Booting presentation. Non-selected amps get nothing.
 
 The sink is `DevialetClientCommandSink`: `setPower`, `sendStartupVolume`,
-`setVolumeDb` (3.6.0) and `setMute` (3.7.0) are real; `selectSource` is a
-no-op until Task 3.8, so that optimistic change still reverts after 400 ms.
+`setVolumeDb` (3.6.0), `setMute` (3.7.0) and `selectSource` (3.8.0, with
+its `postSwitchDb`) are all real. `DevialetClient.selectSource` reads its
+target IP once and sends both pairs to it, so a `deviceIp` retarget by
+another sink call while the first pair is in flight cannot split them.
 
 ## 10. Seams
 
@@ -236,7 +252,8 @@ no-op until Task 3.8, so that optimistic change still reverts after 400 ms.
   *and* through `commandsAllowed` / `powerCommandAllowed` in the owner —
   the enumeration is the table above `ControlViewState.commandsAllowed`.
   3.6 / 3.7 (done 2026-09-22): `setVolumeDb` / `setMute` flipped with
-  their `send …` trace lines; 3.8: flip `selectSource` the same way (§15).
+  their `send …` trace lines; 3.8 (done 2026-09-24): `selectSource`
+  flipped the same way (§9, §15) and the sheets became owner-driven (§16).
   The VOL ± screen-reader tap is a separate entry point since 3.6.1 (it
   never sends a pointer) and is gated the same way.
 - 3.9.5: `setModelName(ip, model)`.
@@ -262,11 +279,13 @@ raw 111 (−42.0) until any volume command lands; volume commands within
 200 ms tick against the injected clock. So a simulated "Booting" now
 completes, the owner sends the startup volume to the sim, and the misreport
 is held and corrected — the whole loop without hardware. "Not responding"
-stops broadcasting and the view flips after the real 8 s; the user's
-volume / mute / source changes still revert after 400 ms (3.6–3.8). The
-sim selects and sets the dial range through the owner's seeding seams, so
-nothing it does reaches the persisted settings; the user's choice returns
-on the next launch.
+stops broadcasting and the view flips after the real 8 s. A source switch
+moves the sim's slot after 100 ms and applies the forced post-switch
+volume through the same path as any volume command (3.8.1); the sim has
+no per-input volume memory, so the readout simply lands on the startup
+target as it does on the real amp. The sim selects and sets the dial range
+through the owner's seeding seams, so nothing it does reaches the
+persisted settings; the user's choice returns on the next launch.
 
 ## 12. Testing
 
@@ -286,7 +305,17 @@ inverted pair bound unhealed leaks into the view), the seeding seam
 by hand on 2026-09-22 with each guard removed — the dot-pulse leg, the
 `userSent` hold release, the clamp's microtask coalescing (two commands
 without it), the clamp trigger from a rollback (missed by an ingest-only
-diff), the mid-drag disable and the mid-hold disable.
+diff), the mid-drag disable and the mid-hold disable. 3.8.x (2026-09-24,
+scripted as temporary patches, each reverted): the retired select formula
+restored (the 16/29 pins go red, the 6–15 loop stays green), the client
+reading `deviceIp` per send (the retarget test), the rollback nulling the
+volume slot (the boot hold is lost), the switch using `now + 400 ms`
+inside a hold (the deadline test), the sheet write-back removed (every
+user-dismissal test red, the owner-driven ones green), the power edge
+removed (tests 6/7), the edge turned into a level check (the empty-state
+sheet pops on connect), `activeSourceIndex` dropped from
+`ControlViewState.==` (gotcha #4 reappears) and the sim not applying the
+forced volume.
 
 ## 14. Settings (`lib/domain/settings/`)
 
@@ -338,7 +367,11 @@ fakes against disposable containers, seeding never persists (§12, §6) ·
 3.3.4) · 26 a broken store looks broken (§14) · 27 TEST-NET fixtures (§11)
 · 22 the debug trace next to a raw capture (§15) · 28 the mask, the
 gate and the heal live in one function each (§8, §9, §14); the widget
-gates are the pointer-layer belt on top (3.5.1).
+gates are the pointer-layer belt on top (3.5.1); the sheet route's one
+`whenComplete` is the write-back for every dismissal path (§16); the
+client reads its target IP once per multi-send command (§9) · 29 3.8.2's
+brief said "both sheets"; the working widget closes only the source list
+on the power edge, and that is what was built (§16).
 
 ## 15. Debug trace (`lib/domain/amp_trace.dart`)
 
@@ -353,17 +386,17 @@ of Flutter imports because the emitter is injected.
 What is traced, and where:
 
 - `send power` / `send startupVolume` / `send volume db= ceiling=` /
-  `send mute muted=` — inside the real methods of
-  `DevialetClientCommandSink`, *before* the await, so the timestamp is
-  the send instant. The remaining display-only stub (`selectSource`,
-  3.8) traces nothing until it is flipped; the simulated amp is never
-  traced (the routing sink sits outside it). `send failed` from the
-  owner's catch (checklist 17: a dead route, not a dropped packet).
+  `send mute muted=` / `send source index= db= ceiling=` — inside the
+  real methods of `DevialetClientCommandSink`, *before* the await, so the
+  timestamp is the send instant (`send source` names the forced volume
+  it sends in the same invocation); the simulated amp is never traced
+  (the routing sink sits outside it). `send failed` from the owner's
+  catch (checklist 17: a dead route, not a dropped packet).
 - `clamp ip= from= to=` — the limit-change correction (3.6.6), just
   before its `send volume`.
-- `rx power= raw= db=` — the selected amp's broadcast, only when power
-  or the raw volume byte changed (change-only keeps `debugPrint`
-  throttling irrelevant).
+- `rx power= raw= db= source=` — the selected amp's broadcast, only when
+  power, the raw volume byte or the active source index changed
+  (change-only keeps `debugPrint` throttling irrelevant).
 - `boot booting` (`markBooting`), `boot confirmed` / `boot
   observed-external` / `boot timeout` and `hold released
   reason=confirmed|fallback sinceOnMs=` — diffed in the owner between
@@ -372,13 +405,68 @@ What is traced, and where:
   `resolvePending` stays the one implementation.
 - `boot startup-send sinceOnMs=` — in `_runBootFollowUps`, the app-side
   offset a live report needs.
-- `view power= db= muted= hasAmp=` — after every state write (`_arm`,
-  `ingest`, `tick`, selection), when the *displayed* values changed: what
-  the dial showed, from the same derivation the UI renders. A held −42
-  therefore never produces a `view` line, which the owner tests pin.
+- `view power= db= muted= hasAmp= source=` — after every state write
+  (`_arm`, `ingest`, `tick`, selection), when the *displayed* values
+  changed: what the dial showed, from the same derivation the UI renders.
+  A held −42 therefore never produces a `view` line, which the owner
+  tests pin.
+- `sheet kind=none|amp|source [reason=power]` — the owner's sheet slot
+  changed (§16), so a dismissal path that forgot to write back would show
+  as a missing `kind=none` in a live log.
 
 Tests capture lines through a provider override
 (`amp_state_owner_test.dart`, `traced: true`); the format and the
 "real sends only" rule are pinned in `amp_trace_test.dart`. First used
 for `docs/protocol-verification-2026-09-21-boot.md` (Task 3.5.2).
+
+## 16. Sheet visibility (Task 3.8.2 / 3.0.6)
+
+`AmpState.visibleSheet` (`SheetKind { none, amp, source }`) is the one
+slot that says which sheet is visible — cross-view state with exactly one
+owner (checklist 2), expressed as *what is visible* rather than as a
+route so the two-pane layout (3.11.x) can render it as a pane. Transient,
+never persisted. One slot means the two sheets are mutually exclusive by
+construction; there is no "close the other one" code.
+
+- **Open:** the device card and the source trigger call `openSheet(kind)`
+  (their widget gates are unchanged). `openSheet` is *not* gated on
+  `commandsAllowed`: the source sheet's empty state is reachable with no
+  amp, and the rows carry their own gate (3.5.1).
+- **Route:** `ControlScreen` listens to the slot (`ref.listenManual` with
+  `select`) and pushes the matching `showAdaptiveSheet` when it leaves
+  `none`. The route's completion future fires on **every** pop, whatever
+  caused it — hardware back / predictive back (`popRoute`), a barrier
+  tap, the Material drag-down, a row's own `Navigator.pop`, the sheet
+  popping itself — and its one `whenComplete` writes `closeSheet(kind)`
+  back. That is the structural guarantee (checklist 28); its boundary is
+  a sheet pushed by any *other* function, which would not be covered.
+- **Self-pop:** each sheet calls `popWhenSlotLeaves(ref, context, mine)`
+  (`lib/ui/platform/sheet_self_pop.dart`): when the slot stops naming it,
+  the sheet pops its route if current, or removes it in place if it is
+  still active but already covered (the screen pushed the other sheet in
+  the same notification, before this listener ran). Both complete the
+  route's future. A route already on its way out is neither current nor
+  active and is left alone, so the write-back can never double-pop.
+- **Power edge:** `_afterWrite` keeps an edge key next to the clamp's —
+  "selected amp reachable and On". On a true → false transition with the
+  **source** sheet visible, the owner writes `none` (trace `sheet
+  kind=none reason=power`). An edge, not a level: a sheet opened with no
+  amp must survive the connect that follows. The **amp sheet is not on
+  the edge** — it stays open through a power change so an amp can be
+  switched while one is off. This is the KDE widget's rule
+  (`onPowerStateChanged` closes `sourceListOpen` only); 3.8.2's brief said
+  "both sheets" and was corrected against the working implementation
+  (checklist 29, owner decision 2026-09-24). It supersedes the 3.5.1 note
+  that the source sheet stayed open with dimmed rows through a power
+  change; the row gate itself remains for a sheet opened while the amp
+  is already Off.
+- **Screen left:** on compact width a sheet is modal, so "reset when the
+  screen is left" reduces to `ControlScreen.dispose` writing `none`. The
+  Cupertino popup has no swipe-to-dismiss (barrier tap only), so the iOS
+  dismissal paths are barrier, back key, row pop and owner pop.
+- **Tests:** `sheets_test.dart`, group "sheet visibility is owner-driven":
+  one test per dismissal path asserting the slot reads `none` afterwards,
+  the power edge for both non-On phases with the amp-sheet counter-half,
+  the empty-state sheet surviving a connect, the swap, and teardown with a
+  sheet up. Counter-runs in §12.
 

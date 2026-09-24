@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:devialet_expert_remote_app/config/ui_variant.dart';
@@ -138,51 +139,43 @@ void main() {
       expect(readState(tester).activeSourceIndex, 3);
     });
 
-    for (final scenario in [DebugScenario.off, DebugScenario.booting]) {
-      testWidgets(
-        'rows dim and go inert when the amp goes ${scenario.name} while the sheet is open; live again on On',
-        (tester) async {
-          bool rowEnabled(String name) => tester
-              .widget<AdaptivePressable>(
-                find.ancestor(of: find.text(name), matching: find.byType(AdaptivePressable)).first,
-              )
-              .enabled;
+    testWidgets(
+      'a sheet opened on an Off amp shows dimmed, inert rows (3.5.1\'s row gate); live again on On — the owner does not gate openSheet',
+      (tester) async {
+        bool rowEnabled(String name) => tester
+            .widget<AdaptivePressable>(
+              find.ancestor(of: find.text(name), matching: find.byType(AdaptivePressable)).first,
+            )
+            .enabled;
 
-          await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
-          await tester.tap(find.byKey(ControlKeys.sourceTrigger));
-          await tester.pumpAndSettle();
-          expect(opacityAt(tester, ControlKeys.sourceRows), 1.0);
-          expect(rowEnabled('AirPlay'), isTrue);
+        await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.off));
+        final notifier = containerOf(tester).read(ampStateProvider.notifier);
+        // The trigger is inert while Off (its DimmedGroup blocks taps), so
+        // open programmatically — the owner's slot is ungated by design.
+        notifier.openSheet(SheetKind.source);
+        await tester.pumpAndSettle();
+        expect(find.text('Select source'), findsOneWidget);
+        expect(opacityAt(tester, ControlKeys.sourceRows), 0.4);
+        expect(rowEnabled('AirPlay'), isFalse);
+        expect(find.text('AirPlay'), findsOneWidget, reason: 'dim, don\'t blank');
+        await tapRow(tester, 'AirPlay', warnIfMissed: false);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('Select source'), findsOneWidget, reason: 'no On→not-On edge happened: the sheet stays');
+        expect(readState(tester).activeSourceIndex, 0);
 
-          // The amp goes Off / Booting under the open sheet (Task 3.5.1).
-          final notifier = containerOf(tester).read(ampStateProvider.notifier);
-          seedFromControlView(notifier, ControlViewState.forScenario(scenario));
-          await tester.pump();
-          expect(opacityAt(tester, ControlKeys.sourceRows), 0.4);
-          expect(rowEnabled('AirPlay'), isFalse);
-          expect(find.text('AirPlay'), findsOneWidget, reason: 'dim, don\'t blank');
-          // The row sits under an IgnorePointer, so the tap is expected to
-          // miss; Booting animates forever, so a bounded pump, not settle.
-          await tapRow(tester, 'AirPlay', warnIfMissed: false);
-          await tester.pump(const Duration(milliseconds: 300));
-          expect(find.text('Select source'), findsOneWidget, reason: 'the sheet stays open');
-          expect(readState(tester).activeSourceIndex, 0);
-
-          // Counter-test (checklist 20): the same tap on the same row pops the
-          // sheet and selects once the gate re-opens — so the sheet staying
-          // open above is the widget gate's doing, not the owner's (whose
-          // check would still have let the unconditional pop run).
-          seedFromControlView(notifier, ControlViewState.forScenario(DebugScenario.connected));
-          await tester.pump();
-          expect(opacityAt(tester, ControlKeys.sourceRows), 1.0);
-          expect(rowEnabled('AirPlay'), isTrue);
-          await tapRow(tester, 'AirPlay');
-          await tester.pumpAndSettle();
-          expect(find.text('Select source'), findsNothing);
-          expect(readState(tester).activeSourceIndex, 3);
-        },
-      );
-    }
+        // Counter-half (checklist 20): the same tap on the same row pops the
+        // sheet and selects once the gate re-opens.
+        seedFromControlView(notifier, ControlViewState.forScenario(DebugScenario.connected));
+        await tester.pump();
+        expect(opacityAt(tester, ControlKeys.sourceRows), 1.0);
+        expect(rowEnabled('AirPlay'), isTrue);
+        await tapRow(tester, 'AirPlay');
+        await tester.pumpAndSettle();
+        expect(find.text('Select source'), findsNothing);
+        expect(readState(tester).activeSourceIndex, 3);
+        expect(readState(tester).visibleSheet, SheetKind.none);
+      },
+    );
 
     testWidgets('long names elide in the trigger instead of overflowing', (tester) async {
       final state = ControlViewState.connectedFixture.copyWith(
@@ -191,6 +184,152 @@ void main() {
       await pumpControl(tester, state: state);
       expect(tester.takeException(), isNull);
       expect(tester.widget<Text>(find.byKey(ControlKeys.sourceName)).overflow, TextOverflow.ellipsis);
+    });
+  });
+
+  group('sheet visibility is owner-driven (3.8.2 / 3.0.6)', () {
+    Future<void> openSourceSheet(WidgetTester tester) async {
+      await tester.tap(find.byKey(ControlKeys.sourceTrigger));
+      await tester.pumpAndSettle();
+      expect(find.text('Select source'), findsOneWidget);
+      expect(readState(tester).visibleSheet, SheetKind.source);
+    }
+
+    /// What the engine sends for the Android back key / predictive-back
+    /// commit: the `popRoute` navigation message. `tester.pageBack()`
+    /// looks for a back-button widget, which a modal sheet has none of.
+    Future<void> hardwareBack(WidgetTester tester) async {
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        SystemChannels.navigation.name,
+        SystemChannels.navigation.codec.encodeMethodCall(const MethodCall('popRoute')),
+        (_) {},
+      );
+      await tester.pumpAndSettle();
+    }
+
+    void expectClosed(WidgetTester tester) {
+      expect(find.text('Select source'), findsNothing);
+      expect(readState(tester).visibleSheet, SheetKind.none);
+    }
+
+    testWidgets('1. a row selection pops the sheet and the slot reads none', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      await openSourceSheet(tester);
+      await tapRow(tester, 'AirPlay');
+      await tester.pumpAndSettle();
+      expectClosed(tester);
+      expect(readState(tester).activeSourceIndex, 3);
+    });
+
+    for (final variant in UiVariant.values) {
+      testWidgets('2. ${variant.name}: a barrier tap writes none back', (tester) async {
+        await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected), variant: variant);
+        await openSourceSheet(tester);
+        await tester.tapAt(const Offset(195, 40)); // above the panel: the scrim
+        await tester.pumpAndSettle();
+        expectClosed(tester);
+      });
+
+      testWidgets('4. ${variant.name}: the hardware back key (popRoute) writes none back', (tester) async {
+        await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected), variant: variant);
+        await openSourceSheet(tester);
+        await hardwareBack(tester);
+        expectClosed(tester);
+      });
+    }
+
+    testWidgets('3. android: a drag-down dismissal writes none back (the Cupertino popup has no drag dismissal)', (
+      tester,
+    ) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      await openSourceSheet(tester);
+      await tester.fling(find.byType(SheetScaffold), const Offset(0, 600), 1500);
+      await tester.pumpAndSettle();
+      expectClosed(tester);
+    });
+
+    testWidgets('5. Navigator.maybePop from inside the sheet writes none back', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      await openSourceSheet(tester);
+      await Navigator.of(tester.element(find.text('Select source'))).maybePop();
+      await tester.pumpAndSettle();
+      expectClosed(tester);
+    });
+
+    for (final scenario in [DebugScenario.off, DebugScenario.booting]) {
+      testWidgets('6. power leaves On (${scenario.name}): the source sheet closes; the amp sheet does not', (tester) async {
+        await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+        final notifier = containerOf(tester).read(ampStateProvider.notifier);
+        await openSourceSheet(tester);
+        seedFromControlView(notifier, ControlViewState.forScenario(scenario));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        expectClosed(tester);
+
+        // Counter-half: the amp sheet is not on the power edge (KDE parity).
+        seedFromControlView(notifier, ControlViewState.forScenario(DebugScenario.connected));
+        await tester.pump();
+        await openAmpSheet(tester);
+        expect(readState(tester).visibleSheet, SheetKind.amp);
+        seedFromControlView(notifier, ControlViewState.forScenario(scenario));
+        await settleSheet(tester);
+        expect(find.text('Choose Amplifier'), findsOneWidget);
+        expect(readState(tester).visibleSheet, SheetKind.amp);
+      });
+    }
+
+    testWidgets('7. the empty-state sheet (no amp) survives a connect; it closes only on the On→not-On edge', (
+      tester,
+    ) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.notConnected));
+      final notifier = containerOf(tester).read(ampStateProvider.notifier);
+      await openSourceSheet(tester);
+      expect(find.text('No sources available'), findsOneWidget);
+      seedFromControlView(notifier, ControlViewState.forScenario(DebugScenario.connected));
+      await tester.pumpAndSettle();
+      expect(find.text('Select source'), findsOneWidget, reason: 'a level check would have popped it here');
+      expect(find.text('AirPlay'), findsOneWidget, reason: 'the rows appeared in place');
+      seedFromControlView(notifier, ControlViewState.forScenario(DebugScenario.off));
+      await tester.pumpAndSettle();
+      expectClosed(tester);
+    });
+
+    testWidgets('8. mutual exclusion: opening the amp sheet while the source sheet is up swaps them', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      final notifier = containerOf(tester).read(ampStateProvider.notifier);
+      await openSourceSheet(tester);
+      notifier.openSheet(SheetKind.amp);
+      await settleSheet(tester);
+      expect(find.text('Select source'), findsNothing);
+      expect(find.text('Choose Amplifier'), findsOneWidget);
+      expect(readState(tester).visibleSheet, SheetKind.amp, reason: 'the old route\'s completion did not clobber it');
+      // And the swapped-in sheet is fully owned: a row pop writes none.
+      await tapRow(tester, 'None');
+      await tester.pumpAndSettle();
+      expect(find.text('Choose Amplifier'), findsNothing);
+      expect(readState(tester).visibleSheet, SheetKind.none);
+    });
+
+    testWidgets('9. the amp sheet is owned the same way: barrier tap and back key write none back', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      await openAmpSheet(tester);
+      expect(readState(tester).visibleSheet, SheetKind.amp);
+      await tester.tapAt(const Offset(195, 40));
+      await settleSheet(tester);
+      expect(find.text('Choose Amplifier'), findsNothing);
+      expect(readState(tester).visibleSheet, SheetKind.none);
+      await openAmpSheet(tester);
+      await hardwareBack(tester);
+      expect(find.text('Choose Amplifier'), findsNothing);
+      expect(readState(tester).visibleSheet, SheetKind.none);
+    });
+
+    testWidgets('10. tearing the app down with a sheet up throws nothing', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      await openSourceSheet(tester);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      expect(tester.takeException(), isNull);
     });
   });
 

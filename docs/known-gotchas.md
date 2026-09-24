@@ -133,7 +133,9 @@ and the numbering is shared across both repos and referenced by
   carried over (source-select → forced volume, every time, no source
   exceptions) or the Flutter version will regress to the "random volume on
   input switch" complaint. Don't optimize this away as a redundant network
-  call.
+  call. Carried over in Task 3.8.1 (2026-09-24): the value is the persisted
+  startup setting (`AmpState.startupVolumeTarget`), as the KDE widget does,
+  sent in the same invocation as the switch and never touching mute.
 
 ## 6. Dangerously loud volume reachable from the app (0dB was too loud) — [Control]
 

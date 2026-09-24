@@ -12,16 +12,21 @@ typedef TraceEmit = void Function(String line);
 /// Format: `[amp] <ms>ms <event> k=v k=v`. Events (see
 /// `docs/architecture.md`, "Debug trace"):
 ///
-/// - `send power` / `send startupVolume` — a real send, emitted *before* the
-///   await, from the one sink method each real command passes through;
+/// - `send power` / `send startupVolume` / `send volume` / `send mute` /
+///   `send source` — a real send, emitted *before* the await, from the one
+///   sink method each real command passes through (`send source` carries
+///   the forced post-switch volume it sends in the same invocation);
 /// - `send failed` — the sink threw (a dead route, not a dropped packet);
-/// - `rx` — the selected amp's broadcast, only when power or the raw
-///   volume byte changed (change-only, so `debugPrint` throttling never bites);
+/// - `rx` — the selected amp's broadcast, only when power, the raw volume
+///   byte or the active source index changed (change-only, so `debugPrint`
+///   throttling never bites);
 /// - `boot booting` / `boot confirmed` / `boot observed-external` /
 ///   `boot timeout` / `boot startup-send` — the boot machine;
 /// - `hold released reason=confirmed|fallback` — the post-boot display hold;
-/// - `view` — the *displayed* power / volume / mute / hasAmp changed: what
-///   the dial showed, from the same derivation the UI renders.
+/// - `view` — the *displayed* power / volume / mute / hasAmp / source
+///   changed: what the dial showed, from the same derivation the UI renders;
+/// - `sheet kind=none|amp|source` — the owner's sheet slot changed (Task
+///   3.8.2), so a dismissal path that forgot to write back is visible.
 ///
 /// The default is [none]: `lib/domain/` has no Flutter import, so the
 /// `debugPrint` emitter is injected by `main.dart` under `kDebugMode` and

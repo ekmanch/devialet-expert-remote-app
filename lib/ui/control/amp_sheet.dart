@@ -5,6 +5,7 @@ import '../../domain/control_view_state.dart';
 import '../../domain/amp_state_owner.dart';
 import '../platform/adaptive_pressable.dart';
 import '../platform/adaptive_text_field.dart';
+import '../platform/sheet_self_pop.dart';
 import '../theme/app_theme.dart';
 import '../widgets/arcs.dart';
 import '../widgets/check_mark.dart';
@@ -56,6 +57,7 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(controlViewStateProvider);
+    popWhenSlotLeaves(ref, context, SheetKind.amp);
     return SheetScaffold(
       title: _showManual ? 'Enter IP Address' : 'Choose Amplifier',
       subtitle: _showManual ? 'Connect to an amplifier by its address' : 'Amplifiers found on your network',

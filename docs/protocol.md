@@ -177,7 +177,15 @@ Every command below is **[Control]**. There are no Sound-tab wire commands
 command does not unmute**. The KDE widget relies on this to correct a muted
 amp's volume (e.g. after a ceiling change) without unmuting it. Any
 "auto-unmute on volume change" behaviour is a client decision layered on
-top (see TODO.md, volume interaction), not a wire effect.
+top (see TODO.md, volume interaction), not a wire effect. A source switch
+does not touch mute either — the app sends none (2026-09-24, 17/17).
+
+**Testing note (2026-09-24):** the mute bit only follows a `mute on` while
+the selected input carries a signal — the amp does not mute silence. On
+an idle network input (UPnP, Roon Ready with nothing streaming) the
+command produces no status change at all, which reads like a dropped
+command; on Optical 1 (fed by the TV/PC) it applies within ≈ 50–200 ms.
+Do mute checks on an input that is playing (`docs/protocol-verification-2026-09-24-source.md`).
 
 ### Source selection encoding — [Control]
 
@@ -262,7 +270,7 @@ Two layers of indirection, both load-bearing:
    enables only 0–4 and 14, all mapped — but the float model predicts
    `bfloat16(index)` for them.
 
-2. **Bit packing**, once the command value (`cmdValue`) is resolved:
+2. **Encoding** for every index outside the pinned table:
    ```
    word  = top 16 bits of IEEE-754 float32(index)   // bfloat16(index)
    byte8 = word >> 8, byte9 = word & 0xFF
@@ -292,9 +300,15 @@ period between the two). Historically fixed at **−40 dB**
 volume setting** (default −40), also applied after a widget-initiated
 power-on. This is a product decision masking a hardware quirk — do not
 optimise it away as a redundant network call.
-**⚠ Dart:** `DevialetClient.selectSource` hardcodes
-`sourceSwitchVolumeDb = -40.0` and sends it through the −15 default
-ceiling; it becomes the startup-volume setting in Task 3.4.8 (TODO.md).
+**Dart (Task 3.8.1, 2026-09-24):** the forced value is
+`AmpState.startupVolumeTarget` — the persisted startup setting clamped to
+the floor/ceiling in force — passed by the owner through
+`AmpCommandSink.selectSource(ip, index, postSwitchDb:)` to
+`DevialetClient.selectSource`, which sends source×2 then volume×2 in one
+invocation to the IP read once at the call; the wire ceiling clamps it
+again at send time. The owner arms the volume mask at the same value in
+the same write (KDE `notifyVolume`), so the dial shows the post-switch
+volume at once.
 
 ### Known-unimplemented commands — [Sound]
 
@@ -490,7 +504,7 @@ TODO.md; nothing changed in code during the doc pass):
 |---|---|---|---|---|
 | 1 | Volume ceiling | Setting, default **−10.0**, required constructor parameter (owner decision 2026-09-14) | `VolumeCodec.defaultSafetyMaxDb = -15.0`, optional defaulted parameter, test pins −15 | Volume-limits phase: change constant, UI range and test together |
 | 2 | `dbConvert` on non-half-step input | Round to **nearest** 0.5 dB, integer step recursion | ~~Rounded **up** (15.2 and 15.0000001 → the 15.5 word)~~ | **Resolved, Task 1.1.0** (2026-09-19) |
-| 3 | Post-switch volume | Startup-volume setting (default −40) | Hardcoded `sourceSwitchVolumeDb = -40.0` | Volume-limits phase |
+| 3 | Post-switch volume | Startup-volume setting (default −40) | ~~Hardcoded `sourceSwitchVolumeDb = -40.0`~~ | **Resolved, Task 3.8.1** (2026-09-24): `AmpState.startupVolumeTarget`, passed per call |
 | 4 | Source names in code comments | Per-unit, never assume a name for an index | ~~Kotlin-era names in comments; `phonoStatusIndex` identifier~~ | **Resolved, Task 1.1.2** (2026-09-19) |
 | 5 | Golden vectors in tests | `"123456789" → 0x29B1`, power-on → `A0 BD`, `1.0/15.0/40.0 → 3F80/4170/4220`, status `111 → −42.0`, all seven source byte pairs | ~~Only `0x84F9` (12 zeros) and structural checks were in the suite~~ | **Resolved, Task 1.1.1** (2026-09-19); power-off `E5 1D` added from the KDE suite |
 | 6 | Send failure | Domain layer must roll back optimistic state | No domain layer yet; `sendTwice` just propagates | State-owner phase |

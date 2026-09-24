@@ -702,8 +702,9 @@ gotchas #1/#2 one input at a time.
       live control state; every broadcast feeds the discovery map (Task
       3.9.0 owns the map's semantics). Done 2026-09-19; the transport now
       carries the sender (`UdpDatagram`, `AmpStatusReport`).
-- [ ] **3.0.6** — *(open — not touched by 3.0.x; sheet-visibility rules come with
-      3.8.2 / 3.11.x)* **No "one screen at a time" assumption.** On expanded widths
+- [ ] **3.0.6** — *(sheet half done 2026-09-24 with 3.8.2: `AmpState.visibleSheet`
+      is the one owner-driven slot, expressed as what is visible;
+      pane semantics on expanded widths remain 3.11.x)* **No "one screen at a time" assumption.** On expanded widths
       Control and Settings (or Control and the amp/source lists) can be
       visible and interactive *simultaneously*, and two windows of the
       app can exist on iPadOS / Android multi-window. So: every
@@ -965,7 +966,7 @@ from the KDE widget's settings page.
 - [x] **3.4.8** — Ceiling enforced inside the command constructor as a required
       parameter with explicit "none"; floor is UI-only and never reaches
       the wire. Done 2026-09-20 (see 3.4.7). `DevialetClient.sourceSwitchVolumeDb`
-      stays a constant until 3.8.1 swaps it for the startup setting.
+      stayed a constant until 3.8.1 swapped it for the startup setting (2026-09-24).
 - [x] **3.4.9** — Step size setting: 0.5 / 1 / 2 dB, default **1.0**. Done
       2026-09-20 (segmented control → `setStepDb`; consumed by 3.6.0).
 - [x] **3.4.10** — Floor and ceiling mutually constrained at the point of interaction,
@@ -1017,7 +1018,10 @@ from the KDE widget's settings page.
       otherwise lands) and **source-sheet rows stayed live if the amp
       went Off / Booting under an open sheet** (owner decision 2026-09-21:
       rows dim to 0.4 and go inert in place, sheet stays open — 3.8.2's
-      auto-close is untouched; `sheets_test.dart` flips the state under
+      auto-close is untouched; **superseded for the power edge on
+      2026-09-24 by 3.8.2**: the source sheet now closes when the amp
+      leaves On, the row gate remains for a sheet opened while already
+      Off; `sheets_test.dart` flips the state under
       the open sheet and its counter-half shows the same tap popping the
       sheet once the gate re-opens, which the owner-only gate would never
       have prevented). Recorded as *not* gates: amp-sheet rows / None /
@@ -1200,16 +1204,115 @@ real mute send).
 
 ## Task 3.8.x — Source selection wiring
 
-- [ ] **3.8.0** — Names come from the live broadcast only; always 30 slots, `selected`
+Wired 2026-09-24 (with Task 1.1.4 folded in; owner decisions that day:
+the sheet close rule follows the KDE widget, sheet visibility is
+owner-driven, and a live run on the real amp is part of the task). The
+sink's `selectSource` is real (`send source` trace, `docs/architecture.md`
+§9, §15, §16). Live verification: see 3.8.4.
+
+- [x] **3.8.0** — Names come from the live broadcast only; always 30 slots, `selected`
       derived per slot, filtered to enabled for display; bounds-check the
       chosen index where the model lives. Never hardcode a per-unit name
-      for an index (`docs/protocol.md`, "Names are per-unit").
-- [ ] **3.8.1** — **Every switch sends the forced startup volume** (Task 3.4.7's value,
+      for an index (`docs/protocol.md`, "Names are per-unit"). Done
+      2026-09-24: all of this was already true since 3.0.x / 1.1.2 (the
+      owner's `selectSource` refuses a slot the broadcast does not flag
+      enabled — now proven to send nothing for it); what flipped is the
+      stub — `DevialetClientCommandSink.selectSource` sends for real
+      through the same pending mask (`pendingSource`, 400 ms; a late
+      pre-change broadcast is absorbed, the matching one confirms —
+      owner-level gotcha #1/#2 test with its expired-window counter-half).
+- [x] **3.8.1** — **Every switch sends the forced startup volume** (Task 3.4.7's value,
       source×2 then volume×2, zero delay) — so **never bind a casual
-      gesture (scroll, swipe) to cycling sources**.
-- [ ] **3.8.2** — Amp sheet and source sheet mutually exclusive by code; both reset to
-      closed when the screen is left or when power leaves On.
-- [ ] **3.8.3** — Diff keys include selection state, not just names (gotcha #4).
+      gesture (scroll, swipe) to cycling sources**. Done 2026-09-24 (KDE
+      `selectSource()` parity): the value is `AmpState.startupVolumeTarget`
+      (startup setting clamped to the limits in force; the wire ceiling
+      clamps again at send time), carried by one sink call
+      (`selectSource(ip, index, postSwitchDb:)`) so source×2 and volume×2
+      go out in one invocation to an IP read **once** (the old client read
+      `deviceIp` again after an `await` — a retarget hazard, now
+      counter-tested). The owner arms `pendingSource` **and**
+      `pendingVolumeDb` in the same write, so the dial shows the
+      post-switch volume at once; mute is untouched (3.7.1, counter-tested
+      on a muted amp) and the boot record is untouched — a switch inside
+      the post-boot hold keeps the hold's later deadline, and a failed
+      send restores the slot's previous value (nulling it would drop the
+      hold and show −42; both counter-tested). `DevialetClient.
+      sourceSwitchVolumeDb` is gone. No casual gesture is bound to
+      sources: the only entry point is a sheet row.
+- [x] **3.8.2** — Amp sheet and source sheet mutually exclusive by code; ~~both reset to
+      closed when the screen is left or when power leaves On~~ **the
+      source sheet closes when power leaves On, the amp sheet does not**
+      (KDE `onPowerStateChanged` closes `sourceListOpen` only, so an amp
+      can be switched while one is off — the brief's "both" was corrected
+      against the working widget, checklist 29; owner decision
+      2026-09-24); both reset when the screen is left. Done 2026-09-24,
+      owner-driven (`docs/architecture.md` §16): `AmpState.visibleSheet`
+      (`none / amp / source`) is the one slot, so exclusivity is by
+      construction; the triggers call `openSheet`, `ControlScreen` pushes
+      the route when the slot leaves `none`, and the route's completion
+      future — which fires on **every** pop: hardware/predictive back
+      (`popRoute`), barrier tap, Material drag-down, a row's own pop, the
+      sheet popping itself — is the one write-back (`closeSheet(kind)`,
+      checklist 28). A sheet pops itself when the slot stops naming it
+      (`popWhenSlotLeaves`; a covered-but-active route is removed in
+      place, which completes its future too). The power rule is an
+      **edge** (On → not On) in `_afterWrite`, not a level check: the
+      source sheet's empty state is reachable with no amp and must
+      survive the connect that follows. On compact width a sheet is
+      modal, so "screen left" reduces to `ControlScreen.dispose`; the
+      Cupertino popup has no swipe-to-dismiss (barrier only). Not
+      persisted. Tests: one per dismissal path (row pop, barrier ×2
+      variants, drag-down, `popRoute` ×2 variants, `maybePop`), the power
+      edge for Off and Booting with the amp-sheet counter-half, the
+      empty-state sheet across a connect, the swap, teardown with a
+      sheet up; the 3.5.1 "stays open" test was rewritten as "opened
+      while already Off stays until the edge". Counter-runs (scripted
+      patches, each reverted): no write-back → every user-dismissal test
+      red and the owner-driven ones green; no edge → tests 6/7 red;
+      level check → the empty-state sheet pops on connect. `sheet kind=`
+      trace line for the live run.
+- [x] **3.8.3** — Diff keys include selection state, not just names (gotcha #4). Done
+      2026-09-24: already true by construction since 3.0.x
+      (`ControlViewState.==` compares `activeSourceIndex` and the
+      `(index, name)` list), now pinned by a test that a selection-only
+      broadcast with the same names is a different view; counter-run with
+      `activeSourceIndex` dropped from `==` → red (the provider would
+      then suppress the rebuild — the Kotlin bug).
+- [x] **3.8.4** — **Live verification on the real amp** (checklist 22/23/27):
+      `tool/protocol_probe/run7_source.py` next to the app's `[amp]` trace
+      on the S25, report `docs/protocol-verification-2026-09-24-source.md`,
+      captures `docs/captures/2026-09-24-source-verification{,-app,-mute}.txt`,
+      gestures `tool/protocol_probe/run7_gestures.sh`. Done 2026-09-24:
+      11 switches across every enabled slot (0–4, 14), each confirmed
+      24…257 ms after `send source`, the forced −40 in the **same**
+      confirming packet every time (17/17 with the harness follow-up);
+      the −45 → switch → −40 case shows gotcha #5 handled; a switch on a
+      muted-intent amp sent no mute; every `view` line moved with the
+      gesture; all four dismissal paths (back key, drag-down, scrim,
+      predictive back) plus the row pop wrote `sheet kind=none` with no
+      send. **Test artefact, not a finding:** the mute taps on UPnP /
+      Roon Ready never confirmed because nothing was streaming there and
+      the amp does not mute silence (owner correction the same evening;
+      first misread as a device quirk, since withdrawn) — the button
+      showed Muted for the 400 ms mask and honestly followed the amp
+      back. Not covered: the power-edge close on hardware (no power
+      commands), slots ≥ 6, the 400 ms rapid-repeat switch (needs a
+      finger), the iOS device, mute on a network input with audio.
+- [ ] **3.8.7** — *(needs the owner at the amp)* **Mute on Roon with music
+      playing:** the owner starts playback via Roon, then Mute / unmute
+      from the app with the raw listener next to it, to close the "mute on
+      a network input" gap left by 3.8.4 (a silent input cannot be muted,
+      so run7b proved nothing about the input). Expect the same
+      +50…200 ms confirmation as on Optical 1.
+- [ ] **3.8.5** — *(follow-up, pre-existing, out of 3.8's scope)* `_writeVolume`'s
+      rollback nulls `pendingVolumeDb`; inside a confirmed boot hold that
+      drops the hold on a failed user send (the same hazard 3.8.1 fixed
+      for the switch). Restore the previous value there too.
+- [ ] **3.8.6** — *(owner hands-on, checklist 23)* the dismissal gestures on the
+      S25 in both variants: predictive-back gesture feel with a sheet up,
+      the Material drag-down, reopening a sheet right after a switch, and
+      whether an amp sheet left open through a power change is what you
+      want in practice (KDE parity chosen; revisit if it surprises).
 
 ## Task 3.9.x — Amp discovery / selection list wiring
 

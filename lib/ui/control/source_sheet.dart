@@ -2,7 +2,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/amp_state_owner.dart';
+import '../../domain/control_view_state.dart';
 import '../platform/adaptive_pressable.dart';
+import '../platform/sheet_self_pop.dart';
 import '../theme/app_theme.dart';
 import '../widgets/arcs.dart';
 import '../widgets/dimmed_group.dart';
@@ -18,12 +20,15 @@ import 'source_glyphs.dart';
 /// copper. Empty state when the amp has none / no amp (TODO 2.0.9).
 /// Decorative arcs bleed off the panel's top-right corner.
 ///
-/// The sheet watches the live view state, so if the amp goes Off / Booting
-/// while it is open the rows dim to 0.4 and go inert **in place** — the
-/// sheet stays open, keeps its text, and comes back live when the amp is
-/// On again (Task 3.5.1, owner decision 2026-09-21; the "close sheets when
-/// power leaves On" rule is Task 3.8.2). A *silent* amp already renders
-/// the empty state because `sources` is empty (Task 3.0.8).
+/// Visibility is the owner's `visibleSheet` slot (Task 3.8.2): the sheet
+/// pops itself when the slot stops naming it, and the owner clears the
+/// slot when the selected amp *leaves* On (KDE parity, superseding the
+/// 3.5.1 note that the sheet stayed open through a power change). The
+/// rows' own gate (`DimmedGroup` + `enabled`, 3.5.1) remains: a sheet
+/// opened while the amp is already Off — reachable programmatically, or
+/// with no amp for the empty state — shows dimmed, inert rows until the
+/// amp is On. A *silent* amp already renders the empty state because
+/// `sources` is empty (Task 3.0.8).
 class SourceSheet extends ConsumerWidget {
   const SourceSheet({super.key});
 
@@ -33,6 +38,7 @@ class SourceSheet extends ConsumerWidget {
     final t = theme.tokens;
     final state = ref.watch(controlViewStateProvider);
     final notifier = ref.read(ampStateProvider.notifier);
+    popWhenSlotLeaves(ref, context, SheetKind.source);
 
     return SheetScaffold(
       title: 'Select source',

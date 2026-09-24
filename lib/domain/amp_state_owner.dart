@@ -32,6 +32,11 @@ class AmpStateOwner extends Notifier<AmpState> {
   late ({String? ip, bool eligible}) _clampKey;
   bool _clampScheduled = false;
 
+  /// Task 3.8.2's edge detector: the source sheet closes when the selected
+  /// amp *leaves* On (true → false here), never on a level check — the
+  /// sheet legitimately opens with no amp (its empty state).
+  late bool _sourceSheetGateOpen;
+
   @override
   AmpState build() {
     _clock = ref.watch(monotonicClockProvider);
@@ -73,6 +78,7 @@ class AmpStateOwner extends Notifier<AmpState> {
       stepDb: settings.stepDb.db,
     );
     _clampKey = _clampKeyOf(initial);
+    _sourceSheetGateOpen = _sourceSheetGateOf(initial);
     return initial;
   }
 
@@ -94,12 +100,14 @@ class AmpStateOwner extends Notifier<AmpState> {
       if (ip == state.effectiveIp &&
           (before == null ||
               before.status.isPoweredOn != after.status.isPoweredOn ||
-              before.status.volumeRaw != after.status.volumeRaw)) {
+              before.status.volumeRaw != after.status.volumeRaw ||
+              before.status.activeSourceIndex != after.status.activeSourceIndex)) {
         _trace('rx', {
           'ip': ip,
           'power': after.status.isPoweredOn ? 'on' : 'off',
           'raw': after.status.volumeRaw,
           'db': after.status.volumeDb,
+          'source': after.status.activeSourceIndex,
         });
       }
       _traceBoot(before, after);
@@ -132,11 +140,60 @@ class AmpStateOwner extends Notifier<AmpState> {
   /// tick, a rollback, a selection change — not only on the setting that
   /// changed). One place, so a new write site cannot forget either.
   void _afterWrite(ControlViewState? viewBefore) {
+    _closeSourceSheetOnPowerEdge();
     _traceViewChange(viewBefore);
     final key = _clampKeyOf(state);
     final previous = _clampKey;
     _clampKey = key;
     if (key.eligible && (!previous.eligible || previous.ip != key.ip)) _scheduleLimitClamp();
+  }
+
+  // ---- Sheet visibility (Task 3.8.2 / 3.0.6; KDE `sourceListOpen` /
+  // `ampListOpen` with `onPowerStateChanged`)
+
+  /// The selected amp is reachable and On, as the view presents it.
+  static bool _sourceSheetGateOf(AmpState s) {
+    final amp = s.selectedAmp;
+    return amp != null && amp.isOnlineAt(s.now) && amp.powerPhaseAt(s.now) == PowerPhase.on;
+  }
+
+  /// Runs inside [_afterWrite] and writes `state` directly (it must not
+  /// re-enter [_afterWrite]). Source sheet only: the amp sheet stays open
+  /// through a power change so an amp can be switched while one is off
+  /// (KDE parity; owner decision 2026-09-24, checklist 29).
+  void _closeSourceSheetOnPowerEdge() {
+    final open = _sourceSheetGateOf(state);
+    final was = _sourceSheetGateOpen;
+    _sourceSheetGateOpen = open;
+    if (was && !open && state.visibleSheet == SheetKind.source) {
+      state = state.copyWith(visibleSheet: SheetKind.none);
+      _trace('sheet', {'kind': SheetKind.none.name, 'reason': 'power'});
+    }
+  }
+
+  /// Opens [kind] as the one visible sheet; the other closes by
+  /// construction (a single slot). Not gated on `commandsAllowed`: the
+  /// source sheet's empty state is reachable with no amp, and the rows
+  /// carry their own gate (3.5.1). `none` is not an open; use [closeSheet].
+  void openSheet(SheetKind kind) {
+    if (!ref.mounted || kind == SheetKind.none || state.visibleSheet == kind) return;
+    final view = _viewIfTracing;
+    state = state.copyWith(visibleSheet: kind);
+    _trace('sheet', {'kind': kind.name});
+    _afterWrite(view);
+  }
+
+  /// Writes `none`. With [kind], only if that sheet is the visible one — the
+  /// re-entrancy guard for a route completion that arrives after another
+  /// sheet has already replaced it. Safe after the owner is disposed (a
+  /// route can complete during app teardown).
+  void closeSheet([SheetKind? kind]) {
+    if (!ref.mounted || state.visibleSheet == SheetKind.none) return;
+    if (kind != null && kind != state.visibleSheet) return;
+    final view = _viewIfTracing;
+    state = state.copyWith(visibleSheet: SheetKind.none);
+    _trace('sheet', {'kind': SheetKind.none.name});
+    _afterWrite(view);
   }
 
   // ---- Debug trace (Task 3.5.2; `docs/architecture.md`, "Debug trace").
@@ -151,10 +208,17 @@ class AmpStateOwner extends Notifier<AmpState> {
     if (after.power == before.power &&
         after.volumeDb == before.volumeDb &&
         after.isMuted == before.isMuted &&
-        after.hasAmp == before.hasAmp) {
+        after.hasAmp == before.hasAmp &&
+        after.activeSourceIndex == before.activeSourceIndex) {
       return;
     }
-    _trace('view', {'power': after.power.name, 'db': after.volumeDb, 'muted': after.isMuted, 'hasAmp': after.hasAmp});
+    _trace('view', {
+      'power': after.power.name,
+      'db': after.volumeDb,
+      'muted': after.isMuted,
+      'hasAmp': after.hasAmp,
+      'source': after.activeSourceIndex,
+    });
   }
 
   /// Boot-record and hold transitions between two snapshots of one amp.
@@ -470,12 +534,48 @@ class AmpStateOwner extends Notifier<AmpState> {
     }
   }
 
+  /// Task 3.8.0 / 3.8.1 (KDE `selectSource()`): one synchronous write arms
+  /// **both** the source slot and the volume slot at the forced post-switch
+  /// target (`startupVolumeTarget`, clamped to the limits in force), then
+  /// **one** sink call sends source×2 and volume×2 with zero delay. Mute is
+  /// untouched (3.7.1) and the boot record is untouched (an owed startup
+  /// send still goes out carrying the same target).
+  ///
+  /// Why not `_writeVolume(userIntent: false)` after the source send: that
+  /// is a second sink call after an `await` (two send windows, not the one
+  /// invocation the amp was measured with), it would trace `send volume`
+  /// instead of `send source`, and it would arm the volume slot in a second
+  /// write rather than the same tick (checklist 3).
+  ///
+  /// Inside a confirmed post-boot hold the volume slot *is* the hold
+  /// (3.2.3; its deadline runs from the startup send once that went out,
+  /// 3.2.4), so the slot's existing deadline is kept when later than the
+  /// 400 ms window — a switch must never shorten a hold — and a failed send
+  /// restores the slot's previous value rather than nulling it, which would
+  /// drop the hold and show the −42 misreport.
   Future<void> selectSource(int statusIndex) async {
     final ip = state.effectiveIp;
-    if (ip == null || !_view.commandsAllowed) return;
+    final amp = state.selectedAmp;
+    if (ip == null || amp == null || !_view.commandsAllowed) return;
     if (!_view.sources.any((s) => s.index == statusIndex)) return;
-    _arm(ip, (a) => a.copyWith(pendingSource: _pending(statusIndex)));
-    await _send(ip, (s) => s.selectSource(ip, statusIndex), (a) => a.copyWith(pendingSource: null));
+    final target = state.startupVolumeTarget;
+    final now = _now;
+    final previousVolume = amp.pendingVolumeDb;
+    _arm(ip, (a) {
+      final boot = a.boot;
+      final hold = boot != null && boot.isConfirmed ? a.pendingVolumeDb?.deadline : null;
+      final window = now + kPendingWindow;
+      final deadline = hold != null && hold > window ? hold : window;
+      return a.copyWith(
+        pendingSource: PendingValue(statusIndex, window),
+        pendingVolumeDb: PendingValue(target, deadline),
+      );
+    });
+    await _send(
+      ip,
+      (s) => s.selectSource(ip, statusIndex, postSwitchDb: target),
+      (a) => a.copyWith(pendingSource: null, pendingVolumeDb: previousVolume),
+    );
   }
 }
 

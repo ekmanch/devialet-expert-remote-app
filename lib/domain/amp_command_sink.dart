@@ -11,8 +11,8 @@ import 'settings/settings_owner.dart';
 ///
 /// The default is [DevialetClientCommandSink]. Power and the post-boot
 /// startup volume have been real since Task 3.2.x; user volume and mute
-/// since Tasks 3.6.0 / 3.7.0 (2026-09-22). Source selection stays
-/// display-only until Task 3.8 flips it.
+/// since Tasks 3.6.0 / 3.7.0 (2026-09-22); source selection since Task
+/// 3.8.0 (2026-09-24) — every command is real.
 abstract interface class AmpCommandSink {
   /// A volume the user asked for, or the limit clamp's correction (Task
   /// 3.6.6) — same opcode as [sendStartupVolume]. Never unmutes by itself:
@@ -21,7 +21,13 @@ abstract interface class AmpCommandSink {
   Future<void> setVolumeDb(String ip, double db);
   Future<void> setMute(String ip, bool muted);
   Future<void> setPower(String ip, bool on);
-  Future<void> selectSource(String ip, int statusIndex);
+
+  /// One invocation: select-source ×2, then the forced post-switch volume
+  /// [postSwitchDb] ×2, zero delay (★ 6/6 measured; `docs/protocol.md`,
+  /// "Per-input volume memory"). The value is `AmpState.startupVolumeTarget`
+  /// (Task 3.8.1), clamped again by the wire ceiling. Never touches mute
+  /// (Task 3.7.1: a source switch is not a user volume gesture).
+  Future<void> selectSource(String ip, int statusIndex, {required double postSwitchDb});
 
   /// Same opcode as [setVolumeDb], distinct intent: the machine's own
   /// post-boot correction (Task 3.2.2). Never unmutes (Task 3.7.1); the
@@ -42,7 +48,7 @@ class NoopCommandSink implements AmpCommandSink {
   Future<void> setPower(String ip, bool on) async {}
 
   @override
-  Future<void> selectSource(String ip, int statusIndex) async {}
+  Future<void> selectSource(String ip, int statusIndex, {required double postSwitchDb}) async {}
 
   @override
   Future<void> sendStartupVolume(String ip, double db) async {}
@@ -58,8 +64,7 @@ class DevialetClientCommandSink implements AmpCommandSink {
   final DevialetClient _client;
 
   /// Debug trace of every *real* send, emitted before the await so the
-  /// timestamp is the send instant (Task 3.5.2). The one remaining
-  /// display-only stub (`selectSource`) traces nothing until 3.8 flips it.
+  /// timestamp is the send instant (Task 3.5.2).
   final AmpTrace trace;
 
   /// The wire-side ceiling, read at send time so a Settings change applies
@@ -103,9 +108,15 @@ class DevialetClientCommandSink implements AmpCommandSink {
     return _client.setMute(muted);
   }
 
-  /// Task 3.8.x — display-only until then.
+  /// Task 3.8.0 / 3.8.1: the same wire-side ceiling as every volume send
+  /// applies to the forced post-switch volume (defence in depth).
   @override
-  Future<void> selectSource(String ip, int statusIndex) async {}
+  Future<void> selectSource(String ip, int statusIndex, {required double postSwitchDb}) {
+    final ceiling = ceilingDb();
+    trace('send source', {'ip': ip, 'index': statusIndex, 'db': postSwitchDb, 'ceiling': ceiling});
+    _client.deviceIp = ip;
+    return _client.selectSource(statusIndex, postSwitchDb: postSwitchDb, maxDb: ceiling);
+  }
 }
 
 final ampCommandSinkProvider = Provider<AmpCommandSink>(

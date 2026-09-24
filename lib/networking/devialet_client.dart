@@ -23,8 +23,8 @@ class NoDeviceIpSetException implements Exception {
 
 /// Orchestrates the UDP protocol: packet sequencing (fire-and-forget,
 /// sent-twice, no ack), the documented app-level command ordering rule
-/// (source-select always followed by a forced volume set), and passive
-/// status-broadcast listening. No Flutter dependency — see CLAUDE.md's
+/// (source-select always followed by the caller's forced volume set, in
+/// one invocation), and passive status-broadcast listening. No Flutter dependency — see CLAUDE.md's
 /// "Core protocol logic... isolated from UI/state layers" requirement.
 ///
 /// This class deliberately does **not** implement discovery, staleness
@@ -38,14 +38,9 @@ class DevialetClient {
   final PacketCounters _counters = PacketCounters();
 
   /// Target amp IP for outgoing commands. `null` means no amp selected.
+  /// Read **once** per public call (see [_requireIp]) so a multi-send
+  /// command cannot be retargeted between its sends.
   String? deviceIp;
-
-  /// Forced post-source-switch volume (`docs/known-gotchas.md` #5) — sent
-  /// unconditionally after every source switch to compensate for the amp's
-  /// own inconsistent per-input startup volume. This is a deliberate
-  /// product decision, not a redundant network call — do not remove.
-  /// Task 3.8.1 replaces the constant with the persisted startup setting.
-  static const double sourceSwitchVolumeDb = -40.0;
 
   Future<void> setPower(bool isOn) => _sendTwice(isOn ? CommandPayloads.powerOn : CommandPayloads.powerOff);
 
@@ -58,19 +53,29 @@ class DevialetClient {
     return _sendTwice(CommandPayloads.setVolume(dbIn, maxDb: maxDb));
   }
 
-  /// Sends the select-source command, then unconditionally forces the
-  /// volume to [sourceSwitchVolumeDb] — see the field doc above. The two
-  /// sends happen in that order, sequentially; [maxDb] clamps the forced
-  /// volume like any other.
-  Future<void> selectSource(int statusIndex, {required double? maxDb}) async {
-    await _sendTwice(CommandPayloads.selectSource(statusIndex));
-    await setVolumeDb(sourceSwitchVolumeDb, maxDb: maxDb);
+  /// Sends the select-source command, then unconditionally the forced
+  /// post-switch volume [postSwitchDb] (`docs/known-gotchas.md` #5: the
+  /// amp remembers a volume per input, which reads as random; the app's
+  /// startup-volume setting overrides it — a deliberate product decision,
+  /// not a redundant network call, do not remove). Source×2 then volume×2
+  /// in one invocation with no delay (★ 6/6 measured); [maxDb] clamps the
+  /// forced volume like any other. Both pairs go to the IP read at the
+  /// call, even if [deviceIp] changes while the first pair is in flight.
+  Future<void> selectSource(int statusIndex, {required double postSwitchDb, required double? maxDb}) async {
+    final ip = _requireIp();
+    await _sendTwiceTo(ip, CommandPayloads.selectSource(statusIndex));
+    await _sendTwiceTo(ip, CommandPayloads.setVolume(postSwitchDb, maxDb: maxDb));
   }
 
-  Future<void> _sendTwice(CommandPayload payload) {
+  String _requireIp() {
     final ip = deviceIp;
     if (ip == null) throw NoDeviceIpSetException();
+    return ip;
+  }
 
+  Future<void> _sendTwice(CommandPayload payload) => _sendTwiceTo(_requireIp(), payload);
+
+  Future<void> _sendTwiceTo(String ip, CommandPayload payload) {
     final firstCounters = _counters.next();
     final secondCounters = _counters.next();
     final first = CommandPacket(

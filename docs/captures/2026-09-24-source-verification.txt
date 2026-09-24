@@ -1,0 +1,23 @@
+   0.000 === RUN 7 watch: source switch + forced volume (Task 3.8.4) wall=2026-09-24T20:53:18.259 ===
+   0.000 ENVELOPE: no power commands; enabled slots only (0-4, 14); phone ceiling -25.0 and startup -40.0 for the run; harness sends only the final restore (slot 0 / unmute / pre-run volume)
+   1.200 start state: power=True src=0 mute=False vol=-38.0 raw=119
+   1.201 watch: logging every raw/mute/source/power change on eno1 for 95 s — drive the app now
+   1.401   wall=20:53:19.660 raw=119 vol=-38.0 mute=False src=0 power=on
+   6.999   wall=20:53:25.258 raw=115 vol=-40.0 mute=False src=1 power=on
+  11.799   wall=20:53:30.058 raw=115 vol=-40.0 mute=False src=2 power=on
+  16.597   wall=20:53:34.856 raw=115 vol=-40.0 mute=False src=3 power=on
+  21.396   wall=20:53:39.655 raw=115 vol=-40.0 mute=False src=4 power=on
+  26.195   wall=20:53:44.454 raw=115 vol=-40.0 mute=False src=14 power=on
+  31.006   wall=20:53:49.265 raw=115 vol=-40.0 mute=False src=0 power=on
+  34.199   wall=20:53:52.458 raw=113 vol=-41.0 mute=False src=0 power=on
+  34.801   wall=20:53:53.060 raw=111 vol=-42.0 mute=False src=0 power=on
+  35.202   wall=20:53:53.461 raw=109 vol=-43.0 mute=False src=0 power=on
+  35.804   wall=20:53:54.063 raw=107 vol=-44.0 mute=False src=0 power=on
+  36.406   wall=20:53:54.665 raw=105 vol=-45.0 mute=False src=0 power=on
+  40.608   wall=20:53:58.867 raw=115 vol=-40.0 mute=False src=1 power=on
+  47.408   wall=20:54:05.667 raw=115 vol=-40.0 mute=False src=2 power=on
+  54.410   wall=20:54:12.669 raw=115 vol=-40.0 mute=False src=3 power=on
+  55.394   wall=20:54:13.653 raw=115 vol=-40.0 mute=False src=4 power=on
+  71.998   wall=20:54:30.257 raw=115 vol=-40.0 mute=False src=0 power=on
+  96.208 SUMMARY watch: packets=475 gaps>250ms=0 final src=0 raw=115 vol=-40.0 mute=False
+  96.208 final state (96.19593751899993, 'eno1', True, 0, False, -40.0, 115)

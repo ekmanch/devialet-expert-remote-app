@@ -18,9 +18,15 @@ class FakeUdpTransport implements UdpTransport {
   final StreamController<UdpDatagram> _incoming = StreamController<UdpDatagram>.broadcast();
   bool closed = false;
 
+  /// Runs after each [sendTwice] is recorded — a hook for tests that need
+  /// something to happen "while the send is in flight" (e.g. retargeting
+  /// the client's `deviceIp` between the two pairs of a source switch).
+  void Function()? onSend;
+
   @override
   Future<void> sendTwice(Uint8List first, Uint8List second, String host, int port) async {
     sentPairs.add(SentPair(first, second, host, port));
+    onSend?.call();
   }
 
   @override

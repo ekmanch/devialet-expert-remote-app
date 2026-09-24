@@ -25,7 +25,8 @@ import 'synthetic_status.dart';
 /// | power off | any | immediate Off; remembers the last raw byte |
 /// | volume (incl. startup) | Off / Booting, or < 200 ms after the first On | **dropped** (gotcha #9) |
 /// | volume | On | applied after 100 ms; ends the misreport |
-/// | mute / source | On | applied after 100 ms |
+/// | mute | On | applied after 100 ms |
+/// | source | On | slot after 100 ms, then the forced volume like any volume command (3.8.1) |
 ///
 /// After a boot the first On packet carries the pre-shutdown byte, then
 /// raw 111 (−42.0) until any volume command lands (gotcha #8). Deadlines
@@ -36,10 +37,11 @@ import 'synthetic_status.dart';
 /// a scenario re-selects the simulated amp in memory only — never in the
 /// persisted settings (checklist 19) — so a real amp is shadowed until
 /// picked in the sheet, and the persisted choice returns on the next launch. "Not responding" stops broadcasting and the view
-/// flips after the real 8 s. Power, the startup volume, user volume and
-/// mute reach the sim for real (Tasks 3.2 / 3.6 / 3.7); a source change
-/// still sends nothing (Task 3.8), so that optimistic change reverts after
-/// 400 ms.
+/// flips after the real 8 s. Power, the startup volume, user volume, mute
+/// and source reach the sim for real (Tasks 3.2 / 3.6 / 3.7 / 3.8). The
+/// sim has no per-input volume memory; the forced post-switch volume is
+/// applied as sent, so the readout lands on the startup target after a
+/// switch exactly as the real amp does.
 class SimulatedAmp extends Notifier<DebugScenario> implements AmpCommandSink {
   static const Duration broadcastPeriod = Duration(milliseconds: 200);
 
@@ -213,10 +215,11 @@ class SimulatedAmp extends Notifier<DebugScenario> implements AmpCommandSink {
   }
 
   @override
-  Future<void> selectSource(String ip, int statusIndex) async {
+  Future<void> selectSource(String ip, int statusIndex, {required double postSwitchDb}) async {
     final sim = _amps[ip];
     if (sim == null || !sim.power) return;
     sim.queue.add((_now + commandLatency, () => sim.source = statusIndex));
+    if (_acceptsVolume(sim)) _queueVolume(sim, postSwitchDb);
   }
 }
 
@@ -272,7 +275,8 @@ class RoutingCommandSink implements AmpCommandSink {
   Future<void> setPower(String ip, bool on) => _for(ip).setPower(ip, on);
 
   @override
-  Future<void> selectSource(String ip, int statusIndex) => _for(ip).selectSource(ip, statusIndex);
+  Future<void> selectSource(String ip, int statusIndex, {required double postSwitchDb}) =>
+      _for(ip).selectSource(ip, statusIndex, postSwitchDb: postSwitchDb);
 
   @override
   Future<void> sendStartupVolume(String ip, double db) => _for(ip).sendStartupVolume(ip, db);

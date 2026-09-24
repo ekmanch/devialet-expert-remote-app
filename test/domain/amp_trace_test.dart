@@ -48,13 +48,14 @@ void main() {
       ]);
     });
 
-    test('user volume and mute emit one line each (3.6.0 / 3.7.0); the source stub still emits nothing (3.8)', () async {
+    test('user volume, mute and source emit one line each (3.6.0 / 3.7.0 / 3.8.0)', () async {
       await sink.setVolumeDb('192.0.2.22', -30);
       await sink.setMute('192.0.2.22', true);
-      await sink.selectSource('192.0.2.22', 3);
+      await sink.selectSource('192.0.2.22', 3, postSwitchDb: -40);
       expect(lines, [
         '[amp] 2000ms send volume ip=192.0.2.22 db=-30.0 ceiling=-10.0',
         '[amp] 2000ms send mute ip=192.0.2.22 muted=true',
+        '[amp] 2000ms send source ip=192.0.2.22 index=3 db=-40.0 ceiling=-10.0',
       ]);
     });
 

@@ -16,6 +16,12 @@ enum ConnectionPhase { notConnected, connected }
 
 enum PowerPhase { on, off, booting }
 
+/// Which sheet is visible, as the owner's one slot (Task 3.8.2 / 3.0.6).
+/// One value, so the two sheets are mutually exclusive by construction;
+/// expressed as *what is visible*, not as a route, so a two-pane layout
+/// (3.11.x) can render it as a pane instead. Never persisted.
+enum SheetKind { none, amp, source }
+
 /// The scenarios the debug state driver cycles through (Task 2.0.12).
 /// `notResponding` renders identically to `notConnected` (see
 /// [ConnectionPhase]); it stays in the cycle so the decision is visible.
@@ -86,6 +92,7 @@ class ControlViewState {
     required this.sources,
     required this.activeSourceIndex,
     this.selectedIp,
+    this.visibleSheet = SheetKind.none,
   });
 
   final ConnectionPhase connection;
@@ -118,6 +125,11 @@ class ControlViewState {
   final List<SourceItem> sources;
   final int? activeSourceIndex;
 
+  /// The owner's sheet slot (Task 3.8.2). The Control screen pushes the
+  /// matching route when this leaves `none` and every route completion
+  /// writes `none` back; a sheet pops itself when this stops naming it.
+  final SheetKind visibleSheet;
+
   // ---- Gating, in one place so every input path is covered (checklist 6).
 
   bool get hasAmp => selectedAmp != null && connection == ConnectionPhase.connected;
@@ -137,8 +149,9 @@ class ControlViewState {
   /// | VOL − / +              | `VolumeButtons.enabled` + `DimmedGroup(dialWrap)` | `stepVolume` |
   /// | mute                   | `MuteButton.enabled` + two `DimmedGroup`s      | `toggleMute`    |
   /// | power                  | `PowerButton.enabled` ([powerCommandAllowed])  | `togglePower`   |
-  /// | source trigger         | `DimmedGroup(sourceTrigger, blockTaps: hasAmp)` | — (opens a sheet) |
+  /// | source trigger         | `DimmedGroup(sourceTrigger, blockTaps: hasAmp)` | — (`openSheet`, ungated: the empty-state sheet is reachable with no amp) |
   /// | source sheet rows      | `DimmedGroup(sourceRows)` + row `enabled`      | `selectSource`  |
+  /// | sheet open / close     | trigger gates above; every route completion writes back | `openSheet` / `closeSheet` (not amp commands); the source sheet auto-closes on the On→not-On edge (3.8.2) |
   /// | amp sheet rows / None / manual IP | none, by design                     | none — selection is not an amp command |
   /// | device card, gear      | always live (open a sheet / Settings)          | —               |
   /// | VOL ± screen-reader tap (no pointer) | `AdaptivePressable.enabled` nulls `onTap` | `stepVolume` (3.6.1) |
@@ -178,6 +191,7 @@ class ControlViewState {
     List<SourceItem>? sources,
     Object? activeSourceIndex = _unset,
     Object? selectedIp = _unset,
+    SheetKind? visibleSheet,
   }) {
     return ControlViewState(
       connection: connection ?? this.connection,
@@ -194,6 +208,7 @@ class ControlViewState {
           ? this.activeSourceIndex
           : activeSourceIndex as int?,
       selectedIp: identical(selectedIp, _unset) ? this.selectedIp : selectedIp as String?,
+      visibleSheet: visibleSheet ?? this.visibleSheet,
     );
   }
 
@@ -213,7 +228,8 @@ class ControlViewState {
       other.ceilingDb == ceilingDb &&
       other.stepDb == stepDb &&
       _listEquals(other.sources, sources) &&
-      other.activeSourceIndex == activeSourceIndex;
+      other.activeSourceIndex == activeSourceIndex &&
+      other.visibleSheet == visibleSheet;
 
   @override
   int get hashCode => Object.hash(
@@ -229,6 +245,7 @@ class ControlViewState {
     stepDb,
     Object.hashAll(sources),
     activeSourceIndex,
+    visibleSheet,
   );
 
   static bool _listEquals<T>(List<T> a, List<T> b) {

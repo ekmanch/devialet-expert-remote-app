@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/window_class.dart';
 import '../../domain/amp_state_owner.dart';
+import '../../domain/control_view_state.dart';
 import '../platform/adaptive_page_route.dart';
 import '../platform/adaptive_sheet.dart';
 import '../settings/settings_screen.dart';
@@ -30,6 +31,20 @@ import 'volume_dial.dart';
 ///
 /// Owns the live drag value so the readout follows the finger and a
 /// window-class change mid-drag keeps it (TODO 2.0.1 / 2.0.4).
+///
+/// Sheets (Task 3.8.2 / 3.0.6): the owner's `visibleSheet` is the truth.
+/// The triggers call `openSheet`; this screen pushes the matching modal
+/// route when the slot leaves `none`, and the route's completion future —
+/// which fires on **every** pop, whatever caused it (hardware back,
+/// predictive back, a barrier tap, the Material drag-down, a row's own
+/// `Navigator.pop`, the sheet popping itself) — writes `none` back through
+/// `closeSheet`. That one `whenComplete` is the structural guarantee
+/// (checklist 28); its boundary: a sheet pushed by any other function
+/// would not be covered. A sheet pops *itself* when the slot stops naming
+/// it (`ref.listen` inside each sheet), so an owner-side close (the power
+/// edge) or a slot swap needs no route handle here. On compact width the
+/// sheet is modal, so "reset when the screen is left" reduces to
+/// [dispose]; 3.11.x revisits this when sheets become panes.
 class ControlScreen extends ConsumerStatefulWidget {
   const ControlScreen({super.key});
 
@@ -41,9 +56,51 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
   double? _dragDb;
   final GlobalKey<VolumeDialState> _dialKey = GlobalKey<VolumeDialState>();
 
-  void _openAmpSheet() => showAdaptiveSheet<void>(context, builder: (_) => const AmpSheet());
+  /// The sheet whose route this screen last pushed and has not seen
+  /// complete. Bookkeeping only — the owner's slot is the truth.
+  SheetKind _pushedKind = SheetKind.none;
+  late final AmpStateOwner _owner;
 
-  void _openSourceSheet() => showAdaptiveSheet<void>(context, builder: (_) => const SourceSheet());
+  @override
+  void initState() {
+    super.initState();
+    _owner = ref.read(ampStateProvider.notifier);
+    ref.listenManual(controlViewStateProvider.select((s) => s.visibleSheet), (_, next) => _reconcileSheet(next));
+  }
+
+  @override
+  void dispose() {
+    // "Screen left": the slot resets; the route (if any) is torn down with
+    // the navigator and its completion no-ops on the already-none slot.
+    _owner.closeSheet();
+    super.dispose();
+  }
+
+  void _openAmpSheet() => _owner.openSheet(SheetKind.amp);
+
+  void _openSourceSheet() => _owner.openSheet(SheetKind.source);
+
+  /// Slot → route. `none` needs nothing here (the sheet pops itself); a
+  /// kind this screen already pushed needs nothing; a new kind is pushed.
+  /// Re-entrancy: owner → none: the sheet pops → its future completes →
+  /// `closeSheet(kind)` no-ops. User pop: the future → `closeSheet(kind)`
+  /// → none → the sheet's own listener finds its route no longer current
+  /// and does nothing. kind → kind: the old sheet pops itself (its
+  /// completion no-ops because the slot names the new kind) and the new
+  /// one is pushed here.
+  void _reconcileSheet(SheetKind next) {
+    if (next == SheetKind.none || next == _pushedKind) return;
+    final kind = next;
+    _pushedKind = kind;
+    final owner = _owner; // not `ref`: the completion can arrive after dispose
+    showAdaptiveSheet<void>(
+      context,
+      builder: (_) => kind == SheetKind.amp ? const AmpSheet() : const SourceSheet(),
+    ).whenComplete(() {
+      if (_pushedKind == kind) _pushedKind = SheetKind.none;
+      owner.closeSheet(kind);
+    });
+  }
 
   void _openSettings() =>
       Navigator.of(context).push(adaptivePageRoute<void>(context, (_) => const SettingsScreen()));

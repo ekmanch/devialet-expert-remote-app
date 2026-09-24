@@ -353,5 +353,16 @@ void main() {
       expect(deriveControlView(s), deriveControlView(s.ingest(reportFrom(amp1), ms(200))));
       expect(deriveControlView(s), isNot(deriveControlView(s.ingest(reportFrom(amp1, volumeDb: -24), ms(200)))));
     });
+
+    test('3.8.3 / gotcha #4: a selection-only broadcast (same names, same list) is a different view and moves activeSource', () {
+      final before = deriveControlView(AmpState.initial.ingest(reportFrom(amp1, active: 0), ms(0)));
+      final after = deriveControlView(AmpState.initial.ingest(reportFrom(amp1, active: 3), ms(200)));
+      expect(after.sources, before.sources, reason: 'the list itself is unchanged — names alone would short-circuit');
+      expect(after, isNot(before), reason: 'the diff key includes selection state, not just item identity');
+      expect((before.activeSource!.index, after.activeSource!.index), (0, 3));
+      // Counter-run (manual): drop `activeSourceIndex` from ControlViewState.==
+      // and this `isNot` fails — the provider would then suppress the rebuild,
+      // which is exactly the Kotlin bug.
+    });
   });
 }

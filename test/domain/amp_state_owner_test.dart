@@ -28,7 +28,8 @@ class ThrowingCommandSink implements AmpCommandSink {
   @override
   Future<void> setPower(String ip, bool on) async => throw StateError('no route to host');
   @override
-  Future<void> selectSource(String ip, int statusIndex) async => throw StateError('no route to host');
+  Future<void> selectSource(String ip, int statusIndex, {required double postSwitchDb}) async =>
+      throw StateError('no route to host');
   @override
   Future<void> sendStartupVolume(String ip, double db) async => throw StateError('no route to host');
 }
@@ -44,11 +45,12 @@ class _DroppingFlagStore extends InMemorySettingsStore {
 }
 
 class RecordingCommandSink extends NoopCommandSink {
-  RecordingCommandSink({this.clock, this.failStartup = false, this.failMute = false});
+  RecordingCommandSink({this.clock, this.failStartup = false, this.failMute = false, this.failSource = false});
 
   final FakeClock? clock;
   final bool failStartup;
   final bool failMute;
+  final bool failSource;
   final List<String> calls = [];
   final List<Duration> startupSentAt = [];
 
@@ -61,6 +63,11 @@ class RecordingCommandSink extends NoopCommandSink {
   }
   @override
   Future<void> setPower(String ip, bool on) async => calls.add('power $ip $on');
+  @override
+  Future<void> selectSource(String ip, int statusIndex, {required double postSwitchDb}) async {
+    calls.add('source $ip $statusIndex $postSwitchDb');
+    if (failSource) throw StateError('no route to host');
+  }
   @override
   Future<void> sendStartupVolume(String ip, double db) async {
     calls.add('startup $ip $db');
@@ -197,13 +204,16 @@ void main() {
     expect(view(c).hasAmp, isFalse);
   });
 
-  test('selectSource accepts enabled slots only', () async {
-    final c = make();
+  test('selectSource accepts enabled slots only: a disabled slot sends nothing, an enabled one sends once', () async {
+    final sink = RecordingCommandSink();
+    final c = make(sink: sink);
     seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
     await owner(c).selectSource(9);
     expect(view(c).activeSourceIndex, 0);
+    expect(sink.calls, isEmpty);
     await owner(c).selectSource(3);
     expect(view(c).activeSourceIndex, 3);
+    expect(sink.calls, ['source 192.0.2.22 3 -40.0']);
   });
 
   test('selecting None keeps the list; a manual IP is shown not connected until heard', () async {
@@ -437,13 +447,13 @@ void main() {
         owner(c).ingest(on(volumeDb: -40)); // the amp applied it
         expect(events(), [
           'boot booting $ipField deadlineMs=20000 target=-40.0',
-          'view power=booting db=-25.0 muted=false hasAmp=true',
-          'rx $ipField power=on raw=145 db=-25.0',
+          'view power=booting db=-25.0 muted=false hasAmp=true source=0',
+          'rx $ipField power=on raw=145 db=-25.0 source=0',
           'boot confirmed $ipField target=-40.0 sendAtMs=500 holdUntilMs=1500',
-          'view power=on db=-40.0 muted=false hasAmp=true',
-          'rx $ipField power=on raw=111 db=-42.0',
+          'view power=on db=-40.0 muted=false hasAmp=true source=0',
+          'rx $ipField power=on raw=111 db=-42.0 source=0',
           'boot startup-send $ipField target=-40.0 sinceOnMs=600',
-          'rx $ipField power=on raw=115 db=-40.0',
+          'rx $ipField power=on raw=115 db=-40.0 source=0',
           'hold released $ipField reason=confirmed sinceOnMs=800 raw=115 db=-40.0',
         ]);
         expect(traceLines[2], startsWith('[amp] 16000ms '));
@@ -469,7 +479,7 @@ void main() {
         await settle();
         expect(events(), [
           'hold released $ipField reason=fallback sinceOnMs=2100 raw=111 db=-42.0',
-          'view power=on db=-42.0 muted=false hasAmp=true',
+          'view power=on db=-42.0 muted=false hasAmp=true source=0',
         ]);
       });
 
@@ -487,7 +497,7 @@ void main() {
         traceLines.clear();
         clock.set(s(20));
         owner(c2).ingest(off());
-        expect(events(), ['boot timeout $ipField', 'view power=off db=-25.0 muted=false hasAmp=true']);
+        expect(events(), ['boot timeout $ipField', 'view power=off db=-25.0 muted=false hasAmp=true source=0']);
       });
 
       test('a throwing sink is reported as a failed send, then the rollback shows in the view', () async {
@@ -496,9 +506,9 @@ void main() {
         traceLines.clear();
         await owner(c).toggleMute();
         expect(events(), [
-          'view power=on db=-25.0 muted=true hasAmp=true',
+          'view power=on db=-25.0 muted=true hasAmp=true source=0',
           'send failed $ipField error=Bad state: no route to host',
-          'view power=on db=-25.0 muted=false hasAmp=true',
+          'view power=on db=-25.0 muted=false hasAmp=true source=0',
         ]);
       });
 
@@ -1033,5 +1043,155 @@ void main() {
     c.dispose();
     await settle();
     expect(transport.closed, isTrue);
+  });
+
+  group('source wiring (3.8.x)', () {
+    const ip = '192.0.2.22';
+    Duration s(int seconds, [int ms = 0]) => Duration(seconds: seconds, milliseconds: ms);
+    AmpStatusReport on({double volumeDb = -25, bool muted = false, int source = 0}) => syntheticReport(
+      ip: ip,
+      name: 'My Devialet',
+      isPoweredOn: true,
+      volumeDb: volumeDb,
+      isMuted: muted,
+      activeSourceIndex: source,
+    );
+    SettingsNotifier settings(ProviderContainer c) => c.read(settingsProvider.notifier);
+    TrackedAmp amp(ProviderContainer c) => c.read(ampStateProvider).amps[ip]!;
+
+    test('one write arms source and volume together; one sink call carries the clamped startup target (3.8.0 / 3.8.1)', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected)); // −60..−15, at −25
+      final pending = owner(c).selectSource(3);
+      expect((view(c).activeSourceIndex, view(c).volumeDb), (3, -40.0), reason: 'both written before any send');
+      expect(amp(c).pendingSource, PendingValue(3, const Duration(milliseconds: 400)));
+      expect(amp(c).pendingVolumeDb, PendingValue(-40.0, const Duration(milliseconds: 400)));
+      await pending;
+      expect(sink.calls, ['source $ip 3 -40.0'], reason: 'source×2 then volume×2 happen inside this one call');
+    });
+
+    test('the forced volume is the startup setting clamped to the range in force', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
+      settings(c).setVolumeLimits(ceilingDb: -45);
+      await settle();
+      sink.calls.clear();
+      await owner(c).selectSource(3);
+      expect(sink.calls, ['source $ip 3 -45.0']);
+      expect(view(c).volumeDb, -45.0);
+      settings(c).setStartupVolumeDb(-35);
+      settings(c).setVolumeLimits(ceilingDb: -15);
+      await settle();
+      sink.calls.clear();
+      await owner(c).selectSource(4);
+      expect(sink.calls, ['source $ip 4 -35.0'], reason: 'the persisted startup setting, not a constant');
+    });
+
+    test('a source switch never touches mute (3.7.1): a muted amp stays muted and no mute is sent', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.muted));
+      await owner(c).selectSource(3);
+      expect(sink.calls, ['source $ip 3 -40.0']);
+      expect(sink.calls.where((x) => x.startsWith('mute')), isEmpty, reason: 'counter-half of 3.6.5\'s auto-unmute');
+      expect((view(c).isMuted, view(c).activeSourceIndex, view(c).volumeDb), (true, 3, -40.0));
+      // The amp confirms with mute still on: the view stays muted.
+      clock.set(s(0, 200));
+      owner(c).ingest(on(volumeDb: -40, muted: true, source: 3));
+      expect(view(c).isMuted, isTrue);
+    });
+
+    test('a switch is gated like every command: nothing while Off / Booting / no amp (checklist 6)', () async {
+      for (final scenario in [DebugScenario.off, DebugScenario.booting, DebugScenario.notConnected]) {
+        final sink = RecordingCommandSink();
+        final c = make(sink: sink);
+        seedFromControlView(owner(c), ControlViewState.forScenario(scenario));
+        await owner(c).selectSource(3);
+        expect(sink.calls, isEmpty, reason: scenario.name);
+      }
+    });
+
+    test('gotcha #1/#2 at the owner: a late pre-change broadcast inside 400 ms does not overwrite the selection; the matching one confirms it', () async {
+      final c = make(sink: RecordingCommandSink());
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
+      await owner(c).selectSource(3);
+      clock.set(s(0, 100));
+      owner(c).ingest(on(source: 0)); // authored before our command landed
+      expect(view(c).activeSourceIndex, 3);
+      expect(c.read(confirmedAmpStateProvider)!.activeSourceIndex, 0, reason: 'confirmed channel stays unmasked');
+      clock.set(s(0, 250));
+      owner(c).ingest(on(source: 3, volumeDb: -40)); // the amp confirms
+      expect(amp(c).pendingSource, isNull);
+      expect(amp(c).pendingVolumeDb, isNull);
+      expect(view(c).activeSourceIndex, 3);
+      // Proof the assertion bites: with the mask expired the stale slot shows.
+      final c2 = make(sink: RecordingCommandSink());
+      seedFromControlView(owner(c2), ControlViewState.forScenario(DebugScenario.connected));
+      await owner(c2).selectSource(3);
+      clock.set(s(0, 400));
+      owner(c2).ingest(on(source: 0));
+      expect(view(c2).activeSourceIndex, 0, reason: 'the same broadcast lands once the window has closed');
+    });
+
+    test('a failed send rolls both slots back to their pre-arm values — a boot hold is restored, not dropped', () async {
+      final sink = RecordingCommandSink(failSource: true);
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off));
+      clock.set(s(1));
+      owner(c).ingest(on(volumeDb: -25)); // observed external boot: hold armed at −40
+      clock.set(s(1, 600));
+      owner(c).ingest(on(volumeDb: -42)); // misreport; the startup send goes out (and succeeds)
+      await settle();
+      final hold = amp(c).pendingVolumeDb!;
+      expect((hold.value, hold.deadline), (-40.0, s(3, 100)), reason: 'the hold runs 1500 ms from the send');
+      clock.set(s(2));
+      await owner(c).selectSource(3); // the switch throws
+      expect(sink.calls.last, 'source $ip 3 -40.0');
+      expect(amp(c).pendingSource, isNull, reason: 'rolled back');
+      expect(amp(c).pendingVolumeDb, hold, reason: 'the hold survives the failed switch (rollback restores, never nulls)');
+      expect(view(c).volumeDb, -40.0, reason: 'the −42 misreport stays off the display');
+      expect(view(c).activeSourceIndex, 0);
+    });
+
+    test('a switch inside the post-boot hold keeps the hold\'s later deadline instead of the 400 ms window', () async {
+      final sink = RecordingCommandSink();
+      final c = make(sink: sink);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off));
+      clock.set(s(1));
+      owner(c).ingest(on(volumeDb: -25)); // external boot observed: hold armed
+      clock.set(s(1, 600));
+      owner(c).ingest(on(volumeDb: -42)); // startup send at +600 → fallback at 3100
+      await settle();
+      expect(amp(c).pendingVolumeDb!.deadline, s(3, 100));
+      clock.set(s(2));
+      await owner(c).selectSource(3);
+      expect(amp(c).pendingSource!.deadline, s(2, 400));
+      expect(amp(c).pendingVolumeDb, PendingValue(-40.0, s(3, 100)), reason: 'never shortened to 2400');
+      expect(amp(c).boot, isNotNull, reason: 'the boot record is untouched');
+      expect(sink.calls.last, 'source $ip 3 -40.0');
+    });
+
+    test('a switch after the hold has released is a plain 400 ms mask', () async {
+      final c = make(sink: RecordingCommandSink());
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
+      clock.set(s(5));
+      await owner(c).selectSource(3);
+      expect(amp(c).pendingVolumeDb!.deadline, s(5, 400));
+    });
+
+    test('trace: a switch produces send source, then rx and view lines carrying source=', () async {
+      final c = make(sink: RecordingCommandSink(), traced: true);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
+      traceLines.clear();
+      await owner(c).selectSource(3);
+      clock.set(s(0, 200));
+      owner(c).ingest(on(volumeDb: -40, source: 3));
+      expect(events(), [
+        'view power=on db=-40.0 muted=false hasAmp=true source=3',
+        'rx ip=$ip power=on raw=115 db=-40.0 source=3',
+      ]);
+    });
   });
 }

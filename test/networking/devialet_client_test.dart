@@ -57,38 +57,59 @@ void main() {
   });
 
   group('DevialetClient — source switch forces a follow-up volume set (known-gotchas.md #5)', () {
-    test('selectSource always sends select-source THEN a forced -40dB volume set, in order', () async {
+    List<int> bytesOf(CommandPayload p) => [p.byte6, p.byte7, p.byte8, p.byte9];
+
+    test('selectSource always sends select-source THEN the forced volume set, in order', () async {
       final transport = FakeUdpTransport();
       final client = DevialetClient(transport: transport, deviceIp: '192.168.1.50');
 
-      await client.selectSource(4, maxDb: null);
+      await client.selectSource(4, postSwitchDb: -40.0, maxDb: null);
 
       expect(transport.sentPairs, hasLength(2));
+      expect(transport.sentPairs[0].first.sublist(6, 10), bytesOf(CommandPayloads.selectSource(4)));
+      expect(transport.sentPairs[1].first.sublist(6, 10), bytesOf(CommandPayloads.setVolume(-40.0, maxDb: null)));
+    });
 
-      final selectPayload = CommandPayloads.selectSource(4);
-      final expectedVolumePayload = CommandPayloads.setVolume(DevialetClient.sourceSwitchVolumeDb, maxDb: null);
+    test('the forced volume is the caller\'s value (the startup setting, Task 3.8.1), not a constant', () async {
+      final transport = FakeUdpTransport();
+      final client = DevialetClient(transport: transport, deviceIp: '192.168.1.50');
 
-      expect(transport.sentPairs[0].first.sublist(6, 10), [
-        selectPayload.byte6,
-        selectPayload.byte7,
-        selectPayload.byte8,
-        selectPayload.byte9,
-      ]);
-      expect(transport.sentPairs[1].first.sublist(6, 10), [
-        expectedVolumePayload.byte6,
-        expectedVolumePayload.byte7,
-        expectedVolumePayload.byte8,
-        expectedVolumePayload.byte9,
-      ]);
+      await client.selectSource(4, postSwitchDb: -35.0, maxDb: null);
+
+      expect(transport.sentPairs[1].first.sublist(6, 10), bytesOf(CommandPayloads.setVolume(-35.0, maxDb: null)));
+      expect(
+        transport.sentPairs[1].first.sublist(6, 10),
+        isNot(bytesOf(CommandPayloads.setVolume(-40.0, maxDb: null))),
+      );
+    });
+
+    test('the forced volume is clamped by maxDb like any other volume', () async {
+      final transport = FakeUdpTransport();
+      final client = DevialetClient(transport: transport, deviceIp: '192.168.1.50');
+
+      await client.selectSource(4, postSwitchDb: -20.0, maxDb: -25.0);
+
+      expect(transport.sentPairs[1].first.sublist(6, 10), bytesOf(CommandPayloads.setVolume(-25.0, maxDb: null)));
     });
 
     test('the forced volume is sent for EVERY source, not just some (no source exceptions)', () async {
-      for (final index in [0, 1, 2, 3, 4, 5, 14]) {
+      for (final index in [0, 1, 2, 3, 4, 5, 14, 16, 29]) {
         final transport = FakeUdpTransport();
         final client = DevialetClient(transport: transport, deviceIp: '192.168.1.50');
-        await client.selectSource(index, maxDb: null);
+        await client.selectSource(index, postSwitchDb: -40.0, maxDb: null);
         expect(transport.sentPairs, hasLength(2), reason: 'source index $index must still force a volume set');
       }
+    });
+
+    test('both pairs go to the IP read at the call: retargeting deviceIp while the first pair is in flight changes nothing', () async {
+      final transport = FakeUdpTransport();
+      late final DevialetClient client;
+      transport.onSend = () => client.deviceIp = '192.0.2.99';
+      client = DevialetClient(transport: transport, deviceIp: '192.168.1.50');
+
+      await client.selectSource(4, postSwitchDb: -40.0, maxDb: null);
+
+      expect(transport.sentPairs.map((p) => p.host), ['192.168.1.50', '192.168.1.50']);
     });
   });
 

@@ -56,10 +56,23 @@ void main() {
     expect(sentPayload(transport), bytesOf(CommandPayloads.muteOff));
   });
 
-  test('source selection is still display-only (Task 3.8)', () async {
+  test('source selection sends select×2 then the post-switch volume×2, clamped by the ceiling read at send time (3.8.0 / 3.8.1)', () async {
     final transport = FakeUdpTransport();
-    final sink = DevialetClientCommandSink(DevialetClient(transport: transport), ceilingDb: () => -10);
-    await sink.selectSource('192.0.2.22', 3);
-    expect(transport.sentPairs, isEmpty);
+    var ceiling = -10.0;
+    final sink = DevialetClientCommandSink(DevialetClient(transport: transport), ceilingDb: () => ceiling);
+    await sink.selectSource('192.0.2.22', 3, postSwitchDb: -40);
+    expect(transport.sentPairs, hasLength(2));
+    expect(transport.sentPairs[0].first.sublist(6, 10), bytesOf(CommandPayloads.selectSource(3)));
+    expect(transport.sentPairs[1].first.sublist(6, 10), bytesOf(CommandPayloads.setVolume(-40, maxDb: null)));
+    expect(transport.sentPairs.map((p) => p.host), ['192.0.2.22', '192.0.2.22']);
+
+    transport.sentPairs.clear();
+    ceiling = -45.0;
+    await sink.selectSource('192.0.2.22', 3, postSwitchDb: -40);
+    expect(
+      transport.sentPairs[1].first.sublist(6, 10),
+      bytesOf(CommandPayloads.setVolume(-45, maxDb: null)),
+      reason: 'the wire ceiling is the second clamp on the forced volume (gotcha #6)',
+    );
   });
 }

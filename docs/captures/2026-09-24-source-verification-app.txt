@@ -1,0 +1,83 @@
+09-24 20:53:21.242 I/flutter (23880): [amp] 57975ms sheet kind=none
+09-24 20:53:23.406 I/flutter (23880): [amp] 60139ms sheet kind=source
+09-24 20:53:25.056 I/flutter (23880): [amp] 61790ms view power=on db=-40.0 muted=false hasAmp=true source=1
+09-24 20:53:25.057 I/flutter (23880): [amp] 61791ms send source ip=192.168.0.22 index=1 db=-40.0 ceiling=-25.0
+09-24 20:53:25.062 I/flutter (23880): [amp] 61796ms sheet kind=none
+09-24 20:53:25.146 I/flutter (23880): [amp] 61880ms rx ip=192.168.0.22 power=on raw=115 db=-40.0 source=1
+09-24 20:53:28.219 I/flutter (23880): [amp] 64952ms sheet kind=source
+09-24 20:53:29.863 I/flutter (23880): [amp] 66597ms view power=on db=-40.0 muted=false hasAmp=true source=2
+09-24 20:53:29.863 I/flutter (23880): [amp] 66597ms send source ip=192.168.0.22 index=2 db=-40.0 ceiling=-25.0
+09-24 20:53:29.864 I/flutter (23880): [amp] 66598ms sheet kind=none
+09-24 20:53:29.948 I/flutter (23880): [amp] 66682ms rx ip=192.168.0.22 power=on raw=115 db=-40.0 source=2
+09-24 20:53:33.034 I/flutter (23880): [amp] 69768ms sheet kind=source
+09-24 20:53:34.678 I/flutter (23880): [amp] 71411ms view power=on db=-40.0 muted=false hasAmp=true source=3
+09-24 20:53:34.678 I/flutter (23880): [amp] 71412ms send source ip=192.168.0.22 index=3 db=-40.0 ceiling=-25.0
+09-24 20:53:34.679 I/flutter (23880): [amp] 71413ms sheet kind=none
+09-24 20:53:34.751 I/flutter (23880): [amp] 71485ms rx ip=192.168.0.22 power=on raw=115 db=-40.0 source=3
+09-24 20:53:37.848 I/flutter (23880): [amp] 74582ms sheet kind=source
+09-24 20:53:39.481 I/flutter (23880): [amp] 76214ms view power=on db=-40.0 muted=false hasAmp=true source=4
+09-24 20:53:39.481 I/flutter (23880): [amp] 76214ms send source ip=192.168.0.22 index=4 db=-40.0 ceiling=-25.0
+09-24 20:53:39.482 I/flutter (23880): [amp] 76215ms sheet kind=none
+09-24 20:53:39.547 I/flutter (23880): [amp] 76281ms rx ip=192.168.0.22 power=on raw=115 db=-40.0 source=4
+09-24 20:53:42.662 I/flutter (23880): [amp] 79395ms sheet kind=source
+09-24 20:53:44.296 I/flutter (23880): [amp] 81030ms view power=on db=-40.0 muted=false hasAmp=true source=14
+09-24 20:53:44.297 I/flutter (23880): [amp] 81030ms send source ip=192.168.0.22 index=14 db=-40.0 ceiling=-25.0
+09-24 20:53:44.297 I/flutter (23880): [amp] 81031ms sheet kind=none
+09-24 20:53:44.346 I/flutter (23880): [amp] 81080ms rx ip=192.168.0.22 power=on raw=115 db=-40.0 source=14
+09-24 20:53:47.479 I/flutter (23880): [amp] 84212ms sheet kind=source
+09-24 20:53:49.130 I/flutter (23880): [amp] 85864ms view power=on db=-40.0 muted=false hasAmp=true source=0
+09-24 20:53:49.130 I/flutter (23880): [amp] 85864ms send source ip=192.168.0.22 index=0 db=-40.0 ceiling=-25.0
+09-24 20:53:49.132 I/flutter (23880): [amp] 85865ms sheet kind=none
+09-24 20:53:49.154 I/flutter (23880): [amp] 85888ms rx ip=192.168.0.22 power=on raw=115 db=-40.0 source=0
+09-24 20:53:52.284 I/flutter (23880): [amp] 89018ms view power=on db=-41.0 muted=false hasAmp=true source=0
+09-24 20:53:52.284 I/flutter (23880): [amp] 89018ms send volume ip=192.168.0.22 db=-41.0 ceiling=-25.0
+09-24 20:53:52.347 I/flutter (23880): [amp] 89080ms rx ip=192.168.0.22 power=on raw=113 db=-41.0 source=0
+09-24 20:53:52.789 I/flutter (23880): [amp] 89523ms view power=on db=-42.0 muted=false hasAmp=true source=0
+09-24 20:53:52.789 I/flutter (23880): [amp] 89523ms send volume ip=192.168.0.22 db=-42.0 ceiling=-25.0
+09-24 20:53:53.156 I/flutter (23880): [amp] 89890ms rx ip=192.168.0.22 power=on raw=111 db=-42.0 source=0
+09-24 20:53:53.276 I/flutter (23880): [amp] 90010ms view power=on db=-43.0 muted=false hasAmp=true source=0
+09-24 20:53:53.276 I/flutter (23880): [amp] 90010ms send volume ip=192.168.0.22 db=-43.0 ceiling=-25.0
+09-24 20:53:53.348 I/flutter (23880): [amp] 90081ms rx ip=192.168.0.22 power=on raw=109 db=-43.0 source=0
+09-24 20:53:53.819 I/flutter (23880): [amp] 90553ms view power=on db=-44.0 muted=false hasAmp=true source=0
+09-24 20:53:53.819 I/flutter (23880): [amp] 90553ms send volume ip=192.168.0.22 db=-44.0 ceiling=-25.0
+09-24 20:53:53.948 I/flutter (23880): [amp] 90682ms rx ip=192.168.0.22 power=on raw=107 db=-44.0 source=0
+09-24 20:53:54.434 I/flutter (23880): [amp] 91168ms view power=on db=-45.0 muted=false hasAmp=true source=0
+09-24 20:53:54.434 I/flutter (23880): [amp] 91168ms send volume ip=192.168.0.22 db=-45.0 ceiling=-25.0
+09-24 20:53:54.585 I/flutter (23880): [amp] 91319ms rx ip=192.168.0.22 power=on raw=105 db=-45.0 source=0
+09-24 20:53:56.939 I/flutter (23880): [amp] 93673ms sheet kind=source
+09-24 20:53:58.633 I/flutter (23880): [amp] 95367ms view power=on db=-40.0 muted=false hasAmp=true source=1
+09-24 20:53:58.633 I/flutter (23880): [amp] 95367ms send source ip=192.168.0.22 index=1 db=-40.0 ceiling=-25.0
+09-24 20:53:58.634 I/flutter (23880): [amp] 95368ms sheet kind=none
+09-24 20:53:58.789 I/flutter (23880): [amp] 95522ms rx ip=192.168.0.22 power=on raw=115 db=-40.0 source=1
+09-24 20:54:01.701 I/flutter (23880): [amp] 98435ms view power=on db=-40.0 muted=true hasAmp=true source=1
+09-24 20:54:01.701 I/flutter (23880): [amp] 98435ms send mute ip=192.168.0.22 muted=true
+09-24 20:54:02.161 I/flutter (23880): [amp] 98895ms view power=on db=-40.0 muted=false hasAmp=true source=1
+09-24 20:54:03.851 I/flutter (23880): [amp] 100585ms sheet kind=source
+09-24 20:54:05.509 I/flutter (23880): [amp] 102243ms view power=on db=-40.0 muted=false hasAmp=true source=2
+09-24 20:54:05.509 I/flutter (23880): [amp] 102243ms send source ip=192.168.0.22 index=2 db=-40.0 ceiling=-25.0
+09-24 20:54:05.511 I/flutter (23880): [amp] 102244ms sheet kind=none
+09-24 20:54:05.546 I/flutter (23880): [amp] 102280ms rx ip=192.168.0.22 power=on raw=115 db=-40.0 source=2
+09-24 20:54:08.678 I/flutter (23880): [amp] 105412ms view power=on db=-40.0 muted=true hasAmp=true source=2
+09-24 20:54:08.678 I/flutter (23880): [amp] 105412ms send mute ip=192.168.0.22 muted=true
+09-24 20:54:09.228 I/flutter (23880): [amp] 105962ms view power=on db=-40.0 muted=false hasAmp=true source=2
+09-24 20:54:10.830 I/flutter (23880): [amp] 107564ms sheet kind=source
+09-24 20:54:12.456 I/flutter (23880): [amp] 109189ms view power=on db=-40.0 muted=false hasAmp=true source=3
+09-24 20:54:12.456 I/flutter (23880): [amp] 109189ms send source ip=192.168.0.22 index=3 db=-40.0 ceiling=-25.0
+09-24 20:54:12.457 I/flutter (23880): [amp] 109190ms sheet kind=none
+09-24 20:54:12.546 I/flutter (23880): [amp] 109279ms rx ip=192.168.0.22 power=on raw=115 db=-40.0 source=3
+09-24 20:54:12.883 I/flutter (23880): [amp] 109616ms sheet kind=source
+09-24 20:54:13.377 I/flutter (23880): [amp] 110111ms view power=on db=-40.0 muted=false hasAmp=true source=4
+09-24 20:54:13.377 I/flutter (23880): [amp] 110111ms send source ip=192.168.0.22 index=4 db=-40.0 ceiling=-25.0
+09-24 20:54:13.378 I/flutter (23880): [amp] 110112ms sheet kind=none
+09-24 20:54:13.547 I/flutter (23880): [amp] 110280ms rx ip=192.168.0.22 power=on raw=115 db=-40.0 source=4
+09-24 20:54:16.438 I/flutter (23880): [amp] 113172ms sheet kind=source
+09-24 20:54:18.393 I/flutter (23880): [amp] 115127ms sheet kind=none
+09-24 20:54:20.551 I/flutter (23880): [amp] 117285ms sheet kind=source
+09-24 20:54:22.187 I/flutter (23880): [amp] 118920ms sheet kind=none
+09-24 20:54:24.331 I/flutter (23880): [amp] 121064ms sheet kind=source
+09-24 20:54:26.229 I/flutter (23880): [amp] 122962ms sheet kind=none
+09-24 20:54:28.330 I/flutter (23880): [amp] 125063ms sheet kind=source
+09-24 20:54:29.964 I/flutter (23880): [amp] 126697ms view power=on db=-40.0 muted=false hasAmp=true source=0
+09-24 20:54:29.964 I/flutter (23880): [amp] 126697ms send source ip=192.168.0.22 index=0 db=-40.0 ceiling=-25.0
+09-24 20:54:29.965 I/flutter (23880): [amp] 126698ms sheet kind=none
+09-24 20:54:30.220 I/flutter (23880): [amp] 126954ms rx ip=192.168.0.22 power=on raw=115 db=-40.0 source=0

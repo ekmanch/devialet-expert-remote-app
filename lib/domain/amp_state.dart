@@ -18,6 +18,7 @@ class AmpState {
     required this.ceilingDb,
     required this.startupVolumeDb,
     required this.stepDb,
+    this.visibleSheet = SheetKind.none,
   });
 
   /// Defaults mirror `AppSettings.defaults`; the owner overrides them with
@@ -58,6 +59,10 @@ class AmpState {
   /// One discrete input (VOL ± tap or repeat tick) moves this much and the
   /// dial snaps to it (Task 3.6.0). Persisted setting (0.5 / 1 / 2).
   final double stepDb;
+
+  /// The one sheet slot (Task 3.8.2 / 3.0.6); see [ControlViewState.visibleSheet].
+  /// Transient UI state, deliberately not persisted.
+  final SheetKind visibleSheet;
 
   /// Task 3.6.2: the one clamp every volume write passes through
   /// (min/max, idempotent — `clamp(clamp(x)) == clamp(x)`).
@@ -140,6 +145,7 @@ class AmpState {
     double? ceilingDb,
     double? startupVolumeDb,
     double? stepDb,
+    SheetKind? visibleSheet,
   }) {
     return AmpState(
       amps: amps ?? this.amps,
@@ -150,6 +156,7 @@ class AmpState {
       ceilingDb: ceilingDb ?? this.ceilingDb,
       startupVolumeDb: startupVolumeDb ?? this.startupVolumeDb,
       stepDb: stepDb ?? this.stepDb,
+      visibleSheet: visibleSheet ?? this.visibleSheet,
     );
   }
 }
@@ -237,6 +244,7 @@ ControlViewState deriveControlView(AmpState s) {
       stepDb: s.stepDb,
       sources: const <SourceItem>[],
       activeSourceIndex: null,
+      visibleSheet: s.visibleSheet,
     );
   }
 
@@ -256,6 +264,7 @@ ControlViewState deriveControlView(AmpState s) {
         if (slot.isEnabled) SourceItem(index: slot.index, name: slot.name),
     ],
     activeSourceIndex: amp.displayedSourceIndex,
+    visibleSheet: s.visibleSheet,
   );
 }
 
