@@ -188,7 +188,7 @@ Two layers of indirection, both load-bearing:
    (`docs/known-gotchas.md` #3). A lookup table remaps known status
    indices to command values:
 
-   | Status index | Command value | Wire bytes 8–9 | Confidence |
+   | Status index | Kotlin "command value" (historical) | Wire bytes 8–9 | Confidence |
    |---|---|---|---|
    | 0 | −1 | `FF E0` | confirmed (KDE); ✔ = float NaN → slot 0 |
    | 1 | *(hardcoded, not in the map)* | `3F 80` | confirmed on **two** amps (KDE) |
@@ -197,16 +197,25 @@ Two layers of indirection, both load-bearing:
    | 4 | 4 | `40 80` | confirmed (KDE) |
    | 5 | 5 | `40 A0` | confirmed (KDE) |
    | 14 | 14 | `41 60` | confirmed (Galaxy S25 2026-08-20; KDE) |
-   | other | = status index (raw fallback) | e.g. 9 → `41 10` | ✔ correct for 6–15 only; **wrong for 16–29** (Task 1.1.4) |
+   | other | — | `bfloat16(index)`, e.g. 9 → `41 10`, 16 → `41 80`, 29 → `41 E8` | ✔ 6–15 confirmed by the 2026-09-19 run (the old formula coincided there); 16–29 predicted by the float model, **not confirmable on the owner's unit** (Task 1.1.4, 2026-09-24) |
 
-   Source: `DevialetController.SOURCE_COMMAND_VALUE`;
-   `SourceMapping._commandValueByStatusIndex`. All wire bytes above were
-   reproduced by `CommandPayloads.selectSource` on 2026-09-15.
+   Source: `DevialetController.SOURCE_COMMAND_VALUE` (Kotlin, the
+   "command value" column); **Dart since Task 1.1.4 (2026-09-24):**
+   `SourceMapping._pinnedPayloadByStatusIndex` holds the six confirmed
+   pairs as **literal bytes** (two of them are not `bfloat16(index)`:
+   slot 0 is NaN and slot 3 is 3.5) and everything else is
+   `SourceMapping.encodeSelectPayload` = the top 16 bits of
+   `float32(index)`; index 1's literal lives in `CommandPayloads`. The
+   Kotlin-era "command value" indirection and its signed bit-packing are
+   gone from the code; `tool/protocol_probe/proto.py::src_payload` mirrors
+   the same two tiers and `xcheck.dart` proves both emit identical bytes
+   for 0–5, 9, 14, 16 and 29.
 
-   Index 0's command value is −1, so the packing below **needs signed
-   arithmetic**: `0x4000 | (−1 << 5)` must yield `…FFE0` (Dart ints are
-   64-bit signed, so `-32`; `hi = (-32 >> 8) & 0xFF = 0xFF`, `lo = 0xE0`).
-   A 16-bit unsigned transcription would produce `0x3FE0` — wrong.
+   **Status-side limit:** the active-source field at offset 563 is 4 bits
+   wide (`0x3C >> 2`, 0–15), so a slot ≥ 16 can be *selected* by the
+   command but never *confirmed* by a broadcast — the pending mask would
+   expire at 400 ms and the card snap back. No known unit enables such a
+   slot; recorded so the symptom is not mistaken for a dropped command.
 
    ★ **Names are per-unit, numbers are not.** The names historically
    attached to this table ("Optical 1", "Phono", "UPnP", "Roon Ready",
@@ -255,18 +264,18 @@ Two layers of indirection, both load-bearing:
 
 2. **Bit packing**, once the command value (`cmdValue`) is resolved:
    ```
-   outVal = 0x4000 | (cmdValue << 5)
-   byte8 (hi) = (outVal >> 8) & 0xFF
-   byte9 (lo) = cmdValue > 7 ? (outVal & 0xFF) >> 1 : (outVal & 0xFF)
+   word  = top 16 bits of IEEE-754 float32(index)   // bfloat16(index)
+   byte8 = word >> 8, byte9 = word & 0xFF
    ```
-   ✔ **The `>> 1` is explained (2026-09-19):** for `cmdValue` 6–7 the
-   formula yields `float32(v)` directly, and for 8–15 halving the low byte
-   lands on `float32(v)` as well (`41 60` = 14.0; without the halving,
-   `41 C0` = 24.0 was a no-op). The table's own entries land on 2.0 / 3.5
-   / 4.0 / 5.0. **For `cmdValue` ≥ 16 the formula yields 32.0, 36.0, … —
-   indices 16–29 are unreachable with the current encoder** (no-ops on the
-   amp). Task 1.1.4 replaces the general case with the float encoding; the
-   seven table entries keep their pinned bytes.
+   Historical note (retired 2026-09-24, Task 1.1.4): the Kotlin/KDE
+   encoder was `outVal = 0x4000 | (cmdValue << 5)`, with the low byte
+   halved for `cmdValue > 7`. ✔ 2026-09-19 explained why it worked: for
+   6–7 it yields `float32(v)` directly and for 8–15 the halving lands on
+   `float32(v)` too (`41 60` = 14.0; without it `41 C0` = 24.0 was a
+   no-op), while for ≥ 16 it produced 32.0, 36.0, … — silent no-ops. The
+   float encoding gives the same bytes for 6–15 (pinned by
+   `command_payloads_test.dart` against the retired formula inlined) and
+   16.0…29.0 for the rest.
    Source: `SourceMapping.encodeSelectPayload`.
 
 3. **Forced volume after every source switch** — see "Per-input volume
@@ -457,9 +466,9 @@ finding as a slot 9 → 14 alias on this unit; ✔ the volume word as
 (26/26 more on 2026-09-19); boot time 15.0–18.6 s; volume and mute
 independence.
 
-**Inferred / unverified:** the raw fallback for an *enabled* unmapped
-index (no such slot on the owner's unit; the float model predicts
-`bfloat16(index)`); whether the slot 9 → 14 alias exists on other units;
+**Inferred / unverified:** `bfloat16(index)` for an *enabled* slot
+≥ 16 (no such slot on the owner's unit; the float model predicts it and
+the encoder sends it since Task 1.1.4); whether the slot 9 → 14 alias exists on other units;
 Wi-Fi broadcast loss/delay **on the phones** (only the desktop adapter
 was measured); front-panel/remote volume changes on a running amp (never
 tested); real two-amp mDNS (needs a second physical amp on the same LAN);
@@ -485,4 +494,4 @@ TODO.md; nothing changed in code during the doc pass):
 | 4 | Source names in code comments | Per-unit, never assume a name for an index | ~~Kotlin-era names in comments; `phonoStatusIndex` identifier~~ | **Resolved, Task 1.1.2** (2026-09-19) |
 | 5 | Golden vectors in tests | `"123456789" → 0x29B1`, power-on → `A0 BD`, `1.0/15.0/40.0 → 3F80/4170/4220`, status `111 → −42.0`, all seven source byte pairs | ~~Only `0x84F9` (12 zeros) and structural checks were in the suite~~ | **Resolved, Task 1.1.1** (2026-09-19); power-off `E5 1D` added from the KDE suite |
 | 6 | Send failure | Domain layer must roll back optimistic state | No domain layer yet; `sendTwice` just propagates | State-owner phase |
-| 7 | Select-source fallback, indices ≥ 16 | `bfloat16(index)` (✔ float model, 2026-09-19) | `0x4000 \| (i << 5)` with `>> 1` → 32.0, 36.0, … (no-ops) | **Task 1.1.4** |
+| 7 | Select-source fallback, indices ≥ 16 | `bfloat16(index)` (✔ float model, 2026-09-19) | ~~`0x4000 \| (i << 5)` with `>> 1` → 32.0, 36.0, … (no-ops)~~ | **Resolved, Task 1.1.4** (2026-09-24); pinned 16 → `41 80`, 29 → `41 E8`, unconfirmable on this unit |

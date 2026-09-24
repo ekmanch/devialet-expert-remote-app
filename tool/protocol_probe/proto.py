@@ -29,10 +29,10 @@ def vol_word(db, maxdb=-15.0):
 def bf16(x): return struct.unpack(">H", struct.pack(">f", x)[:2])[0]
 def vol_payload(db, maxdb=-15.0):
     w = vol_word(db, maxdb); return (0x00, 0x04, w>>8, w&0xFF)
+# Pinned byte pairs (confirmed on two amps; 0 is NaN, 3 is 3.5), else
+# bfloat16(idx) — mirrors lib/networking/source_mapping.dart (Task 1.1.4).
+SRC_PINNED = {0:0xFFE0, 1:0x3F80, 2:0x4000, 3:0x4060, 4:0x4080, 5:0x40A0, 14:0x4160}
 def src_payload(idx):
-    if idx == 1: return (0x00,0x05,0x3F,0x80)
-    cmd = {0:-1,2:0,3:3,4:4,5:5,14:14}.get(idx, idx)
-    out = 0x4000 | (cmd << 5)
-    hi = (out >> 8) & 0xFF; lo = ((out & 0xFF) >> 1) if cmd > 7 else (out & 0xFF)
-    return (0x00,0x05,hi,lo)
+    w = SRC_PINNED[idx] if idx in SRC_PINNED else bf16(float(idx))
+    return (0x00,0x05,(w>>8)&0xFF,w&0xFF)
 MUTE_ON=(0x01,0x07); MUTE_OFF=(0x00,0x07); POWER_ON=(0x01,0x01); POWER_OFF=(0x00,0x01)

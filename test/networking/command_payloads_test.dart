@@ -75,41 +75,42 @@ void main() {
     });
   });
 
-  group('SourceMapping — status index -> command value table from docs/protocol.md', () {
-    test('known indices map to their documented command values', () {
-      // Numbers only — names are per-unit (docs/protocol.md).
-      expect(SourceMapping.commandValueForStatusIndex(0), -1);
-      expect(SourceMapping.commandValueForStatusIndex(2), 0);
-      expect(SourceMapping.commandValueForStatusIndex(3), 3);
-      expect(SourceMapping.commandValueForStatusIndex(4), 4);
-      expect(SourceMapping.commandValueForStatusIndex(5), 5);
-      expect(SourceMapping.commandValueForStatusIndex(14), 14);
+  group('SourceMapping — pinned bytes, else bfloat16(index) (Task 1.1.4, 2026-09-24)', () {
+    /// The retired formula, inlined so the test does not depend on it
+    /// surviving anywhere in `lib/`.
+    (int, int) retiredFormula(int cmdValue) {
+      final outVal = 0x4000 | (cmdValue << 5);
+      final hi = (outVal >> 8) & 0xFF;
+      final lo = cmdValue > 7 ? (outVal & 0xFF) >> 1 : (outVal & 0xFF);
+      return (hi, lo);
+    }
+
+    test('unpinned 6-15 encode identically to the retired 0x4000 | (i << 5) formula (the two coincide there)', () {
+      for (var i = 6; i <= 15; i++) {
+        expect(SourceMapping.selectPayloadBytes(i), retiredFormula(i), reason: 'index $i');
+        expect(SourceMapping.encodeSelectPayload(i), retiredFormula(i), reason: 'index $i');
+      }
     });
 
-    test('unmapped indices fall back to the raw status index (correct for 6-15 only, Task 1.1.4)', () {
-      expect(SourceMapping.commandValueForStatusIndex(9), 9);
+    test('16-29 encode as bfloat16(index): 16 -> 41 80, 29 -> 41 E8 (NOT confirmable on the owner\'s unit, no enabled slot >= 6; the retired formula produced 32.0, 36.0, ... no-ops)', () {
+      expect(SourceMapping.selectPayloadBytes(16), (0x41, 0x80));
+      expect(SourceMapping.selectPayloadBytes(29), (0x41, 0xE8));
+      // End-to-end through the payload builder, so the pinned table cannot
+      // shadow the general case for these indices.
+      final p16 = CommandPayloads.selectSource(16);
+      final p29 = CommandPayloads.selectSource(29);
+      expect((p16.byte8, p16.byte9), (0x41, 0x80));
+      expect((p29.byte8, p29.byte9), (0x41, 0xE8));
+      // The retired formula disagrees here — the whole point of 1.1.4.
+      expect(retiredFormula(16), isNot((0x41, 0x80)));
+      expect(retiredFormula(29), isNot((0x41, 0xE8)));
     });
 
-    test('bit-packing formula: outVal = 0x4000 | (cmdValue << 5)', () {
-      // cmdValue = 4, <= 7 so no extra >>1 on lo.
-      final (hi, lo) = SourceMapping.encodeSelectPayload(4);
-      final outVal = 0x4000 | (4 << 5);
-      expect(hi, (outVal >> 8) & 0xFF);
-      expect(lo, outVal & 0xFF);
-    });
-
-    test('cmdValue > 7 applies the extra >>1 shift on lo (lands on float32(v) for 8-15, verified 2026-09-19)', () {
-      // cmdValue = 14, > 7 so lo gets an extra >>1.
-      final (hi, lo) = SourceMapping.encodeSelectPayload(14);
-      final outVal = 0x4000 | (14 << 5);
-      expect(hi, (outVal >> 8) & 0xFF);
-      expect(lo, (outVal & 0xFF) >> 1);
-    });
-
-    test('negative cmdValue (status index 0 = -1) encodes without throwing', () {
-      final (hi, lo) = SourceMapping.encodeSelectPayload(-1);
-      expect(hi, 0xFF);
-      expect(lo, 0xE0);
+    test('the pinned pairs are bytes, not float32(index): slot 0 is NaN and slot 3 is 3.5', () {
+      expect(SourceMapping.selectPayloadBytes(0), (0xFF, 0xE0));
+      expect(SourceMapping.encodeSelectPayload(0), (0x00, 0x00));
+      expect(SourceMapping.selectPayloadBytes(3), (0x40, 0x60));
+      expect(SourceMapping.encodeSelectPayload(3), (0x40, 0x40));
     });
   });
 }

@@ -23,14 +23,15 @@ abstract final class CommandPayloads {
 
   /// Bytes found via Wireshark (per `gnulabis/devimote` issue #2, per code
   /// comment cited in protocol.md). They are `float32(1.0)`'s top half
-  /// (verified 2026-09-19), which the general bit-packing formula does not
-  /// produce for cmdValue 1, so it stays special-cased.
+  /// (verified 2026-09-19) — the same value the float encoding gives, kept
+  /// as its own literal because it was the first pair ever confirmed.
   static const _hardcodedSelectPayload = CommandPayload(byte6: 0x00, byte7: 0x05, byte8: 0x3F, byte9: 0x80);
 
+  /// Index 1's literal, then the six pinned pairs, then `bfloat16(index)`
+  /// (Task 1.1.4) — see [SourceMapping].
   static CommandPayload selectSource(int statusIndex) {
     if (statusIndex == hardcodedSelectStatusIndex) return _hardcodedSelectPayload;
-    final cmdValue = SourceMapping.commandValueForStatusIndex(statusIndex);
-    final (hi, lo) = SourceMapping.encodeSelectPayload(cmdValue);
+    final (hi, lo) = SourceMapping.selectPayloadBytes(statusIndex);
     return CommandPayload(byte6: 0x00, byte7: 0x05, byte8: hi, byte9: lo);
   }
 }

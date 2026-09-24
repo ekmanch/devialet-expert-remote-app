@@ -134,7 +134,7 @@ Small, wire-level, unit-testable; no domain layer needed. Details in
       28). Done 2026-09-20 with 3.4.7 / 3.4.8 (the analyzer proves the
       parameter is required; the probe tool's cross-check passes −15
       explicitly to keep its golden bytes).
-- [ ] **1.1.4** — **Encode the select-source fallback as `bfloat16(index)`.**
+- [x] **1.1.4** — **Encode the select-source fallback as `bfloat16(index)`.**
       ✔ 2026-09-19 (`docs/protocol-verification-2026-09-19.md`): the
       payload is the top 16 bits of `float32(index)`, truncated by the
       amp; the current `0x4000 | (i << 5)` + `>> 1` formula only
@@ -144,7 +144,16 @@ Small, wire-level, unit-testable; no domain layer needed. Details in
       `SourceMapping.encodeSelectPayload`'s general case, pin
       `16 → 41 80` and `29 → 41 E8`, and retire the `>> 1` comment. Not
       confirmable on the owner's unit (no enabled slot ≥ 6) — say so in
-      the test name.
+      the test name. Done 2026-09-24 with 3.8.x: the six pinned pairs
+      are now a **byte** map (`SourceMapping._pinnedPayloadByStatusIndex`
+      — two of them, slot 0 = NaN and slot 3 = 3.5, are not
+      `bfloat16(index)`, so the Kotlin "command value" indirection could
+      not feed the float formula and is gone), `encodeSelectPayload` is
+      `bfloat16(index)`; tests pin 16/29, prove 6–15 unchanged against
+      the retired formula inlined, and say "NOT confirmable" in the name;
+      `proto.py` mirrors it and `xcheck.dart` agrees for 16 and 29.
+      Recorded limit: the status byte's active-source field is 4 bits, so
+      a slot ≥ 16 could never be *confirmed* by a broadcast either.
 
 ## Protocol verification (unnumbered, runs alongside)
 
