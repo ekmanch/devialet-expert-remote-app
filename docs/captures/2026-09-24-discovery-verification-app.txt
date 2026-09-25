@@ -1,0 +1,108 @@
+# 2026-09-24 discovery / mDNS verification — S25 debug build, [amp] trace (adb logcat -s flutter)
+
+## cold launch 1 (real amp 192.168.0.22 persisted)
+09-24 23:31:05.417 I/flutter (12164): [amp] 5ms mdns session open reason=start
+09-24 23:31:05.582 I/flutter (12164): [amp] 171ms rx ip=192.168.0.22 power=on raw=145 db=-25.0 source=0
+09-24 23:31:05.583 I/flutter (12164): [amp] 172ms view power=on db=-25.0 muted=false hasAmp=true source=0
+09-24 23:31:05.699 I/flutter (12164): [amp] 288ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:31:05.700 I/flutter (12164): [amp] 290ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:31:05.700 I/flutter (12164): [amp] 290ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:31:05.701 I/flutter (12164): [amp] 291ms mdns session close reason=resolved
+
+## cold launch 2 (real amp 192.168.0.22 persisted)
+09-24 23:31:13.864 I/flutter (12327): [amp] 5ms mdns session open reason=start
+09-24 23:31:14.017 I/flutter (12327): [amp] 159ms rx ip=192.168.0.22 power=on raw=145 db=-25.0 source=0
+09-24 23:31:14.018 I/flutter (12327): [amp] 161ms view power=on db=-25.0 muted=false hasAmp=true source=0
+09-24 23:31:14.160 I/flutter (12327): [amp] 303ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:31:14.162 I/flutter (12327): [amp] 305ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:31:14.162 I/flutter (12327): [amp] 305ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:31:14.162 I/flutter (12327): [amp] 305ms mdns session close reason=resolved
+
+## cold launch 3 (real amp 192.168.0.22 persisted)
+09-24 23:31:22.233 I/flutter (12529): [amp] 5ms mdns session open reason=start
+09-24 23:31:22.385 I/flutter (12529): [amp] 158ms rx ip=192.168.0.22 power=on raw=145 db=-25.0 source=0
+09-24 23:31:22.386 I/flutter (12529): [amp] 160ms view power=on db=-25.0 muted=false hasAmp=true source=0
+09-24 23:31:22.539 I/flutter (12529): [amp] 313ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:31:22.541 I/flutter (12529): [amp] 315ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:31:22.541 I/flutter (12529): [amp] 315ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:31:22.542 I/flutter (12529): [amp] 316ms mdns session close reason=resolved
+
+## cold launch 4 (real amp 192.168.0.22 persisted)
+09-24 23:31:30.737 I/flutter (12804): [amp] 5ms mdns session open reason=start
+09-24 23:31:30.939 I/flutter (12804): [amp] 208ms rx ip=192.168.0.22 power=on raw=145 db=-25.0 source=0
+09-24 23:31:30.940 I/flutter (12804): [amp] 209ms view power=on db=-25.0 muted=false hasAmp=true source=0
+09-24 23:31:31.001 I/flutter (12804): [amp] 270ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:31:31.002 I/flutter (12804): [amp] 271ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:31:31.002 I/flutter (12804): [amp] 271ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:31:31.002 I/flutter (12804): [amp] 272ms mdns session close reason=resolved
+
+## cold launch 5 (real amp 192.168.0.22 persisted)
+09-24 23:31:39.240 I/flutter (13161): [amp] 5ms mdns session open reason=start
+09-24 23:31:39.392 I/flutter (13161): [amp] 158ms rx ip=192.168.0.22 power=on raw=145 db=-25.0 source=0
+09-24 23:31:39.393 I/flutter (13161): [amp] 160ms view power=on db=-25.0 muted=false hasAmp=true source=0
+09-24 23:31:39.543 I/flutter (13161): [amp] 310ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:31:39.544 I/flutter (13161): [amp] 311ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:31:39.544 I/flutter (13161): [amp] 311ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:31:39.545 I/flutter (13161): [amp] 312ms mdns session close reason=resolved
+
+## relaunch with a typed TEST-NET IP (192.0.2.9) persisted, fake _spotify-connect._tcp advertised from the dev machine
+09-24 23:32:53.475 I/flutter (13721): [amp] 5ms mdns session open reason=start
+09-24 23:32:53.781 I/flutter (13721): [amp] 312ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:32:53.783 I/flutter (13721): [amp] 315ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:32:53.783 I/flutter (13721): [amp] 315ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:32:53.784 I/flutter (13721): [amp] 316ms mdns session close reason=resolved
+09-24 23:33:00.441 I/flutter (13721): [amp] 6973ms sheet kind=amp
+
+## trust-gate run 1 (fake service 'Fake Connect' / ekmanch-3.local advertised)
+09-24 23:33:46.402 I/flutter (14146): [amp] 5ms mdns session open reason=start
+09-24 23:33:46.690 I/flutter (14146): [amp] 294ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:33:46.692 I/flutter (14146): [amp] 297ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:33:46.692 I/flutter (14146): [amp] 297ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:33:46.693 I/flutter (14146): [amp] 298ms mdns session close reason=resolved
+
+## trust-gate run 2 (fake service 'Fake Connect' / ekmanch-3.local advertised)
+09-24 23:33:52.861 I/flutter (14300): [amp] 5ms mdns session open reason=start
+09-24 23:33:53.147 I/flutter (14300): [amp] 293ms mdns hit host=ekmanch-3.local ip=192.168.0.134 known=false
+09-24 23:33:53.148 I/flutter (14300): [amp] 294ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:33:53.150 I/flutter (14300): [amp] 295ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:33:53.150 I/flutter (14300): [amp] 296ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:33:53.150 I/flutter (14300): [amp] 296ms mdns session close reason=resolved
+
+## trust-gate run 3 (fake service 'Fake Connect' / ekmanch-3.local advertised)
+09-24 23:33:59.318 I/flutter (14434): [amp] 5ms mdns session open reason=start
+09-24 23:33:59.566 I/flutter (14434): [amp] 254ms mdns hit host=ekmanch-3.local ip=192.168.0.134 known=false
+09-24 23:33:59.566 I/flutter (14434): [amp] 254ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:33:59.567 I/flutter (14434): [amp] 255ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:33:59.567 I/flutter (14434): [amp] 255ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:33:59.567 I/flutter (14434): [amp] 255ms mdns session close reason=resolved
+
+## trust-gate run 4 (fake service 'Fake Connect' / ekmanch-3.local advertised)
+09-24 23:34:05.767 I/flutter (14588): [amp] 5ms mdns session open reason=start
+09-24 23:34:06.023 I/flutter (14588): [amp] 262ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:34:06.024 I/flutter (14588): [amp] 263ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:34:06.024 I/flutter (14588): [amp] 264ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:34:06.024 I/flutter (14588): [amp] 264ms mdns session close reason=resolved
+
+## trust-gate run 5 (fake service 'Fake Connect' / ekmanch-3.local advertised)
+09-24 23:34:12.214 I/flutter (14742): [amp] 5ms mdns session open reason=start
+09-24 23:34:12.507 I/flutter (14742): [amp] 299ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:34:12.510 I/flutter (14742): [amp] 302ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:34:12.510 I/flutter (14742): [amp] 302ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:34:12.510 I/flutter (14742): [amp] 303ms mdns session close reason=resolved
+
+## trust-gate run 6 (fake service 'Fake Connect' / ekmanch-3.local advertised)
+09-24 23:34:18.660 I/flutter (14875): [amp] 5ms mdns session open reason=start
+09-24 23:34:18.942 I/flutter (14875): [amp] 288ms mdns hit host=ekmanch-3.local ip=192.168.0.134 known=false
+09-24 23:34:18.968 I/flutter (14875): [amp] 314ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:34:18.970 I/flutter (14875): [amp] 316ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:34:18.970 I/flutter (14875): [amp] 317ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:34:18.970 I/flutter (14875): [amp] 317ms mdns session close reason=resolved
+
+## relaunch with the real amp re-selected
+09-24 23:34:49.699 I/flutter (15145): [amp] 5ms mdns session open reason=start
+09-24 23:34:49.849 I/flutter (15145): [amp] 155ms rx ip=192.168.0.22 power=on raw=145 db=-25.0 source=0
+09-24 23:34:49.850 I/flutter (15145): [amp] 156ms view power=on db=-25.0 muted=false hasAmp=true source=0
+09-24 23:34:49.956 I/flutter (15145): [amp] 263ms mdns hit host=Expert140Pro-K48A00904ZE1V.local ip=192.168.0.22 known=true
+09-24 23:34:49.957 I/flutter (15145): [amp] 264ms model ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:34:49.957 I/flutter (15145): [amp] 264ms mdns applied ip=192.168.0.22 model=Devialet Expert 140 Pro
+09-24 23:34:49.958 I/flutter (15145): [amp] 265ms mdns session close reason=resolved

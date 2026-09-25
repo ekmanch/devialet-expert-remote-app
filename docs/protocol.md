@@ -433,7 +433,17 @@ Full write-ups: `docs/known-gotchas.md` #8 and #9. Summary:
 ## mDNS model-name resolution — [Shared]
 
 Not part of the Devialet UDP protocol; a separate, best-effort mechanism
-for a nicer "make/model" label. No Dart implementation yet.
+for a nicer "make/model" label. Dart implementation since 2026-09-24
+(Task 3.9.5): `lib/networking/model_name.dart` (`parseModelName`),
+`lib/networking/multicast_dns_model_name_source.dart` (Android, desktop),
+`ios/Runner/BonjourModelNameStreamHandler.swift` (iOS),
+`lib/domain/model_name_resolver.dart` (`docs/architecture.md` §17).
+
+**Measured on the real amp, 2026-09-24** (`avahi-browse -rtp
+_spotify-connect._tcp` on the dev machine): instance name `My Devialet`,
+SRV host `Expert140Pro-K48A00904ZE1V.local`, A `192.168.0.22`, port 80,
+TXT `CPath=/spotifyconnect/zeroconf`. The **SRV host name** carries the
+model; the instance name is the friendly name and is useless for it.
 
 - Service type `_spotify-connect._tcp.local.` — not Devialet-specific, so a
   resolution is **only trusted for an IP already heard over UDP**. Match
@@ -444,13 +454,36 @@ for a nicer "make/model" label. No Dart implementation yet.
 - ★ Android's `NsdManager` restart bursts (`RETRY_DELAYS_MS`,
   `STEADY_INTERVAL_MS`, for Samsung Wi-Fi power-save — see
   `docs/app-overview.md`) are an Android artefact, not an mDNS
-  requirement: one continuous browse resolved in < 0.6 s on Linux.
-- `parseModelName`: take the part before the first `-` (whole string if
-  none), trim, empty → null; insert a space at every letter→digit and
-  digit→**uppercase** boundary (digit→lowercase is not one); prefix
-  "Devialet ". `Expert140Pro-K48A…local.` → "Devialet Expert 140 Pro"
-  (the one real case); `2go` → "Devialet 2go"; `Phantom2Reactor900-…` →
-  "Devialet Phantom 2 Reactor 900". Real two-amp mDNS is untested.
+  requirement: one continuous browse resolved in < 0.6 s on Linux. What
+  the bursts were really working around is the Wi-Fi radio filtering
+  multicast: the Flutter port holds `WifiManager.MulticastLock` for the
+  browse session instead (`CHANGE_WIFI_MULTICAST_STATE`).
+- The Flutter port's `multicast_dns` is **one-shot** (a cache hit never
+  re-queries; each packet replaces the cached list), so "one continuous
+  browse" is not available there: the adapter runs a fresh
+  PTR → SRV → A cycle every `kMdnsQueryInterval` (2 s, lookups wait
+  1 s) for as long as a session is open, and the resolver keeps sessions
+  short (closed once every known amp is resolved, or after 60 s). Query
+  name `_spotify-connect._tcp.local` **without** a trailing dot: the
+  package decodes names without one and matches its cache on the exact
+  string. ★ **Measured on the S25, 2026-09-24**
+  (`docs/protocol-verification-2026-09-24-discovery.md`): five cold
+  launches resolved the name **63…157 ms after the first UDP packet**
+  (median 146 ms; 266…310 ms after the session opened), every one inside
+  the first query cycle — so the 2 s / 1 s / 60 s constants never came
+  into play on the happy path and stay as failure-path pacing. A fake
+  `_spotify-connect._tcp` service on the LAN produced `known=false` hits
+  that were never applied (the trust gate, live).
+- `parseModelName`: strip a trailing `.` and `.local` (case-insensitive;
+  a delta from the KDE / Kotlin originals so a hyphen-less host never
+  yields "…Something.local."); take the part before the first `-` (whole
+  string if none), trim, empty → null; insert a space at every
+  letter→digit and digit→**uppercase** boundary (digit→lowercase is not
+  one); prefix "Devialet ". `Expert140Pro-K48A00904ZE1V.local.` →
+  "Devialet Expert 140 Pro" (the one real case); `2go` → "Devialet 2go";
+  `Phantom2Reactor900-…` → "Devialet Phantom 2 Reactor 900";
+  `NoHyphenHost.local.` → "Devialet NoHyphenHost"; `-serial.local.` →
+  null. Real two-amp mDNS is untested.
 
 ## Edge cases handled in code — [Shared]
 

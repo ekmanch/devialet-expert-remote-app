@@ -100,7 +100,10 @@ answers, and the implementation work reappears as task items below.
 - **"Forget remembered amps" feature** — amps are in-memory only and the
   active one could never be forgotten; the KDE widget dropped it.
 - **Live "updated Xs ago" ticker** in the footer — deliberately dropped in
-  KDE for a static "Connected / Not responding / Not connected".
+  KDE for a static "Connected / Not responding / Not connected". (The
+  amp sheet's "Last seen just now / N min ago" on a silent row, v44 /
+  3.9.0, is a minute-granular label on a list that is only visible while
+  open — not this ticker.)
 - **Sound tab (SAM / Night Mode / Bass / Treble)** — no wire commands exist
   (`docs/protocol.md`, "Known-unimplemented commands"); the v19 mockups
   drop the Control/Sound switcher entirely. Reopen only if a capture ever
@@ -207,10 +210,10 @@ the raw datagrams directly, which covers the inbound side.
 
 Adopt the design mockups for the **Control screen only** (built from
 v19; the v36 pass is 2.0.15, the v39 update 2.0.19, the v40 rhythm sync
-2.0.21 — **the current files are**):
+2.0.21, the v44 known-but-silent amps 3.9.0 — **the current files are**):
 
-- Android: `design/mockups/devialet_remote_mockup_Android_v40.html`
-- iOS: `design/mockups/devialet_remote_mockup_iOS_v40.html`
+- Android: `design/mockups/devialet_remote_mockup_Android_v44.html`
+- iOS: `design/mockups/devialet_remote_mockup_iOS_v44.html`
 
 Only this block and `CLAUDE.md` name the *current* mockup; every other
 version number in this file and in code comments is provenance (the
@@ -236,13 +239,19 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
 `lib/ui/debug/debug_state_driver.dart`; 133 tests under `test/`.
 **Owner decisions taken while planning, 2026-09-19:**
 
-- **A silent amp is presented exactly like "no amplifier selected"** —
+- ~~**A silent amp is presented exactly like "no amplifier selected"** —
   discovered list emptied, active = None, footer "Not connected". A phone
   cannot tell an amp that stopped broadcasting from one that is unplugged,
-  so there is no third "Not responding" presentation (2.0.8 / 2.0.10 below
-  were rewritten accordingly). The *persisted* selection must still
-  survive silence so the app reconnects by itself when broadcasts resume —
-  Task 3.0.8.
+  so there is no third "Not responding" presentation~~ **Revised by the
+  owner's v44 mockups (commit `4183a16`, 2026-09-24, built in Task
+  3.9.0):** there *is* a third presentation, *waiting* — every known amp
+  stays listed, silent ones under a "Not responding" group with "Last
+  seen …", the chosen amp going silent stays selected with a pulsing
+  accent ring and "Reconnecting…" on the sheet row and the amp card; a
+  typed IP is "Connecting…" with a MANUAL tag. (2.0.8 / 2.0.10 below were
+  written for the earlier decision.) Unchanged: the *persisted* selection
+  survives silence so the app reconnects by itself when broadcasts
+  resume — Task 3.0.8.
 - Fonts are bundled (`assets/fonts/`, OFL notices registered with
   `LicenseRegistry` in `main.dart`); the iOS variant keeps the system font
   for body text, as the mockup intends.
@@ -731,18 +740,25 @@ gotchas #1/#2 one input at a time.
       broadcast from that IP reconnects without a tap. Distinct from the
       user choosing "None" (checklist items 4, 26). Done 2026-09-19:
       "pruned" = the list shows online amps only, the map never evicts
-      (KDE); `selectedIp` is kept and exposed on the view. Caveat for
+      (KDE); `selectedIp` is kept and exposed on the view. ~~Caveat for
       3.9.x: while the chosen amp is silent the sheet highlights "None";
-      decide whether to render an offline row from `selectedIp` instead.
+      decide whether to render an offline row from `selectedIp` instead.~~
+      Closed by 3.9.0 (2026-09-24): the silent selection is the *waiting*
+      phase — its row stays checked, "None" is current only when nothing
+      is selected. The "presented as no amplifier" half of this item is
+      superseded by the v44 decision recorded above Task 2.0.0.
 
 - **S25 soak 2026-09-19 (owner):** the real amp (192.168.0.22) appears in the
   amp sheet next to the simulated ones, named from its UDP broadcast — no
   model name until Task 3.9.5 resolves it over mDNS, as expected.
-- [ ] **3.0.9** — `ControlViewState.volumeDb` is non-nullable and the derivation
+- [x] **3.0.9** — `ControlViewState.volumeDb` is non-nullable and the derivation
       fills it with the floor when there is no amp (a sentinel the UI never
       formats because it checks `hasAmp` first). The honest type is
       `double?`; change it together with the readout path in
-      `control_screen.dart` when a task next touches that file.
+      `control_screen.dart` when a task next touches that file. Done
+      2026-09-24 with 3.9.4: `double?` end to end — the derivation, the
+      readout and `VolumeDial.valueDb` (the ring rests at its start and
+      announces "—" for `null`); no floor sentinel anywhere.
 
 ### 3.1.x — Pending-command mask + confirmed channel
 
@@ -1298,12 +1314,16 @@ sink's `selectSource` is real (`send source` trace, `docs/architecture.md`
       back. Not covered: the power-edge close on hardware (no power
       commands), slots ≥ 6, the 400 ms rapid-repeat switch (needs a
       finger), the iOS device, mute on a network input with audio.
-- [ ] **3.8.7** — *(needs the owner at the amp)* **Mute on Roon with music
+- [x] **3.8.7** — *(needs the owner at the amp)* **Mute on Roon with music
       playing:** the owner starts playback via Roon, then Mute / unmute
       from the app with the raw listener next to it, to close the "mute on
       a network input" gap left by 3.8.4 (a silent input cannot be muted,
       so run7b proved nothing about the input). Expect the same
-      +50…200 ms confirmation as on Optical 1.
+      +50…200 ms confirmation as on Optical 1. Done 2026-09-24 (owner,
+      hands-on): mute / unmute from the app with music playing on **AIR**
+      and on **Roon Ready** both worked flawlessly. No raw capture was
+      taken alongside; the 3.8.4 Optical 1 timings stand as the measured
+      confirmation latency.
 - [ ] **3.8.5** — *(follow-up, pre-existing, out of 3.8's scope)* `_writeVolume`'s
       rollback nulls `pendingVolumeDb`; inside a confirmed boot hold that
       drops the hold on a failed user send (the same hazard 3.8.1 fixed
@@ -1316,29 +1336,121 @@ sink's `selectSource` is real (`send source` trace, `docs/architecture.md`
 
 ## Task 3.9.x — Amp discovery / selection list wiring
 
-- [ ] **3.9.0** — Discovery map keyed by sender IP, updated by every broadcast, never
+- [x] **3.9.0** — Discovery map keyed by sender IP, updated by every broadcast, never
       evicted; silent amps flip to offline after 8 s; the sheet's list
       refreshes live while open. *(Map, eviction rule and staleness exist
       since 3.0.x; remaining: the sheet watches the live list, and the
-      offline-row presentation vs. hidden — 3.0.8 chose hidden.)*
+      offline-row presentation vs. hidden — 3.0.8 chose hidden.)* Done
+      2026-09-24 against the owner's **v44** mockups (KDE parity, owner
+      decision that day): `deriveControlView` lists **every** known amp —
+      online first, then silent under the sheet's "NOT RESPONDING" group
+      label, each in numeric IP order; silent rows show a hollow ring,
+      dimmed 0.5, "ip · Last seen just now / N min ago / N h ago"
+      (`AmpRef.silentFor`, **quantized** to that granularity so the 1 s
+      tick changes the view only when the label would — the
+      value-equality rebuild suppression survives; counter-tested). A
+      new third `ConnectionPhase.waiting`: the chosen amp going silent
+      stays checked with a pulsing accent ring (`DeviceDotState.waiting`,
+      900 ms leg = half the mockup's declared 1.8 s cycle, checklist 15)
+      and "Reconnecting…" in the accent colour, mirrored on the amp card
+      ("Reconnecting… · ip", dial "—", every control inert — `hasAmp`
+      unchanged, so no gate moved). Both pulses now honour reduced motion
+      (the booting dot audited in the same pass, checklist 16). The sheet
+      was already live (it watches the view); now pinned by a test that
+      a new IP appears, a silent one drops under the group and returns.
+      Kept from 2.0.3 (mockup fixtures omit it): "· name unresolved" on
+      an online row without a model — a broken mDNS must look broken
+      (checklist 26). Debug-only: the simulated TEST-NET amps sit under
+      "Not responding" once their scenario stops (never evicted).
 - [x] **3.9.1** — Persist selection with **two distinct states**: "chosen X" and
       "chosen nothing (None)", plus a "user has chosen" flag, so restart
       never resurrects a default the user opted out of (checklist item 4).
       Done 2026-09-20 in Task 3.3.x (`selected_ip` + `has_explicit_selection`,
       restored in `AmpStateOwner.build()`; the S25 restart check is 3.3.4).
-- [ ] **3.9.2** — Auto-select-if-alone: nothing selected, never chosen, exactly one amp
-      known → that amp; 0 or 2+ → not-connected, don't guess.
-- [ ] **3.9.3** — Manual-IP fallback: a never-heard IP is a valid selection; no
-      reconciliation step, staleness governs connectedness.
-- [ ] **3.9.4** — Not-connected state: name `""`, offline, sources `[]`, power Off, and
+- [x] **3.9.2** — Auto-select-if-alone: nothing selected, never chosen, exactly one amp
+      known → that amp; 0 or 2+ → not-connected, don't guess. Done since
+      3.0.x (`AmpState.effectiveIp`, counting *known* amps — KDE: the lone
+      amp stays auto-selected while silent and presents as waiting);
+      pinned 2026-09-24 with the KDE test pair (two known → not
+      connected; lone silent → waiting, `selectedIp` still null because
+      an auto-selection is never written as a choice).
+- [x] **3.9.3** — Manual-IP fallback: a never-heard IP is a valid selection; no
+      reconciliation step, staleness governs connectedness. Done
+      2026-09-24: `addManualAmp` persists the selection (as before) and
+      marks `AmpState.manualIp` (transient, **never persisted** — not a
+      third sentinel, checklist 4; counter-checked against the store);
+      the derivation adds one synthetic `heard: false` row for a selected
+      IP with no map entry (no synthetic `TrackedAmp`, KDE), titled by the
+      IP, "Connecting…", tagged **MANUAL** only while typed-here-and-unheard
+      — its first broadcast makes it an ordinary row and after a restart
+      the app cannot tell a typed IP from a discovered one, so the tag
+      does not come back (owner decision 2026-09-24). The IPv4 check
+      before "Connect" stays in the sheet.
+- [x] **3.9.4** — Not-connected state: name `""`, offline, sources `[]`, power Off, and
       **no volume reading** — check "is there an amp" before any clamp so a
-      zero default can't display as "−15.0 dB" (checklist item 5).
-- [ ] **3.9.5** — mDNS model name: `_spotify-connect._tcp.local.`, trusted only for an
+      zero default can't display as "−15.0 dB" (checklist item 5). Done
+      2026-09-24: `ControlViewState.volumeDb` is `double?`, `null` in both
+      the not-connected and the waiting shape; the readout and
+      `VolumeDial` take the `null` (dash, ring at rest, no arc) — there is
+      no sentinel left to clamp (closes 3.0.9). The never-heard row's name
+      is `""` (`displayName` falls back to the IP).
+- [x] **3.9.5** — mDNS model name: `_spotify-connect._tcp.local.`, trusted only for an
       IP already heard over UDP, resolved once, carried across
       re-ingestion; `parseModelName` per `docs/protocol.md` with its three
       test cases. Platform-native browse per OS (no `NsdManager` restart
       bursts); iOS needs `NSBonjourServices` + local-network permission
-      (see Task 4.0.0).
+      (see Task 4.0.0). Done 2026-09-24 (`docs/architecture.md` §17;
+      owner decision that day: **pure-Dart `multicast_dns` on Android**
+      behind a `WifiManager.MulticastLock` `MethodChannel` — the Flutter
+      plugins do not reliably expose the SRV host name on Android, and
+      that host (`Expert140Pro-K48A00904ZE1V.local`, measured) is what
+      carries the model — **and native Bonjour on iOS**
+      (`NetServiceBrowser`, an `EventChannel`; pure-Dart multicast would
+      need Apple's entitlement), both behind one `ModelNameSource` seam
+      with a `FakeModelNameSource` in every test harness). `parseModelName`
+      with the KDE case table plus a `.local` strip (documented delta).
+      Deviation from the brief (checklist 29): the package is one-shot, so
+      the adapter runs fresh PTR→SRV→A **cycles** (2 s) inside sessions
+      the resolver keeps short (closed when every known amp is resolved,
+      or at 60 s) instead of one continuous browse. The resolver caches
+      every hit and replays it when the IP is heard (mDNS can answer
+      before the first UDP packet); the trust gate and "resolved once"
+      live in `setModelName` (checklist 28); a source failure traces one
+      `mdns unavailable` and the sheet keeps "· name unresolved"
+      (checklist 26). Counter-runs: see `docs/architecture.md` §12.
+      Manifests: `INTERNET` **was missing from the main Android manifest**
+      (only the debug/profile ones had it — no release build had a socket
+      until now, checklist 17) and `CHANGE_WIFI_MULTICAST_STATE`;
+      `Info.plist` gained `NSBonjourServices` + `NSLocalNetworkUsageDescription`.
+      The 2 s / 1 s / 60 s constants are guesses until 3.9.6 measures
+      them. **The iOS source is unverified until the iPad session (4.0.x).**
+- [ ] **3.9.6** — *(scripted half done 2026-09-24 — report
+      `docs/protocol-verification-2026-09-24-discovery.md`, captures
+      `docs/captures/2026-09-24-discovery-verification{,-app}.txt`: 5/5
+      cold launches resolved 63…157 ms after the first packet, median
+      146 ms, all in the first cycle; the typed-IP card and sheet, the
+      untagged restart, the trust gate live against a fake service from
+      the dev machine (3/6 launches: `known=false`, never applied), the
+      reconnect after re-selecting, and the release build's first working
+      socket. **Open: the owner's Wi-Fi hand-runs**, report §6.)* **Live verification on the real amp** (checklist 14/21/22/23): the
+      S25 debug build next to the dev machine's `avahi-browse` control;
+      five cold launches timing `mdns applied − rx` for 192.168.0.22;
+      the trust gate (no `mdns applied` for a 192.0.2.x sim row); the
+      manual-IP row and card; kill-and-relaunch restoring the selection
+      as "Connecting…" then connected with the name re-resolved; the
+      release build's first working socket. The Wi-Fi hand-runs (the
+      silent-amp round trip, launch with Wi-Fi off, the screen-off
+      power-save case with and without the lock) are the owner's, logs
+      pulled from the logcat ring buffer after reconnecting adb. Report
+      as `docs/protocol-verification-2026-09-2x-discovery.md`; record
+      the measured constants in `docs/protocol.md`.
+- [ ] **3.9.7** — *(owner hands-on, checklist 23)* the offline rows and the manual-IP
+      flow on the S25 in both variants: the group label and dimming, the
+      pulsing ring on the card and the row, the MANUAL chip, "Last seen"
+      ticking over at a minute, and whether "Connecting…" on a restored
+      selection at launch (before the first packet, ~1 s) flashes
+      unpleasantly — if it does, a grace period is the fix, not a
+      different phase.
 
 ## Task 3.10.x — Transient feedback (lower priority; can trail the above)
 
@@ -1352,7 +1464,7 @@ sink's `selectSource` is real (`send source` trace, `docs/architecture.md`
       remote-originated changes; the transient cue does not.
 - [ ] **3.10.2** — Don't reuse the OS's own volume OSD look; users mistake it for the
       device's volume. No mockup exists for this cue yet — sketch it in the
-      current mockup HTML (v40 today; bump it) before building.
+      current mockup HTML (v44 today; bump it) before building.
 
 ## Task 3.11.x — Expanded-width two-pane layout (tablets; after 2.0.x and 3.4.x)
 
@@ -1364,7 +1476,7 @@ process that shouldn't gate early tasks. Everything in this task is
 previewed on an **Android tablet emulator or a resizable desktop window**
 via both UI variants; the real-iPad check is Task 4.4.0.
 
-- [ ] **3.11.0** — **Tablet mockup pass** in the current mockup HTML (v40 today, both variants) before any
+- [ ] **3.11.0** — **Tablet mockup pass** in the current mockup HTML (v44 today, both variants) before any
       code: which pane pairs are shown at expanded width (Control +
       Settings; Control + amp/source lists), what medium width does
       (probably still single-pane, wider column), pane proportions, where
@@ -1389,10 +1501,19 @@ via both UI variants; the real-iPad check is Task 4.4.0.
 - [ ] **4.0.0** Local-network permission flow
       (`NSLocalNetworkUsageDescription`, `NSBonjourServices`), incl.
       "denied" and "not yet asked" states, surfaced as an external-state
-      setting per Task 3.4.x (checklist items 17, 26).
+      setting per Task 3.4.x (checklist items 17, 26). The plist keys
+      exist since 3.9.5; **verify the Bonjour source on the iPad** here
+      (`BonjourModelNameStreamHandler.swift`, written blind on
+      2026-09-24: the model name resolves, `didNotSearch` surfaces as one
+      `mdns unavailable` line when the permission is denied, and
+      `NetServiceBrowser`'s deprecation warning is the only build noise).
 - [ ] **4.1.0** Backgrounding: expect status loss within seconds; design
       the resume path (re-bind, staleness re-evaluation, pending mask and
       boot machine reset) rather than assuming parity (checklist item 30).
+      Include the mDNS session: there is no `AppLifecycleState` handling
+      anywhere yet, so a browse session opened just before backgrounding
+      runs to its 60 s budget (the multicast lock with it) and a socket
+      suspended mid-cycle surfaces as one `mdns unavailable` line.
 - [ ] **4.2.0** ATS / `NSAllowsLocalNetworking` for plaintext UDP.
 - [ ] **4.3.0** iOS UI pass on a physical device: everything Task 2.0.0
       previewed through the `ios` UI variant on the Galaxy S25, re-checked

@@ -307,6 +307,9 @@ platform-specific.
   providers wrapping the networking layer; `settings/` the persisted
   settings object and its store), `lib/config/` (cross-cutting
   app config: the UI variant switch, the window width/height class),
+  `lib/platform/` (platform channels — the Android multicast lock, the
+  iOS Bonjour source; the only Flutter imports outside `lib/ui/` and
+  `main.dart`, not to be confused with `lib/ui/platform/`),
   `lib/ui/` (`theme/` tokens + typography, `platform/` the only widgets
   that branch on the variant, `widgets/` shared primitives, `control/` the
   Control screen; the debug bar and the Task 1 manual network screen that

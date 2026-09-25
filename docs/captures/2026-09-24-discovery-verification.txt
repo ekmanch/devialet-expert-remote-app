@@ -1,0 +1,12 @@
+# 2026-09-24 discovery verification — dev-machine controls
+
+## avahi-browse -rtp _spotify-connect._tcp (before any phone run)
+=;wlan0;IPv4;My\032Devialet;_spotify-connect._tcp;local;Expert140Pro-K48A00904ZE1V.local;192.168.0.22;80;"CPath=/spotifyconnect/zeroconf"
+=;eno1;IPv4;My\032Devialet;_spotify-connect._tcp;local;Expert140Pro-K48A00904ZE1V.local;192.168.0.22;80;"CPath=/spotifyconnect/zeroconf"
+
+## avahi-resolve -n Expert140Pro-K48A00904ZE1V.local
+Expert140Pro-K48A00904ZE1V.local	192.168.0.22
+
+## fake service during the trust-gate runs: avahi-publish -s 'Fake Connect' _spotify-connect._tcp 80 CPath=/x
+=;wlan0;IPv4;Fake\032Connect;_spotify-connect._tcp;local;ekmanch-3.local;192.168.0.152;80;"CPath=/x"
+=;eno1;IPv4;Fake\032Connect;_spotify-connect._tcp;local;ekmanch-3.local;192.168.0.134;80;"CPath=/x"

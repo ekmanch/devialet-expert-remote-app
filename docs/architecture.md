@@ -25,16 +25,19 @@ selection, limits and startup volume, and user selections persist (3.9.1).
 
 Deferred: the Settings screen and theme consumption (3.4.x), the wire-side
 ceiling from settings (3.4.7 / 1.1.3), the user's volume / mute / source
-sends (3.6–3.8 — those sink methods are no-ops), mDNS names (3.9.5),
-feedback (3.10.x).
+sends (3.6–3.8 — those sink methods are no-ops), feedback (3.10.x).
+mDNS names arrived with 3.9.5 (§17).
 
 ## 2. Layers
 
 ```
-lib/networking/   pure Dart, zero Flutter imports: packets, codecs, UdpTransport, DevialetClient
+lib/networking/   pure Dart, zero Flutter imports: packets, codecs, UdpTransport, DevialetClient,
+                  parseModelName, the ModelNameSource seam + its multicast_dns adapter (§17)
 lib/domain/       Riverpod owner + pure model/derivation (imports riverpod, not flutter)
 lib/domain/settings/ typed settings, store adapters, hydration, settings owner (§14)
 lib/domain/debug/ synthetic status packets + the command-aware simulated amp (debug builds)
+lib/platform/     platform channels (the multicast lock, the iOS Bonjour source) — the only
+                  Flutter imports outside lib/ui/ and main.dart; not lib/ui/platform/ (widgets)
 lib/ui/           widgets; read controlViewStateProvider, call ampStateProvider.notifier
 ```
 
@@ -53,7 +56,10 @@ type leaves the transport.
 - `controlViewStateProvider` — `Provider<ControlViewState>` derived from
   the raw model. Same name as the Task 2.0.x fake, so every `ref.watch` in
   the UI stayed as it was. `ControlViewState` has value equality, so a 5 Hz
-  broadcast that changes nothing visible does not rebuild the screen.
+  broadcast that changes nothing visible does not rebuild the screen — and
+  a silent amp's "Last seen …" (`AmpRef.silentFor`) is carried *quantized*
+  to what the sheet prints (just now / minutes / hours), so the 1 s tick
+  changes the view only when a label would (3.9.0).
 - `confirmedAmpStateProvider` — `Provider<ConfirmedAmpState?>`: what the
   amp last *reported* for the selected amp, never through a pending slot,
   with `receivedAt` so each broadcast is a distinct value. Feedback
@@ -112,24 +118,40 @@ safe side of gotcha #9's measured +394 ms. Tests inject `FakeClock` /
   never resurrected by auto-select. Only user intents (`selectIp`,
   `selectAmp`, `addManualAmp`) persist; `seedSelection` / `setVolumeRange`
   are the seeding and debug seams and never touch the store (checklist 19).
-- **Silent amp (owner decision 2026-09-19, TODO 3.0.8):** presented exactly
-  as no amplifier — hidden from the list, `selectedAmp == null`, footer
-  "Not connected" — while `selectedIp` is untouched, so the next broadcast
-  from that IP reconnects without a tap. The view carries `selectedIp` so
-  Task 3.9.x can render an offline row instead of highlighting "None".
+- **Silent amp — the waiting phase (owner's v44 mockups, 2026-09-24,
+  revising the 2026-09-19 "no third presentation" decision of TODO
+  3.0.8):** a selection that is not reachable — silent for 8 s, or a typed
+  / restored IP never heard — is `ConnectionPhase.waiting`: still named on
+  the card ("Reconnecting…" for an amp heard before, "Connecting…" for one
+  never heard, the pulsing accent ring), still checked in the sheet under
+  the "Not responding" group, every control inert (`hasAmp` is false) and
+  no reading (`volumeDb == null`). `selectedIp` is untouched, so the next
+  broadcast from that IP reconnects without a tap. "None" is current only
+  in `notConnected` (nothing selected).
+- **Typed IP (3.9.3):** `AmpState.manualIp` is the last IP entered by hand
+  in this process — transient, never persisted (checklist 4: not a third
+  sentinel; the two-state selection is untouched). The derivation reads it
+  only for the never-heard synthetic row's "MANUAL" tag, so hearing the IP
+  or choosing another amp retires the tag by itself; after a restart a
+  typed IP is indistinguishable from a discovered one and shows untagged.
 
 ## 7. Derivation (`deriveControlView`)
 
 Pure: same model, same view. Online selected amp → connected shape
-(`AmpRef(id: ip, name: deviceName, model: modelName, ip)`, `power` from
-`powerPhaseAt(now)`, **masked** mute / volume / source, enabled slots as
-`SourceItem`s, floor / ceiling). Otherwise the not-connected shape:
-`selectedAmp null`, power Off, unmuted, no sources, and `volumeDb` set to
-the floor as a sentinel that the UI never formats because it checks
-`hasAmp` first (checklist 5; a `double?` is the honest follow-up, noted in
-TODO). `knownAmps` = online amps in numeric IP order so the list only
-reorders when the IP set changes. Only the selected amp's broadcasts reach
-the control fields; every broadcast feeds the list (3.0.5).
+(`AmpRef(id: ip, name: deviceName, model: modelName, ip, online, heard,
+manual, silentFor)`, `power` from `powerPhaseAt(now)`, **masked** mute /
+volume / source, enabled slots as `SourceItem`s, floor / ceiling). A
+selection that is not online → the waiting shape (§6): `selectedAmp` is
+that amp as last known, or a synthetic `heard: false` ref for a
+never-heard IP; power Off, unmuted, no sources. No selection → the
+not-connected shape. In both, **`volumeDb` is `null`** (3.9.4, checklist
+5): "no reading" is the absence of a value, never a sentinel a clamp could
+turn into "−15.0 dB"; the dial takes a `double?` and rests at its start.
+`knownAmps` = **every** amp ever heard (the map never evicts, 3.9.0):
+online ones first, then the silent ones with `silentFor` quantized (§3),
+each group in numeric IP order, plus the never-heard selection last. Only
+the selected amp's broadcasts reach the control fields; every broadcast
+feeds the list (3.0.5).
 
 ## 8. Pending-command mask + confirmed channel (3.1.0)
 
@@ -256,7 +278,11 @@ another sink call while the first pair is in flight cannot split them.
   flipped the same way (§9, §15) and the sheets became owner-driven (§16).
   The VOL ± screen-reader tap is a separate entry point since 3.6.1 (it
   never sends a pointer) and is gated the same way.
-- 3.9.5: `setModelName(ip, model)`.
+- 3.9.5 (done 2026-09-24): `setModelName(ip, model)` is the one function
+  every model name passes through — it ignores an IP never heard (the
+  trust gate) and never clears or overwrites a name once set (§17,
+  checklist 28). `seedSilent(ip)` / `seedSelection(ip, manual:)` are the
+  3.9.0 / 3.9.3 seeding seams (never persisted).
 - 3.10.x: `confirmedAmpStateProvider`.
 
 ## 11. Debug simulated amp (`lib/domain/debug/simulated_amp.dart`)
@@ -315,7 +341,18 @@ user-dismissal test red, the owner-driven ones green), the power edge
 removed (tests 6/7), the edge turned into a level check (the empty-state
 sheet pops on connect), `activeSourceIndex` dropped from
 `ControlViewState.==` (gotcha #4 reappears) and the sim not applying the
-forced volume.
+forced volume. 3.9.x (2026-09-24, the same way): "None" keyed on `!hasAmp`
+(the 3.0.8 caveat back: two sheet tests red), `silentFor` unquantized
+(the bucket-equality test and the simulator fixture red), the resolver
+without its cache (the replay test), without its close rule (three
+session tests), retrying per tick instead of per new IP, and without its
+own trust gate (the replay is lost even though the owner's gate still
+refuses the phantom amp — each gate has its own job), `setModelName`
+without its never-clear guard, the model name not carried across
+`ingest`, and the dot pulse test itself catching a real bug (a running
+controller ignores a `duration` change: booting ↔ waiting must restart).
+Every harness overrides `modelNameSourceProvider` with
+`FakeModelNameSource`, so nothing binds 5353 under `flutter test`.
 
 ## 14. Settings (`lib/domain/settings/`)
 
@@ -357,7 +394,7 @@ the wire at −15 (until 3.4.7 / 1.1.3).
 
 1 mask in the owner keyed on send time (§8) · 2 one owner, no view copies
 (§3) · 3 synchronous write + rollback (§9) · 4 explicit-selection flag (§6)
-· 5 `hasAmp` before any reading (§7) · 6 gate from one predicate (§9) ·
+· 5 no amp → `volumeDb == null`, never a sentinel (§7) · 6 gate from one predicate (§9) ·
 7 confirmed channel + boot seam (§3, §10) · 8 every setting stored on
 change, read back on open (§14) · 9 stateless intents, the owner writes
 back (§14) · 10 widen-first writes and in-range-before-pair healing (§14)
@@ -369,9 +406,13 @@ fakes against disposable containers, seeding never persists (§12, §6) ·
 gate and the heal live in one function each (§8, §9, §14); the widget
 gates are the pointer-layer belt on top (3.5.1); the sheet route's one
 `whenComplete` is the write-back for every dismissal path (§16); the
-client reads its target IP once per multi-send command (§9) · 29 3.8.2's
+client reads its target IP once per multi-send command (§9); the mDNS
+trust gate and "resolved once" live in `setModelName` (§17) · 29 3.8.2's
 brief said "both sheets"; the working widget closes only the source list
-on the power edge, and that is what was built (§16).
+on the power edge, and that is what was built (§16); 3.9.5's brief said
+"one continuous browse", the library is one-shot, so the adapter cycles
+(§17) · 30 no `AppLifecycleState` policy exists yet; a browse session
+opened just before backgrounding runs to its budget (TODO 4.1.0).
 
 ## 15. Debug trace (`lib/domain/amp_trace.dart`)
 
@@ -413,6 +454,12 @@ What is traced, and where:
 - `sheet kind=none|amp|source [reason=power]` — the owner's sheet slot
   changed (§16), so a dismissal path that forgot to write back would show
   as a missing `kind=none` in a live log.
+- `mdns session open reason=start|new-ip` / `mdns session close
+  reason=resolved|budget|dispose`, `mdns hit host= ip= known=` (first
+  time per IP), `mdns applied ip= model=`, `mdns unavailable error=`
+  (once per session attempt) — the resolver (§17); `model ip= model=` —
+  the owner accepted a name. `applied − rx` for an IP is the number a
+  live report measures.
 
 Tests capture lines through a provider override
 (`amp_state_owner_test.dart`, `traced: true`); the format and the
@@ -470,3 +517,57 @@ construction; there is no "close the other one" code.
   the empty-state sheet surviving a connect, the swap, and teardown with a
   sheet up. Counter-runs in §12.
 
+## 17. mDNS model name (Task 3.9.5)
+
+`docs/protocol.md`, "mDNS model-name resolution", is the spec; measured
+on the real amp on 2026-09-24: instance "My Devialet", SRV host
+`Expert140Pro-K48A00904ZE1V.local`, A 192.168.0.22, port 80, TXT
+`CPath=/spotifyconnect/zeroconf`. The **SRV host name** is what
+`parseModelName` consumes; the instance name is the friendly name.
+
+```
+lib/networking/model_name.dart                     parseModelName (pure; KDE model_name.rs + a .local strip)
+lib/networking/model_name_source.dart              ModelNameHit, ModelNameSource, MulticastLock (+ Noop*)
+lib/networking/multicast_dns_model_name_source.dart the multicast_dns adapter (Android, desktop)
+lib/platform/android_multicast_lock.dart           WifiManager.MulticastLock over a MethodChannel
+lib/platform/bonjour_model_name_source.dart        iOS: an EventChannel fed by NetServiceBrowser (Swift)
+lib/domain/model_name_resolver.dart                ModelNameResolver + modelNameSourceProvider
+```
+
+- **Seam.** `ModelNameSource.browse()` yields `(hostname, ip)` strings;
+  subscribe = start, cancel = stop; a stream *error* means "cannot run at
+  all" and is terminal. `main.dart` installs the platform source by real
+  OS (`multicast_dns` behind the lock on Android, `multicast_dns` without
+  a lock on desktop, Bonjour on iOS — pure-Dart multicast would need
+  Apple's multicast entitlement there); tests get `FakeModelNameSource`.
+- **Adapter.** `multicast_dns` is one-shot: `lookup()` answers from its
+  cache without sending when the cache is live, and each packet replaces
+  the cached list. So a session is a loop of **cycles** — fresh client,
+  `start()` on IPv4-capable interfaces only, PTR → SRV → first IPv4 A,
+  `stop()` — every `kMdnsQueryInterval` (2 s), each lookup waiting
+  `kMdnsLookupWindow` (1 s). A `start()` failure is the terminal error;
+  a later exception is that cycle's alone. The lock is held from listen
+  to cancel. Both constants are guesses until the S25 run records them.
+- **Resolver** (owned by `AmpStateOwner` like its sink and trace). Every
+  hit is cached for the process lifetime and applied only for an IP the
+  owner has heard over UDP — the resolver's gate keeps a cached hit
+  unsettled until its amp exists, the owner's `setModelName` refuses to
+  create one (the C4 counter-run shows they do different jobs). A hit
+  that lands before the first UDP packet is replayed from the cache in
+  the same `ingest`. Settled = applied, or parsed to nothing; never
+  re-attempted. Sessions: one opens on `start()`; it closes when every
+  known IP is settled and at least one hit was heard, or at
+  `kMdnsSessionBudget` (60 s) on the owner's tick; a new unresolved IP
+  opens a fresh one. A source error traces one `mdns unavailable` and
+  closes; the next *new* IP may retry once (bounded by distinct IPs).
+  The amp keeps its UDP name and the sheet says "· name unresolved"
+  (checklist 26).
+- **Display.** `AmpRef.displayName` = `model ?? name` (the IP when
+  neither), `AmpRef.name` stays the UDP name for the subtitle; `TrackedAmp.
+  modelName` is carried across every `ingest`.
+- **Permissions.** Android: `INTERNET` (the main manifest had none — no
+  release build had a socket before 3.9.x) and
+  `CHANGE_WIFI_MULTICAST_STATE`. iOS: `NSBonjourServices`
+  (`_spotify-connect._tcp`) and `NSLocalNetworkUsageDescription`; the
+  permission flow is 4.0.0 and the Bonjour source is unverified until the
+  iPad session (4.0.x).
