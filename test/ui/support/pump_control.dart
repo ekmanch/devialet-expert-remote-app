@@ -133,6 +133,13 @@ double opacityAt(WidgetTester tester, Key key) {
 
 String textAt(WidgetTester tester, Key key) => tester.widget<Text>(find.byKey(key)).data!;
 
+/// The plain text of a `Text` built from either a string or a span (the
+/// device card's waiting line is two-toned, Task 3.9.0).
+String plainTextAt(WidgetTester tester, Key key) {
+  final text = tester.widget<Text>(find.byKey(key));
+  return text.data ?? text.textSpan!.toPlainText();
+}
+
 bool visibilityOf(WidgetTester tester, Key key) {
   final finder = find.ancestor(of: find.byKey(key), matching: find.byType(Visibility)).first;
   return tester.widget<Visibility>(finder).visible;

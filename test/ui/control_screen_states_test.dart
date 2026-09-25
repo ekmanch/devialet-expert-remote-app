@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:devialet_expert_remote_app/config/ui_variant.dart';
@@ -5,8 +6,11 @@ import 'package:devialet_expert_remote_app/domain/amp_state_owner.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
 import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
+import 'package:devialet_expert_remote_app/ui/control/control_screen.dart';
 import 'package:devialet_expert_remote_app/ui/control/device_card.dart';
 import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
+import 'package:devialet_expert_remote_app/ui/theme/app_theme.dart';
+import 'package:devialet_expert_remote_app/ui/widgets/dimmed_group.dart';
 import 'package:devialet_expert_remote_app/ui/widgets/ring_spinner.dart';
 import 'package:devialet_expert_remote_app/ui/widgets/stroke_icons.dart';
 
@@ -131,7 +135,27 @@ final Map<DebugScenario, _Expected> _expected = {
     sourceName: 'Optical 1',
     dialSourceLabel: 'OPTICAL 1',
   ),
-  DebugScenario.notResponding: _noAmp,
+  // v44 / Task 3.9.0: the chosen amp went silent — still named, the
+  // pulsing accent ring, "Reconnecting…" in the accent colour, no reading,
+  // every control inert exactly as with no amp.
+  DebugScenario.notResponding: const _Expected(
+    name: 'Devialet Expert 140 Pro',
+    sub: 'Reconnecting\u2026 \u00b7 192.0.2.22',
+    dot: DeviceDotState.waiting,
+    value: '\u2014',
+    unitVisible: false,
+    muteLabel: 'Mute',
+    muteIcon: StrokeIconKind.speaker,
+    powerLabel: 'Power Off',
+    spinner: false,
+    dialWrap: 0.4,
+    actionRow: 0.4,
+    muteButton: 1.0,
+    sourceTrigger: 0.5,
+    volButtonsEnabled: false,
+    sourceName: 'No source',
+    dialSourceLabel: 'NO SOURCE',
+  ),
   DebugScenario.notConnected: _noAmp,
   DebugScenario.muted: const _Expected(
     name: 'Devialet Expert 140 Pro',
@@ -161,7 +185,7 @@ void main() {
         await pumpControl(tester, state: ControlViewState.forScenario(scenario), variant: variant);
 
         expect(textAt(tester, ControlKeys.deviceName), e.name);
-        expect(textAt(tester, ControlKeys.deviceSub), e.sub);
+        expect(plainTextAt(tester, ControlKeys.deviceSub), e.sub);
         expect(tester.widget<DeviceDot>(find.byKey(ControlKeys.deviceDot)).state, e.dot);
         expect(textAt(tester, ControlKeys.dialValue), e.value);
         expect(visibilityOf(tester, ControlKeys.dialUnit), e.unitVisible);
@@ -185,6 +209,70 @@ void main() {
       });
     }
   }
+
+  group('waiting (3.9.0, v44)', () {
+    testWidgets('the card keeps the name at full strength, the status word is the accent colour, the IP is not', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.notResponding));
+      final t = AppTheme.of(tester.element(find.byType(ControlScreen))).tokens;
+      final sub = tester.widget<Text>(find.byKey(ControlKeys.deviceSub)).textSpan! as TextSpan;
+      final parts = sub.children!.cast<TextSpan>();
+      expect(parts.map((p) => p.text), ['Reconnecting\u2026', ' \u00b7 192.0.2.22']);
+      expect(parts.first.style!.color, t.copperBright);
+      expect(parts.last.style?.color, isNull, reason: 'inherits the dim base');
+      expect(sub.style!.color, t.textDim);
+      // Not dimmed like "No Amplifier": the info column's DimmedGroup is off.
+      final info = find.ancestor(of: find.byKey(ControlKeys.deviceName), matching: find.byType(DimmedGroup)).first;
+      expect(tester.widget<DimmedGroup>(info).dimmed, isFalse);
+    });
+
+    testWidgets('a never-heard selection reads "Connecting…" alone under the IP as its title', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.notConnected));
+      containerOf(tester).read(ampStateProvider.notifier).addManualAmp('192.0.2.99');
+      await tester.pump();
+      expect(textAt(tester, ControlKeys.deviceName), '192.0.2.99');
+      expect(plainTextAt(tester, ControlKeys.deviceSub), 'Connecting\u2026');
+      expect(tester.widget<DeviceDot>(find.byKey(ControlKeys.deviceDot)).state, DeviceDotState.waiting);
+      expect(textAt(tester, ControlKeys.dialValue), '\u2014');
+    });
+
+    testWidgets('every entry point is inert while waiting; the source trigger still opens the empty state', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.notResponding));
+      await tester.tap(find.byKey(ControlKeys.powerButton), warnIfMissed: false);
+      await tester.tap(find.byKey(ControlKeys.volMinus), warnIfMissed: false);
+      await tester.tap(find.byKey(ControlKeys.volPlus), warnIfMissed: false);
+      await tester.tap(find.byKey(ControlKeys.muteButton), warnIfMissed: false);
+      await tester.pump();
+      final state = readState(tester);
+      expect(state.isWaiting, isTrue);
+      expect((state.power, state.isMuted, state.volumeDb), (PowerPhase.off, false, null));
+      expect(textAt(tester, ControlKeys.dialValue), '\u2014');
+      await tester.tap(find.byKey(ControlKeys.sourceTrigger));
+      // No pumpAndSettle: the waiting ring pulses for as long as it is shown.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('No sources available'), findsOneWidget);
+    });
+
+    testWidgets('the waiting ring pulses 1 → 0.3 on a 900 ms leg; the booting dot on 550 ms; both hold still under reduced motion', (tester) async {
+      double opacity() => tester.widget<FadeTransition>(find.byType(FadeTransition)).opacity.value;
+      await tester.pumpWidget(themed(const DeviceDot(state: DeviceDotState.waiting)));
+      expect(opacity(), 1.0);
+      await tester.pump(kWaitingPulseLeg);
+      expect(opacity(), closeTo(0.3, 1e-6), reason: 'one leg = half the mockup\'s 1.8 s cycle (checklist 15)');
+      await tester.pump(kWaitingPulseLeg);
+      expect(opacity(), closeTo(1.0, 1e-6));
+      await tester.pumpWidget(themed(const DeviceDot(state: DeviceDotState.booting)));
+      await tester.pump(kDotPulseLeg);
+      expect(opacity(), closeTo(0.35, 1e-6));
+      for (final state in [DeviceDotState.waiting, DeviceDotState.booting]) {
+        await tester.pumpWidget(
+          themed(MediaQuery(data: const MediaQueryData(disableAnimations: true), child: DeviceDot(state: state))),
+        );
+        await tester.pump(kWaitingPulseLeg);
+        expect(opacity(), 1.0, reason: '$state holds still under reduced motion');
+      }
+    });
+  });
 
   group('gating covers every input path (checklist 6)', () {
     testWidgets('volume, mute and source are inert while Off; last-known text stays', (tester) async {

@@ -347,17 +347,33 @@ class AmpStateOwner extends Notifier<AmpState> {
   /// Seeding / debug seam: the same state change **without persisting**,
   /// so the simulated amp and test fixtures never write a TEST-NET address
   /// into the real store (checklist 19). The persisted path is [selectIp].
-  void seedSelection(String? ip, {bool explicit = true}) {
+  /// [manual] marks [ip] as typed (the sheet's tag) — the seeding half of
+  /// [addManualAmp].
+  void seedSelection(String? ip, {bool explicit = true, bool manual = false}) {
     final view = _viewIfTracing;
-    state = state.copyWith(selectedIp: ip, hasExplicitSelection: explicit);
+    state = state.copyWith(
+      selectedIp: ip,
+      hasExplicitSelection: explicit,
+      manualIp: manual ? ip : null,
+    );
     _afterWrite(view);
   }
 
   void selectAmp(AmpRef? amp) => selectIp(amp?.ip);
 
-  /// A never-heard IP is a valid selection; it shows as not connected
-  /// until a broadcast from it arrives (`docs/protocol.md`, "Multi-amp").
-  void addManualAmp(String ip) => selectIp(ip);
+  /// A never-heard IP is a valid selection (Task 3.9.3); it shows as
+  /// *waiting* — named by its IP with the "MANUAL" tag — until a broadcast
+  /// from it arrives (`docs/protocol.md`, "Multi-amp"). No reconciliation:
+  /// staleness alone governs connectedness.
+  void addManualAmp(String ip) {
+    seedSelection(ip, manual: true);
+    ref.read(settingsProvider.notifier).setSelection(ip: ip, explicit: true);
+  }
+
+  /// Seeding / debug seam (Task 3.9.0 fixtures): backdates [ip]'s last
+  /// broadcast to exactly the staleness limit, so the view presents it
+  /// silent without a clock advance. Ignored for an amp never heard from.
+  void seedSilent(String ip) => _arm(ip, (a) => a.copyWith(lastSeen: _now - kStaleAfter));
 
   // ---- Seams for later tasks
 

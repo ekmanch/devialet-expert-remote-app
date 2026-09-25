@@ -216,18 +216,58 @@ void main() {
     expect(sink.calls, ['source 192.0.2.22 3 -40.0']);
   });
 
-  test('selecting None keeps the list; a manual IP is shown not connected until heard', () async {
+  test('selecting None keeps the list; a manual IP is shown waiting until heard', () async {
     final c = make();
     seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
     owner(c).selectAmp(null);
     expect(view(c).hasAmp, isFalse);
+    expect(view(c).connection, ConnectionPhase.notConnected);
     expect(view(c).knownAmps.length, 3);
     owner(c).addManualAmp('192.0.2.99');
     expect(view(c).hasAmp, isFalse);
+    expect(view(c).connection, ConnectionPhase.waiting);
     expect(view(c).selectedIp, '192.0.2.99');
     transport.emitIncoming(buildStatusPacket(deviceName: 'Manual'), from: '192.0.2.99');
     await settle();
     expect(view(c).selectedAmp?.name, 'Manual');
+    expect(view(c).hasAmp, isTrue);
+  });
+
+  group('manual IP (3.9.3)', () {
+    test('a typed IP is a tagged synthetic row; its first broadcast retires the tag; silence afterwards is "heard"', () async {
+      final c = make();
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
+      owner(c).addManualAmp('192.0.2.99');
+      var row = view(c).selectedAmp!;
+      expect((row.ip, row.name, row.heard, row.manual, row.online), ('192.0.2.99', '', false, true, false));
+      expect(view(c).knownAmps.last, row, reason: 'listed last, under the silent ones');
+      expect(c.read(ampStateProvider).amps.containsKey('192.0.2.99'), isFalse, reason: 'no synthetic map entry (KDE)');
+      transport.emitIncoming(buildStatusPacket(deviceName: 'Manual'), from: '192.0.2.99');
+      await settle();
+      row = view(c).selectedAmp!;
+      expect((row.heard, row.manual, row.online), (true, false, true));
+      owner(c).seedSilent('192.0.2.99');
+      row = view(c).selectedAmp!;
+      expect((row.heard, row.manual, row.online), (true, false, false), reason: '"Reconnecting…", no tag');
+    });
+
+    test('choosing another amp drops the never-heard row; the tag never persists; a restart shows the IP untagged', () async {
+      final store = InMemorySettingsStore();
+      final c = make(store: store);
+      seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.connected));
+      owner(c).addManualAmp('192.0.2.99');
+      await settle();
+      expect(store.values.keys, isNot(contains(matches('manual'))), reason: 'checklist 19 / 4: no third persisted sentinel');
+      expect(store.values[SettingsKeys.selectedIp], '192.0.2.99');
+      owner(c).selectIp('192.0.2.22');
+      expect(view(c).knownAmps.map((a) => a.ip), isNot(contains('192.0.2.99')));
+      owner(c).addManualAmp('192.0.2.99');
+      await settle();
+      final again = await relaunch(store);
+      final restored = view(again).selectedAmp!;
+      expect(view(again).connection, ConnectionPhase.waiting);
+      expect((restored.ip, restored.heard, restored.manual), ('192.0.2.99', false, false), reason: 'a restored IP is not "typed here"');
+    });
   });
 
   test('the confirmed channel is never masked', () async {
@@ -371,7 +411,7 @@ void main() {
       final c = make(sink: sink);
       seedFromControlView(owner(c), ControlViewState.forScenario(DebugScenario.off).copyWith(volumeDb: -40));
       await owner(c).togglePower();
-      final shown = <double>[];
+      final shown = <double?>[];
       clock.set(s(16));
       owner(c).ingest(on(volumeDb: -40)); // pre-shutdown byte == target
       shown.add(view(c).volumeDb);

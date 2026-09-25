@@ -33,7 +33,10 @@ class VolumeDial extends StatefulWidget {
 
   final double minDb;
   final double maxDb;
-  final double valueDb;
+
+  /// `null` == no reading (no amp, Task 3.9.4): the ring rests at its
+  /// start with no arc and announces "—". Never a substituted number.
+  final double? valueDb;
   final bool enabled;
 
   /// Live, on every pan update, already clamped to the range and
@@ -109,12 +112,13 @@ class VolumeDialState extends State<VolumeDial> {
   @override
   Widget build(BuildContext context) {
     final t = AppTheme.of(context).tokens;
-    final fraction = dialFraction(widget.valueDb, widget.minDb, widget.maxDb);
+    final valueDb = widget.valueDb;
+    final fraction = valueDb == null ? 0.0 : dialFraction(valueDb, widget.minDb, widget.maxDb);
     return Semantics(
       slider: true,
       enabled: widget.enabled,
       label: 'Volume',
-      value: widget.valueDb.toStringAsFixed(1),
+      value: valueDb?.toStringAsFixed(1) ?? '—',
       child: RawGestureDetector(
         key: ControlKeys.dial,
         behavior: HitTestBehavior.deferToChild,

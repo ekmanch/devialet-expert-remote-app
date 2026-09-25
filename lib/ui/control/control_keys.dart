@@ -31,4 +31,7 @@ abstract final class ControlKeys {
   static ValueKey<String> sourceCard(int index) => ValueKey('control.sourceCard.$index');
   static const column = ValueKey('control.column');
   static const sheetBack = ValueKey('control.sheetBack');
+  static ValueKey<String> ampRow(String ip) => ValueKey('control.ampRow.$ip');
+  static const ampNoneRow = ValueKey('control.ampRow.none');
+  static const ampGroupLabel = ValueKey('control.ampGroupLabel');
 }

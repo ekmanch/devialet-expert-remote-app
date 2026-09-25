@@ -40,18 +40,27 @@ void main() {
       }
     });
 
-    test('notResponding and notConnected both present as no amp', () {
+    test('notResponding is the waiting shape (selection kept, nothing controllable, no reading); notConnected has no selection', () {
       for (final scenario in [DebugScenario.notResponding, DebugScenario.notConnected]) {
         final s = ControlViewState.forScenario(scenario);
         expect(s.hasAmp, isFalse);
-        expect(s.selectedAmp, isNull);
         expect(s.sources, isEmpty);
         expect(s.activeSource, isNull);
         expect(s.volumeGroupEnabled, isFalse);
         expect(s.powerEnabled, isFalse);
+        expect(s.volumeDb, isNull, reason: 'no amp, no reading (3.9.4)');
       }
-      expect(ControlViewState.forScenario(DebugScenario.notResponding).knownAmps, isEmpty);
-      expect(ControlViewState.forScenario(DebugScenario.notConnected).knownAmps, isNotEmpty);
+      final waiting = ControlViewState.forScenario(DebugScenario.notResponding);
+      expect(waiting.connection, ConnectionPhase.waiting);
+      expect(waiting.isWaiting, isTrue);
+      expect(waiting.selectedAmp, ControlViewState.silentFixtureAmps.first);
+      expect(waiting.selectedAmp!.online, isFalse);
+      expect(waiting.knownAmps, ControlViewState.silentFixtureAmps, reason: 'listed, not emptied (3.9.0)');
+      final none = ControlViewState.forScenario(DebugScenario.notConnected);
+      expect(none.connection, ConnectionPhase.notConnected);
+      expect(none.isWaiting, isFalse);
+      expect(none.selectedAmp, isNull);
+      expect(none.knownAmps, ControlViewState.fixtureAmps);
     });
 
     test('muted', () {
@@ -59,10 +68,13 @@ void main() {
     });
 
     test('copyWith can clear nullable fields', () {
-      final s = ControlViewState.connectedFixture.copyWith(selectedAmp: null, activeSourceIndex: null);
+      final s = ControlViewState.connectedFixture.copyWith(selectedAmp: null, activeSourceIndex: null, volumeDb: null);
       expect(s.selectedAmp, isNull);
       expect(s.activeSourceIndex, isNull);
+      expect(s.volumeDb, isNull);
       expect(s.copyWith().selectedAmp, isNull);
+      expect(s.copyWith().volumeDb, isNull);
+      expect(s.copyWith(volumeDb: -30).volumeDb, -30.0, reason: 'an int literal is accepted as a double');
     });
   });
 }

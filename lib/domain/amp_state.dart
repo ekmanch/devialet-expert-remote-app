@@ -19,6 +19,7 @@ class AmpState {
     required this.startupVolumeDb,
     required this.stepDb,
     this.visibleSheet = SheetKind.none,
+    this.manualIp,
   });
 
   /// Defaults mirror `AppSettings.defaults`; the owner overrides them with
@@ -63,6 +64,13 @@ class AmpState {
   /// The one sheet slot (Task 3.8.2 / 3.0.6); see [ControlViewState.visibleSheet].
   /// Transient UI state, deliberately not persisted.
   final SheetKind visibleSheet;
+
+  /// The last IP typed into the manual-entry view in this process (Task
+  /// 3.9.3). Only presentation reads it — the sheet's "MANUAL" tag on the
+  /// never-heard row — and only while it is the selection and unheard, so
+  /// it never needs clearing: hearing the IP or choosing another amp
+  /// retires the tag by itself. Never persisted (see [AmpRef.manual]).
+  final String? manualIp;
 
   /// Task 3.6.2: the one clamp every volume write passes through
   /// (min/max, idempotent — `clamp(clamp(x)) == clamp(x)`).
@@ -146,6 +154,7 @@ class AmpState {
     double? startupVolumeDb,
     double? stepDb,
     SheetKind? visibleSheet,
+    String? manualIp,
   }) {
     return AmpState(
       amps: amps ?? this.amps,
@@ -157,6 +166,7 @@ class AmpState {
       startupVolumeDb: startupVolumeDb ?? this.startupVolumeDb,
       stepDb: stepDb ?? this.stepDb,
       visibleSheet: visibleSheet ?? this.visibleSheet,
+      manualIp: manualIp ?? this.manualIp,
     );
   }
 }
@@ -215,20 +225,43 @@ ConfirmedAmpState? deriveConfirmed(AmpState s) {
 /// The one derivation from the raw model to what every surface renders
 /// (KDE `recompute()`). Pure: same model, same view.
 ///
-/// Silent-amp rule (owner decision 2026-09-19, TODO 3.0.8): an amp not
-/// heard for 8 s is presented exactly like no amplifier — hidden from the
-/// list, `selectedAmp == null` — while [AmpState.selectedIp] is kept so the
-/// next broadcast reconnects without a tap. The view carries
-/// [ControlViewState.selectedIp] so Task 3.9.x can show an offline row.
+/// Every amp ever heard is listed (the map never evicts), online ones
+/// first, then the silent ones, each group in numeric IP order (Task
+/// 3.9.0, the owner's v44 mockups). A selection that is not reachable —
+/// silent for 8 s, or never heard — yields the **waiting** shape: the
+/// selection stays named, nothing is controllable, and there is no
+/// reading (`volumeDb == null`, Task 3.9.4). The persisted selection is
+/// untouched so the next broadcast reconnects without a tap (3.0.8).
 ControlViewState deriveControlView(AmpState s) {
-  final knownAmps = [
-    for (final amp in s.amps.values)
-      if (amp.isOnlineAt(s.now))
-        AmpRef(id: amp.ip, name: amp.status.deviceName, model: amp.modelName, ip: amp.ip),
-  ]..sort((a, b) => _compareIps(a.ip, b.ip));
+  final online = <AmpRef>[];
+  final offline = <AmpRef>[];
+  for (final amp in s.amps.values) {
+    final isOnline = amp.isOnlineAt(s.now);
+    (isOnline ? online : offline).add(
+      AmpRef(
+        id: amp.ip,
+        name: amp.status.deviceName,
+        model: amp.modelName,
+        ip: amp.ip,
+        online: isOnline,
+        silentFor: isOnline ? null : silentForBucket(s.now - amp.lastSeen),
+      ),
+    );
+  }
+  online.sort((a, b) => _compareIps(a.ip, b.ip));
+  offline.sort((a, b) => _compareIps(a.ip, b.ip));
 
+  final ip = s.effectiveIp;
   final amp = s.selectedAmp;
-  if (amp == null || !amp.isOnlineAt(s.now)) {
+  if (ip != null && amp == null) {
+    // Selected but never heard (a typed IP, or a restored selection before
+    // its first packet): one synthetic row, last, so the sheet can show
+    // and check it.
+    offline.add(AmpRef(id: ip, name: '', ip: ip, online: false, heard: false, manual: s.manualIp == ip));
+  }
+  final knownAmps = [...online, ...offline];
+
+  if (ip == null) {
     return ControlViewState(
       connection: ConnectionPhase.notConnected,
       selectedAmp: null,
@@ -236,9 +269,25 @@ ControlViewState deriveControlView(AmpState s) {
       knownAmps: knownAmps,
       power: PowerPhase.off,
       isMuted: false,
-      // Sentinel: the UI checks `hasAmp` before formatting a reading
-      // (checklist 5). Never surfaces as a number.
-      volumeDb: s.floorDb,
+      volumeDb: null,
+      floorDb: s.floorDb,
+      ceilingDb: s.ceilingDb,
+      stepDb: s.stepDb,
+      sources: const <SourceItem>[],
+      activeSourceIndex: null,
+      visibleSheet: s.visibleSheet,
+    );
+  }
+
+  if (amp == null || !amp.isOnlineAt(s.now)) {
+    return ControlViewState(
+      connection: ConnectionPhase.waiting,
+      selectedAmp: knownAmps.firstWhere((a) => a.ip == ip),
+      selectedIp: s.selectedIp,
+      knownAmps: knownAmps,
+      power: PowerPhase.off,
+      isMuted: false,
+      volumeDb: null,
       floorDb: s.floorDb,
       ceilingDb: s.ceilingDb,
       stepDb: s.stepDb,
@@ -250,7 +299,7 @@ ControlViewState deriveControlView(AmpState s) {
 
   return ControlViewState(
     connection: ConnectionPhase.connected,
-    selectedAmp: AmpRef(id: amp.ip, name: amp.status.deviceName, model: amp.modelName, ip: amp.ip),
+    selectedAmp: knownAmps.firstWhere((a) => a.ip == ip),
     selectedIp: s.selectedIp,
     knownAmps: knownAmps,
     power: amp.powerPhaseAt(s.now),
@@ -266,6 +315,16 @@ ControlViewState deriveControlView(AmpState s) {
     activeSourceIndex: amp.displayedSourceIndex,
     visibleSheet: s.visibleSheet,
   );
+}
+
+/// Quantizes a silence to the granularity the sheet prints — "just now"
+/// under a minute, whole minutes under an hour, whole hours beyond — so a
+/// silent amp's row only changes the view when its label would change
+/// (`ControlViewState` equality suppresses rebuilds, architecture §3).
+Duration silentForBucket(Duration silent) {
+  if (silent < const Duration(minutes: 1)) return Duration.zero;
+  if (silent < const Duration(hours: 1)) return Duration(minutes: silent.inMinutes);
+  return Duration(hours: silent.inHours);
 }
 
 /// Numeric IPv4 order so the list only reorders when the IP set changes,

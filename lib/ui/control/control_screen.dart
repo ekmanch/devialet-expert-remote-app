@@ -119,9 +119,11 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
     // callbacks are nulled while disabled, so its release never reaches
     // us (Task 3.6.4). A plain field write — this *is* the build.
     if (!state.volumeGroupEnabled) _dragDb = null;
+    // `null` == no reading (no amp, Task 3.9.4): the dial rests and the
+    // readout is a dash — nothing here ever substitutes a number.
     final shownDb = _dragDb ?? state.volumeDb;
     final String valueText;
-    if (!state.hasAmp) {
+    if (!state.hasAmp || shownDb == null) {
       valueText = '—';
     } else if (state.isMuted && _dragDb == null) {
       // The readout follows the finger even on a muted amp (KDE's label is

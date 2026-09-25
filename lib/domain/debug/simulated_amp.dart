@@ -103,7 +103,8 @@ class SimulatedAmp extends Notifier<DebugScenario> implements AmpCommandSink {
     _amps.clear();
     final selected = shape.selectedAmp;
     for (final amp in shape.knownAmps) {
-      _amps[amp.ip] = SimAmp(name: amp.name, sources: ControlViewState.fixtureSources);
+      // A never-heard selection has nothing to broadcast (Task 3.9.3).
+      if (amp.heard) _amps[amp.ip] = SimAmp(name: amp.name, sources: ControlViewState.fixtureSources);
     }
     if (selected != null) {
       final sim = _amps.putIfAbsent(selected.ip, () => SimAmp(name: selected.name, sources: shape.sources));
@@ -111,7 +112,7 @@ class SimulatedAmp extends Notifier<DebugScenario> implements AmpCommandSink {
         ..sources = shape.sources
         ..power = shape.power == PowerPhase.on
         ..muted = shape.isMuted
-        ..volumeRaw = _rawFor(shape.volumeDb)
+        ..volumeRaw = _rawFor(shape.volumeDb ?? -25.0)
         ..source = shape.activeSourceIndex ?? 0;
       if (shape.power == PowerPhase.booting) sim.bootCompletesAt = _now + bootDuration;
     }

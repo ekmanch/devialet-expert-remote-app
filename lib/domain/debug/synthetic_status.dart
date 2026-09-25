@@ -31,20 +31,21 @@ AmpStatusReport syntheticReport({
   return (senderIp: ip, status: status);
 }
 
-/// One broadcast per amp of a fixture shape: the selected amp carries the
-/// shape's power/mute/volume/source, the others are plain online amps.
+/// One broadcast per *heard* amp of a fixture shape: the selected amp
+/// carries the shape's power/mute/volume/source, the others are plain
+/// online amps. A never-heard selection (Task 3.9.3) has no packet.
 List<AmpStatusReport> reportsFor(ControlViewState shape) {
   final selected = shape.selectedAmp;
   return [
     for (final amp in shape.knownAmps)
-      if (amp != selected) syntheticReport(ip: amp.ip, name: amp.name),
-    if (selected != null)
+      if (amp != selected && amp.heard) syntheticReport(ip: amp.ip, name: amp.name),
+    if (selected != null && selected.heard)
       syntheticReport(
         ip: selected.ip,
         name: selected.name,
         isPoweredOn: shape.power == PowerPhase.on,
         isMuted: shape.isMuted,
-        volumeDb: shape.volumeDb,
+        volumeDb: shape.volumeDb ?? -25.0,
         sources: shape.sources,
         activeSourceIndex: shape.activeSourceIndex ?? 0,
       ),
@@ -62,12 +63,14 @@ void seedFromControlView(AmpStateOwner owner, ControlViewState shape) {
   seedSelectionFromControlView(owner, shape);
 }
 
-/// The owner-side half of seeding: model names, the dial range (before
-/// any boot record so the startup target uses the shape's range), the
-/// step size, a boot in progress for the booting shape, and the selection.
+/// The owner-side half of seeding: model names, silence (Task 3.9.0's
+/// offline rows), the dial range (before any boot record so the startup
+/// target uses the shape's range), the step size, a boot in progress for
+/// the booting shape, and the selection (with its "typed" mark).
 void seedSelectionFromControlView(AmpStateOwner owner, ControlViewState shape) {
   for (final amp in shape.knownAmps) {
     if (amp.model != null) owner.setModelName(amp.ip, amp.model);
+    if (!amp.online && amp.heard) owner.seedSilent(amp.ip);
   }
   owner.setVolumeRange(floorDb: shape.floorDb, ceilingDb: shape.ceilingDb);
   owner.seedStepDb(shape.stepDb);
@@ -75,7 +78,7 @@ void seedSelectionFromControlView(AmpStateOwner owner, ControlViewState shape) {
   if (selected != null) {
     if (selected.model != null) owner.setModelName(selected.ip, selected.model);
     if (shape.power == PowerPhase.booting) owner.markBooting(selected.ip);
-    owner.seedSelection(selected.ip);
+    owner.seedSelection(selected.ip, manual: selected.manual);
   } else {
     owner.seedSelection(shape.selectedIp);
   }

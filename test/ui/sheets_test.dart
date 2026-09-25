@@ -9,9 +9,24 @@ import 'package:devialet_expert_remote_app/domain/amp_state_owner.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
 import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
+import 'package:devialet_expert_remote_app/ui/control/device_card.dart';
 import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
+import 'package:devialet_expert_remote_app/ui/widgets/check_mark.dart';
 
 import 'support/pump_control.dart';
+
+/// Whether an amp-sheet row shows its check mark (the mark is always in
+/// the tree, faded to 0 when unselected — the rows never reflow).
+bool rowChecked(WidgetTester tester, Finder row) {
+  final check = find.ancestor(of: find.descendant(of: row, matching: find.byType(CheckMark)), matching: find.byType(Opacity)).first;
+  return tester.widget<Opacity>(check).opacity == 1;
+}
+
+/// The opacity of a row's content (dot + text), 0.5 for a silent, unselected amp.
+double rowOpacity(WidgetTester tester, Finder row) {
+  final content = find.ancestor(of: find.descendant(of: row, matching: find.byType(DeviceDot)), matching: find.byType(Opacity)).first;
+  return tester.widget<Opacity>(content).opacity;
+}
 
 void main() {
   group('amp sheet', () {
@@ -46,7 +61,7 @@ void main() {
       expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.23 \u00b7 Connected');
     });
 
-    testWidgets('manual IP: invalid stays, valid connects as an unresolved amp', (tester) async {
+    testWidgets('manual IP: invalid stays; a valid one is a tagged, checked, waiting row until its first broadcast (3.9.3)', (tester) async {
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.notConnected));
       await openAmpSheet(tester);
       await tapRow(tester, 'Enter IP Manually');
@@ -62,13 +77,84 @@ void main() {
       await tester.enterText(find.byType(EditableText), '192.0.2.9');
       await tester.pump();
       await tapRow(tester, 'Connect');
-      await tester.pumpAndSettle();
+      // No pumpAndSettle from here on: the card's waiting ring pulses.
+      await settleSheet(tester);
       expect(find.text('Enter IP Address'), findsNothing);
-      // A never-heard IP is a valid selection, shown not connected until a
+      // A never-heard IP is a valid selection, shown *waiting* until a
       // broadcast from it arrives (docs/protocol.md, "Multi-amp").
       expect(readState(tester).selectedIp, '192.0.2.9');
-      expect(textAt(tester, ControlKeys.deviceName), 'No Amplifier');
-      expect(textAt(tester, ControlKeys.deviceSub), 'Tap to connect');
+      expect(readState(tester).isWaiting, isTrue);
+      expect(textAt(tester, ControlKeys.deviceName), '192.0.2.9');
+      expect(plainTextAt(tester, ControlKeys.deviceSub), 'Connecting\u2026');
+      expect(textAt(tester, ControlKeys.dialValue), '\u2014');
+
+      await openAmpSheet(tester);
+      final row = find.byKey(ControlKeys.ampRow('192.0.2.9'));
+      expect(row, findsOneWidget);
+      expect(find.descendant(of: row, matching: find.text('MANUAL')), findsOneWidget);
+      expect(find.descendant(of: row, matching: find.text('Connecting\u2026')), findsOneWidget);
+      expect(find.byKey(ControlKeys.ampGroupLabel), findsOneWidget);
+      expect(rowChecked(tester, row), isTrue);
+      expect(rowChecked(tester, find.byKey(ControlKeys.ampNoneRow)), isFalse, reason: 'None is not the selection');
+      expect(rowChecked(tester, find.byKey(ControlKeys.ampRow('192.0.2.22'))), isFalse);
+
+      // Its first broadcast: a plain online row, tag gone, card connected.
+      containerOf(tester).read(ampStateProvider.notifier).ingest(syntheticReport(ip: '192.0.2.9', name: 'Manual'));
+      await settleSheet(tester);
+      expect(find.text('MANUAL'), findsNothing);
+      expect(find.byKey(ControlKeys.ampGroupLabel), findsNothing);
+      expect(find.descendant(of: row, matching: find.text('192.0.2.9 \u00b7 name unresolved')), findsOneWidget);
+      expect(rowChecked(tester, row), isTrue);
+      expect(textAt(tester, ControlKeys.deviceName), 'Manual');
+      expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.9 \u00b7 Connected');
+    });
+
+    testWidgets('3.9.0: the list is live while open — a new amp appears, a silent one drops under "Not responding" with "Last seen", and comes back', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      final owner = containerOf(tester).read(ampStateProvider.notifier);
+      await openAmpSheet(tester);
+      expect(find.byKey(ControlKeys.ampGroupLabel), findsNothing);
+      owner.ingest(syntheticReport(ip: '192.0.2.30', name: 'Newcomer'));
+      await settleSheet(tester);
+      expect(find.text('Newcomer'), findsOneWidget);
+      List<String> rows() => tester
+          .widgetList<Widget>(find.byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('control.ampRow.192')))
+          .map((w) => (w.key! as ValueKey<String>).value.split('.').last)
+          .toList();
+      expect(rows(), ['22', '23', '24', '30']);
+
+      owner.seedSilent('192.0.2.23');
+      await settleSheet(tester);
+      expect(find.text('NOT RESPONDING'), findsOneWidget);
+      expect(rows(), ['22', '24', '30', '23'], reason: 'silent rows follow the online ones');
+      final silentRow = find.byKey(ControlKeys.ampRow('192.0.2.23'));
+      expect(find.descendant(of: silentRow, matching: find.text('192.0.2.23 \u00b7 Last seen just now')), findsOneWidget);
+      expect(tester.widget<DeviceDot>(find.descendant(of: silentRow, matching: find.byType(DeviceDot))).state, DeviceDotState.off);
+      expect(rowOpacity(tester, silentRow), 0.5, reason: 'dimmed, still tappable');
+      expect(rowOpacity(tester, find.byKey(ControlKeys.ampRow('192.0.2.22'))), 1.0);
+
+      owner.ingest(syntheticReport(ip: '192.0.2.23', name: 'Living Room'));
+      await settleSheet(tester);
+      expect(find.byKey(ControlKeys.ampGroupLabel), findsNothing);
+      expect(rows(), ['22', '23', '24', '30']);
+    });
+
+    testWidgets('3.9.0: the chosen amp going silent stays checked with "Reconnecting…" and the pulsing ring; None is not checked', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      final owner = containerOf(tester).read(ampStateProvider.notifier);
+      await openAmpSheet(tester);
+      owner.seedSilent('192.0.2.22');
+      await settleSheet(tester);
+      expect(readState(tester).isWaiting, isTrue);
+      final row = find.byKey(ControlKeys.ampRow('192.0.2.22'));
+      expect(rowChecked(tester, row), isTrue);
+      expect(rowChecked(tester, find.byKey(ControlKeys.ampNoneRow)), isFalse, reason: 'the 3.0.8 caveat, closed');
+      expect(rowOpacity(tester, row), 1.0, reason: 'the selection is not dimmed');
+      expect(find.descendant(of: row, matching: find.text('192.0.2.22 \u00b7 Reconnecting\u2026')), findsOneWidget);
+      expect(tester.widget<DeviceDot>(find.descendant(of: row, matching: find.byType(DeviceDot))).state, DeviceDotState.waiting);
+      expect(find.byKey(ControlKeys.ampGroupLabel), findsOneWidget);
+      // Counter-run (manual, checklist 20): `noneSelected = !state.hasAmp`
+      // in amp_sheet.dart turns the None assertion red.
     });
 
     testWidgets('the entry view has a bare back chevron beside the title, no "Back to list" line; it returns to the list', (tester) async {

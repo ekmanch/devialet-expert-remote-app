@@ -41,7 +41,7 @@ void main() {
       expect(v.hasAmp, isTrue);
     });
 
-    test('not-connected shape carries no reading (floor sentinel) and empty sources', () {
+    test('not-connected shape carries no reading (null, never a sentinel — 3.9.4) and empty sources', () {
       final v = deriveControlView(AmpState.initial);
       expect(v.connection, ConnectionPhase.notConnected);
       expect(v.selectedAmp, isNull);
@@ -49,18 +49,27 @@ void main() {
       expect(v.power, PowerPhase.off);
       expect(v.sources, isEmpty);
       expect(v.activeSourceIndex, isNull);
-      expect(v.volumeDb, v.floorDb);
+      expect(v.volumeDb, isNull);
     });
 
-    test('known amps are online-only and sorted numerically by IP', () {
+    test('3.9.0: every known amp is listed — online first, then silent — each group in numeric IP order; nothing evicted', () {
       var s = AmpState.initial
           .ingest(reportFrom('192.0.2.100', name: 'C'), ms(0))
           .ingest(reportFrom('192.0.2.9', name: 'B'), ms(0))
           .ingest(reportFrom('192.0.2.23', name: 'A'), ms(0));
       expect(deriveControlView(s).knownAmps.map((a) => a.ip), ['192.0.2.9', '192.0.2.23', '192.0.2.100']);
       s = s.tick(ms(0) + kStaleAfter).ingest(reportFrom('192.0.2.9', name: 'B'), ms(0) + kStaleAfter);
-      expect(deriveControlView(s).knownAmps.map((a) => a.ip), ['192.0.2.9'], reason: 'silent ones hidden, not evicted');
+      var v = deriveControlView(s);
+      expect(v.knownAmps.map((a) => a.ip), ['192.0.2.9', '192.0.2.23', '192.0.2.100'], reason: 'silent ones follow, not evicted');
+      expect(v.knownAmps.map((a) => a.online), [true, false, false]);
+      expect(v.knownAmps.map((a) => a.silentFor), [null, Duration.zero, Duration.zero]);
+      expect(v.knownAmps.map((a) => a.heard), everyElement(isTrue));
       expect(s.amps.length, 3);
+      // A silent amp that speaks again moves back up.
+      s = s.ingest(reportFrom('192.0.2.100', name: 'C'), ms(0) + kStaleAfter);
+      v = deriveControlView(s);
+      expect(v.knownAmps.map((a) => a.ip), ['192.0.2.9', '192.0.2.100', '192.0.2.23']);
+      expect(v.knownAmps[1].silentFor, isNull);
     });
 
     test('power: booting while a boot deadline is pending, cleared by a late On', () {
@@ -102,8 +111,10 @@ void main() {
       s = s.tick(ms(8000));
       final silent = deriveControlView(s);
       expect(silent.hasAmp, isFalse);
-      expect(silent.selectedAmp, isNull);
-      expect(silent.knownAmps, isEmpty);
+      expect(silent.connection, ConnectionPhase.waiting, reason: 'selected, unreachable (v44)');
+      expect(silent.selectedAmp?.ip, amp1, reason: 'still named');
+      expect(silent.selectedAmp?.online, isFalse);
+      expect(silent.knownAmps.map((a) => a.ip), [amp1], reason: 'listed under "Not responding", not hidden');
       expect(silent.selectedIp, amp1, reason: 'the choice survives silence');
       expect(s.hasExplicitSelection, isTrue);
       s = s.ingest(reportFrom(amp1), ms(9000));
@@ -118,7 +129,17 @@ void main() {
       final two = one.ingest(reportFrom(amp2), ms(0));
       expect(two.effectiveIp, isNull);
       expect(deriveControlView(two).hasAmp, isFalse);
+      expect(deriveControlView(two).connection, ConnectionPhase.notConnected, reason: '2+ known: don\'t guess');
       expect(deriveControlView(two).knownAmps.length, 2);
+    });
+
+    test('3.9.2: the lone amp stays auto-selected while silent (known, not online — KDE) and presents as waiting', () {
+      final s = AmpState.initial.ingest(reportFrom(amp1), ms(0)).tick(ms(0) + kStaleAfter);
+      expect(s.effectiveIp, amp1);
+      final v = deriveControlView(s);
+      expect(v.connection, ConnectionPhase.waiting);
+      expect(v.selectedAmp?.ip, amp1);
+      expect(v.selectedIp, isNull, reason: 'auto-selection is never written as a choice');
     });
 
     test('explicit None never auto-selects, even when alone', () {
@@ -129,12 +150,49 @@ void main() {
       expect(deriveControlView(s).hasAmp, isFalse);
     });
 
-    test('a never-heard manual IP is a valid selection, not connected until heard', () {
+    test('3.9.3: a never-heard manual IP is a valid selection — a synthetic waiting row until heard', () {
       var s = AmpState.initial.copyWith(selectedIp: '192.0.2.99', hasExplicitSelection: true);
-      expect(deriveControlView(s).hasAmp, isFalse);
-      expect(deriveControlView(s).selectedIp, '192.0.2.99');
+      var v = deriveControlView(s);
+      expect(v.hasAmp, isFalse);
+      expect(v.connection, ConnectionPhase.waiting);
+      expect(v.selectedIp, '192.0.2.99');
+      expect(
+        v.selectedAmp,
+        const AmpRef(id: '192.0.2.99', name: '', ip: '192.0.2.99', online: false, heard: false),
+        reason: 'not typed here (a restored selection): no tag',
+      );
+      expect(v.selectedAmp!.displayName, '192.0.2.99', reason: 'the IP is the title when nothing else is known');
+      expect(v.knownAmps, [v.selectedAmp], reason: 'the sheet lists and checks it');
+      expect(v.volumeDb, isNull);
+      // Typed here → tagged; the tag is only ever on the never-heard row.
+      s = s.copyWith(manualIp: '192.0.2.99');
+      expect(deriveControlView(s).selectedAmp!.manual, isTrue);
+      expect(deriveControlView(s.copyWith(manualIp: '192.0.2.98')).selectedAmp!.manual, isFalse);
       s = s.ingest(reportFrom('192.0.2.99'), ms(0));
-      expect(deriveControlView(s).hasAmp, isTrue);
+      v = deriveControlView(s);
+      expect(v.hasAmp, isTrue);
+      expect(v.selectedAmp!.manual, isFalse);
+      expect(v.selectedAmp!.heard, isTrue);
+      // …and once heard, silence is "Reconnecting", not "Connecting".
+      v = deriveControlView(s.tick(ms(0) + kStaleAfter));
+      expect(v.connection, ConnectionPhase.waiting);
+      expect((v.selectedAmp!.heard, v.selectedAmp!.manual), (true, false));
+    });
+
+    test('3.9.0: silentFor is quantized to the printed granularity, so ticks inside one bucket keep the view equal', () {
+      expect(silentForBucket(const Duration(seconds: 8)), Duration.zero);
+      expect(silentForBucket(const Duration(seconds: 59)), Duration.zero);
+      expect(silentForBucket(const Duration(seconds: 60)), const Duration(minutes: 1));
+      expect(silentForBucket(const Duration(seconds: 3599)), const Duration(minutes: 59));
+      expect(silentForBucket(const Duration(seconds: 3600)), const Duration(hours: 1));
+      expect(silentForBucket(const Duration(hours: 2, minutes: 59)), const Duration(hours: 2));
+      final s = AmpState.initial.ingest(reportFrom(amp1), ms(0)).copyWith(selectedIp: amp1, hasExplicitSelection: true);
+      final at20 = deriveControlView(s.tick(ms(20000)));
+      expect(at20.knownAmps.single.silentFor, Duration.zero);
+      expect(deriveControlView(s.tick(ms(59999))), at20, reason: 'same bucket: the provider must not rebuild');
+      // Counter-half: crossing the bucket edge is a different view.
+      expect(deriveControlView(s.tick(ms(60000))), isNot(at20));
+      expect(deriveControlView(s.tick(ms(60000))).knownAmps.single.silentFor, const Duration(minutes: 1));
     });
 
     test('only the selected amp\'s broadcast touches control state; every broadcast feeds the list', () {

@@ -14,11 +14,17 @@ import 'control_keys.dart';
 import 'device_card.dart';
 import 'manual_entry_glyph.dart';
 
-/// "Choose Amplifier" (TODO 2.0.3): "None" first (italic, dashed dot,
-/// "Don't connect to any amplifier"), divider, discovered amps
-/// (`model ?? name`, "· name unresolved" when only the UDP name is
-/// known), then "Enter IP Manually", which swaps to the entry view
-/// inside the same sheet. Stateful so the draft survives a resize.
+/// "Choose Amplifier" (TODO 2.0.3, Task 3.9.0 / v44): "None" first
+/// (italic, dashed dot, "Don't connect to any amplifier"), divider, the
+/// responding amps (`model ?? name`, "· name unresolved" when only the UDP
+/// name is known), then — under a quiet "NOT RESPONDING" label — every
+/// amp known but silent (hollow ring, dimmed, "Last seen …"; the chosen
+/// one keeps its check with a pulsing accent ring and "Reconnecting…"),
+/// and the never-heard selection ("Connecting…", tagged MANUAL when it
+/// was typed here); then "Enter IP Manually", which swaps to the entry
+/// view inside the same sheet. The list is live: it re-derives from the
+/// owner on every broadcast and tick. Stateful so the draft survives a
+/// resize.
 class AmpSheet extends ConsumerStatefulWidget {
   const AmpSheet({super.key});
 
@@ -75,14 +81,49 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
     final theme = AppTheme.of(context);
     final t = theme.tokens;
     final notifier = ref.read(ampStateProvider.notifier);
-    final noneSelected = state.selectedAmp == null;
+    // "None" is current only when nothing is selected — never while the
+    // chosen amp is merely silent (the 3.0.8 caveat, closed in 3.9.0).
+    final noneSelected = state.connection == ConnectionPhase.notConnected;
+    final selectedIp = state.selectedAmp?.ip;
+    final responding = [for (final a in state.knownAmps) if (a.online) a];
+    final silent = [for (final a in state.knownAmps) if (!a.online) a];
 
     Widget divider() => Container(height: 1, color: t.divider, margin: const EdgeInsets.symmetric(vertical: 6));
+
+    Widget row(AmpRef amp) {
+      final selected = amp.ip == selectedIp;
+      return _AmpRow(
+        key: ControlKeys.ampRow(amp.ip),
+        selected: selected,
+        dimmed: !amp.online && !selected,
+        leading: DeviceDot(
+          state: amp.online
+              ? DeviceDotState.connected
+              : selected
+              ? DeviceDotState.waiting
+              : DeviceDotState.off,
+        ),
+        title: amp.displayName,
+        titleStyle: theme.type.body(
+          size: 15,
+          weight: FontWeight.w600,
+          color: selected ? t.copperBright : t.text,
+        ),
+        tag: amp.manual ? 'Manual' : null,
+        subtitle: subtitleFor(amp, selected: selected),
+        status: statusFor(amp, selected: selected),
+        onTap: () {
+          notifier.selectAmp(amp);
+          Navigator.of(context).pop();
+        },
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _AmpRow(
+          key: ControlKeys.ampNoneRow,
           selected: noneSelected,
           leading: Container(
             width: DeviceDot.defaultSize,
@@ -109,22 +150,11 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
           },
         ),
         divider(),
-        for (final amp in state.knownAmps)
-          _AmpRow(
-            selected: amp == state.selectedAmp,
-            leading: const DeviceDot(state: DeviceDotState.connected),
-            title: amp.displayName,
-            titleStyle: theme.type.body(
-              size: 15,
-              weight: FontWeight.w600,
-              color: amp == state.selectedAmp ? t.copperBright : t.text,
-            ),
-            subtitle: amp.isResolved ? '${amp.name} · ${amp.ip}' : '${amp.ip} · name unresolved',
-            onTap: () {
-              notifier.selectAmp(amp);
-              Navigator.of(context).pop();
-            },
-          ),
+        for (final amp in responding) row(amp),
+        if (silent.isNotEmpty) ...[
+          const _AmpGroupLabel('Not responding'),
+          for (final amp in silent) row(amp),
+        ],
         if (state.knownAmps.isNotEmpty) divider(),
         AdaptivePressable(
           onTap: () => setState(() => _showManual = true),
@@ -151,6 +181,31 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
         ),
       ],
     );
+  }
+
+  /// The plain part of a row's second line (mockup `renderAmps()` `base`):
+  /// online and resolved → "name · ip"; online and unresolved → "ip · name
+  /// unresolved" (TODO 2.0.3, kept: a broken mDNS must look broken,
+  /// checklist 26); silent → the ip, or nothing when the ip is already the
+  /// title. Joined to [statusFor] with " · " by the row.
+  static String subtitleFor(AmpRef amp, {required bool selected}) {
+    if (amp.online) return amp.isResolved ? '${amp.name} · ${amp.ip}' : '${amp.ip} · name unresolved';
+    return amp.displayName == amp.ip ? '' : amp.ip;
+  }
+
+  /// The accent-coloured status of a silent row: the waiting word for the
+  /// selection, "Last seen …" for the rest. `null` for an online row.
+  static String? statusFor(AmpRef amp, {required bool selected}) {
+    if (amp.online) return null;
+    if (selected) return DeviceCard.waitingStatusFor(amp);
+    return 'Last seen ${lastSeenLabel(amp.silentFor ?? Duration.zero)}';
+  }
+
+  /// The quantized silence (`AmpRef.silentFor`) as the mockup prints it.
+  static String lastSeenLabel(Duration silentFor) {
+    if (silentFor < const Duration(minutes: 1)) return 'just now';
+    if (silentFor < const Duration(hours: 1)) return '${silentFor.inMinutes} min ago';
+    return '${silentFor.inHours} h ago';
   }
 
   Widget _buildManual(BuildContext context) {
@@ -204,6 +259,27 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
   }
 }
 
+/// The mockup's `.amp-group`: a quiet uppercase label over the silent
+/// rows (10.5 px display face, 0.16 em, faint; margins 14 / 10 / 2).
+class _AmpGroupLabel extends StatelessWidget {
+  const _AmpGroupLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 14, left: 10, right: 10, bottom: 2),
+      child: Text(
+        text.toUpperCase(),
+        key: ControlKeys.ampGroupLabel,
+        style: theme.type.display(size: 10.5, weight: FontWeight.w600, letterSpacingEm: 0.16, color: theme.tokens.textFaint),
+      ),
+    );
+  }
+}
+
 class _AmpRow extends StatelessWidget {
   /// The leading slot, shared by every row (dot, None ring, keyboard) so
   /// the titles line up: wide enough for the keyboard glyph's optically
@@ -211,25 +287,43 @@ class _AmpRow extends StatelessWidget {
   static const double leadingBox = 20;
 
   const _AmpRow({
+    super.key,
     required this.selected,
     required this.leading,
     required this.title,
     required this.titleStyle,
     required this.subtitle,
     required this.onTap,
+    this.status,
+    this.tag,
+    this.dimmed = false,
   });
 
   final bool selected;
   final Widget leading;
   final String title;
   final TextStyle titleStyle;
+
+  /// The plain second line; [status], when present, follows it in the
+  /// accent colour, joined by " · " (nothing joins an empty [subtitle]).
   final String subtitle;
+  final String? status;
+
+  /// A small bordered chip after the title (mockup `.amp-tag`: "Manual").
+  final String? tag;
+
+  /// A silent, unselected amp: dot and text at half opacity (mockup
+  /// `.amp-option.offline:not(.connected)`); still tappable.
+  final bool dimmed;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
     final t = theme.tokens;
+    final subtitleStyle = theme.type.mono(size: 12, color: t.textDim);
+    final status = this.status;
+    final tag = this.tag;
     return AdaptivePressable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -241,23 +335,47 @@ class _AmpRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            SizedBox.square(dimension: _AmpRow.leadingBox, child: Center(child: leading)),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: titleStyle),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.type.mono(size: 12, color: t.textDim),
+              child: Opacity(
+                opacity: dimmed ? 0.5 : 1,
+                child: Row(
+                  children: [
+                    SizedBox.square(dimension: _AmpRow.leadingBox, child: Center(child: leading)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: titleStyle),
+                              ),
+                              if (tag != null) _Tag(tag, selected: selected),
+                            ],
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(text: subtitle),
+                                  if (status != null) ...[
+                                    if (subtitle.isNotEmpty) const TextSpan(text: ' · '),
+                                    TextSpan(text: status, style: subtitleStyle.copyWith(color: t.copperBright)),
+                                  ],
+                                ],
+                              ),
+                              style: subtitleStyle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             Opacity(
@@ -265,6 +383,38 @@ class _AmpRow extends StatelessWidget {
               child: const CheckMark(),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Mockup `.amp-tag`: 9.5 px mono, uppercase, 1 px `divider` border,
+/// radius 6, 1 × 6 padding, 8 before it; accent-coloured on the selected row.
+class _Tag extends StatelessWidget {
+  const _Tag(this.text, {required this.selected});
+
+  final String text;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    final t = theme.tokens;
+    return Container(
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        border: Border.all(color: selected ? t.copperDim : t.divider),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text.toUpperCase(),
+        style: theme.type.mono(
+          size: 9.5,
+          weight: FontWeight.w600,
+          letterSpacingEm: 0.06,
+          color: selected ? t.copperBright : t.textDim,
         ),
       ),
     );

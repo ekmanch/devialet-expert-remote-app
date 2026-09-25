@@ -8,18 +8,26 @@ import '../theme/app_theme.dart';
 import '../widgets/dimmed_group.dart';
 import 'control_keys.dart';
 
-enum DeviceDotState { connected, off, none, booting }
+enum DeviceDotState { connected, off, none, booting, waiting }
 
 /// One leg of the booting pulse (1 → 0.35 or back); the full cycle is twice this.
 const Duration kDotPulseLeg = Duration(milliseconds: 550);
 
+/// One leg of the waiting-ring pulse (1 → 0.3 or back). The v44 mockup
+/// declares `ampRingPulse 1.8s` for the whole 0 → 50 % → 100 % cycle, so
+/// the leg is half of it (the 3.5.3 lesson, checklist 15).
+const Duration kWaitingPulseLeg = Duration(milliseconds: 900);
+
 /// The 10px status dot: copper glow (connected), hollow ring (off), dashed
 /// ring (none), pulsing amber (booting: opacity 1 → 0.35 → 1 over one
 /// 1.1 s cycle, i.e. 550 ms each way, as the KDE widget's `AmpHeader.qml`
-/// and the mockup's `dotPulse 1.1s`). The controller's `duration` is one
-/// *leg* because `repeat(reverse: true)` plays it both ways — 1100 ms here
-/// was the Task 3.5.3 bug, a pulse at half the widget's speed
-/// (checklist 15: the mockup's declared number described the whole cycle).
+/// and the mockup's `dotPulse 1.1s`), pulsing copper ring (waiting, v44:
+/// 1 → 0.3 → 1 over 1.8 s). The controller's `duration` is one *leg*
+/// because `repeat(reverse: true)` plays it both ways — 1100 ms here was
+/// the Task 3.5.3 bug, a pulse at half the widget's speed (checklist 15:
+/// the mockup's declared number described the whole cycle). Both pulses
+/// hold still under the platform's reduced-motion setting (the mockup's
+/// `prefers-reduced-motion`).
 class DeviceDot extends StatefulWidget {
   const DeviceDot({super.key, required this.state, this.size = defaultSize});
 
@@ -42,11 +50,19 @@ class _DeviceDotState extends State<DeviceDot> with SingleTickerProviderStateMix
     vsync: this,
     duration: kDotPulseLeg,
   );
+  bool? _reduced;
 
   @override
-  void initState() {
-    super.initState();
-    _syncPulse();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Re-sync only when the reduced-motion setting itself changes (the
+    // first build included), not on every MediaQuery change — a keyboard
+    // inset must not restart the pulse.
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    if (reduced != _reduced) {
+      _reduced = reduced;
+      _syncPulse();
+    }
   }
 
   @override
@@ -55,12 +71,16 @@ class _DeviceDotState extends State<DeviceDot> with SingleTickerProviderStateMix
     if (oldWidget.state != widget.state) _syncPulse();
   }
 
+  bool get _pulses => widget.state == DeviceDotState.booting || widget.state == DeviceDotState.waiting;
+
+  /// Restarts from opacity 1 on every state change: a running controller
+  /// ignores a `duration` change, so booting ↔ waiting must stop and go.
   void _syncPulse() {
-    if (widget.state == DeviceDotState.booting) {
+    _pulse.stop();
+    _pulse.value = 0;
+    if (_pulses && !(_reduced ?? false)) {
+      _pulse.duration = widget.state == DeviceDotState.waiting ? kWaitingPulseLeg : kDotPulseLeg;
       _pulse.repeat(reverse: true);
-    } else {
-      _pulse.stop();
-      _pulse.value = 0;
     }
   }
 
@@ -117,6 +137,21 @@ class _DeviceDotState extends State<DeviceDot> with SingleTickerProviderStateMix
           ),
         ),
       ),
+      // v44 `.device-dot.waiting` / `.amp-option.offline.connected .amp-dot`:
+      // a 1.8 px accent ring, pulsing 1 → 0.3 → 1.
+      DeviceDotState.waiting => FadeTransition(
+        opacity: Tween<double>(begin: 1.0, end: 0.3).animate(
+          CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+        ),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: t.copperBright, width: 1.8),
+          ),
+        ),
+      ),
     };
     return SizedBox.square(dimension: size, child: Center(child: dot));
   }
@@ -149,7 +184,12 @@ class _DashedRingPainter extends CustomPainter {
 
 /// The amp card: whole row is the tap target (TODO 2.0.2). Shows
 /// `model ?? name`, the IP with a status word, and the dot. "Connected"
-/// describes the UDP link, so it stays while the amp is Off.
+/// describes the UDP link, so it stays while the amp is Off. While
+/// *waiting* (Task 3.9.0, v44) the selection stays named, the dot is the
+/// pulsing accent ring and the status word — "Reconnecting…" for an amp
+/// heard before, "Connecting…" for one never heard — is the accent colour,
+/// followed by the IP only when the amp has a name of its own (a typed IP
+/// is already the title).
 class DeviceCard extends StatelessWidget {
   const DeviceCard({super.key, required this.state, required this.onTap});
 
@@ -157,6 +197,7 @@ class DeviceCard extends StatelessWidget {
   final VoidCallback onTap;
 
   static DeviceDotState dotStateFor(ControlViewState s) {
+    if (s.isWaiting) return DeviceDotState.waiting;
     if (!s.hasAmp) return DeviceDotState.none;
     return switch (s.power) {
       PowerPhase.on => DeviceDotState.connected,
@@ -165,12 +206,31 @@ class DeviceCard extends StatelessWidget {
     };
   }
 
-  static String nameFor(ControlViewState s) => s.hasAmp ? s.selectedAmp!.displayName : 'No Amplifier';
+  static String nameFor(ControlViewState s) => s.selectedAmp?.displayName ?? 'No Amplifier';
 
+  /// The waiting status word (mockup `ampWaitingText`).
+  static String waitingStatusFor(AmpRef amp) => amp.heard ? 'Reconnecting…' : 'Connecting…';
+
+  /// The status line as plain text (the waiting line is rendered two-toned
+  /// by [subtitleSpanFor]; this is its text).
   static String subtitleFor(ControlViewState s) {
-    if (!s.hasAmp) return 'Tap to connect';
+    final amp = s.selectedAmp;
+    if (amp == null) return 'Tap to connect';
+    if (s.isWaiting) return amp.name.isEmpty ? waitingStatusFor(amp) : '${waitingStatusFor(amp)} · ${amp.ip}';
     if (s.power == PowerPhase.booting) return 'Booting…';
-    return '${s.selectedAmp!.ip} · Connected';
+    return '${amp.ip} · Connected';
+  }
+
+  static TextSpan subtitleSpanFor(ControlViewState s, TextStyle base, Color accent) {
+    final amp = s.selectedAmp;
+    if (amp == null || !s.isWaiting) return TextSpan(text: subtitleFor(s), style: base);
+    return TextSpan(
+      style: base,
+      children: [
+        TextSpan(text: waitingStatusFor(amp), style: base.copyWith(color: accent)),
+        if (amp.name.isNotEmpty) TextSpan(text: ' · ${amp.ip}'),
+      ],
+    );
   }
 
   @override
@@ -197,7 +257,9 @@ class DeviceCard extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: DimmedGroup(
-                dimmed: !state.hasAmp,
+                // Only "No Amplifier" is dim; a waiting selection is named at
+                // full strength (mockup: `.device-info.dim` on None only).
+                dimmed: state.selectedAmp == null,
                 opacity: 0.5,
                 blockTaps: false,
                 child: Column(
@@ -213,13 +275,25 @@ class DeviceCard extends StatelessWidget {
                         style: theme.type.body(size: 15, weight: FontWeight.w600, color: t.text),
                       ),
                     ),
-                    Text(
-                      subtitleFor(state),
-                      key: ControlKeys.deviceSub,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.type.mono(size: 12.5, letterSpacingEm: 0.01, color: t.textDim),
-                    ),
+                    if (state.isWaiting)
+                      Text.rich(
+                        subtitleSpanFor(
+                          state,
+                          theme.type.mono(size: 12.5, letterSpacingEm: 0.01, color: t.textDim),
+                          t.copperBright,
+                        ),
+                        key: ControlKeys.deviceSub,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    else
+                      Text(
+                        subtitleFor(state),
+                        key: ControlKeys.deviceSub,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.type.mono(size: 12.5, letterSpacingEm: 0.01, color: t.textDim),
+                      ),
                   ],
                 ),
               ),
