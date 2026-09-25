@@ -8,6 +8,7 @@ import 'package:devialet_expert_remote_app/domain/amp_tracker.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
 import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
 import 'package:devialet_expert_remote_app/domain/devialet_client_provider.dart';
+import 'package:devialet_expert_remote_app/domain/model_name_resolver.dart';
 import 'package:devialet_expert_remote_app/domain/monotonic_clock.dart';
 import 'package:devialet_expert_remote_app/domain/settings/app_settings.dart';
 import 'package:devialet_expert_remote_app/domain/settings/hydrated_settings.dart';
@@ -16,6 +17,7 @@ import 'package:devialet_expert_remote_app/domain/settings/settings_store.dart';
 import 'package:devialet_expert_remote_app/networking/devialet_client.dart';
 import 'package:devialet_expert_remote_app/networking/status_packet_builder.dart';
 
+import '../networking/fake_model_name_source.dart';
 import '../networking/fake_udp_transport.dart';
 import 'support/fake_time.dart';
 import 'support/settings_support.dart';
@@ -80,6 +82,7 @@ void main() {
   late FakeClock clock;
   late ManualTicker ticker;
   late FakeUdpTransport transport;
+  late FakeModelNameSource mdns;
 
   late InMemorySettingsStore settingsStore;
 
@@ -95,12 +98,14 @@ void main() {
     clock = FakeClock();
     ticker = ManualTicker();
     transport = FakeUdpTransport();
+    mdns = FakeModelNameSource();
     settingsStore = store ?? InMemorySettingsStore();
     traceLines = [];
     addTearDown(ticker.close);
     return ProviderContainer.test(
       overrides: [
         devialetTransportProvider.overrideWithValue(transport),
+        modelNameSourceProvider.overrideWithValue(mdns),
         monotonicClockProvider.overrideWithValue(clock),
         staleTickProvider.overrideWithValue(ticker.stream),
         ampCommandSinkProvider.overrideWithValue(sink),
@@ -1074,6 +1079,87 @@ void main() {
       await settle();
       expect(sink.calls.last, 'startup $ip -30.0', reason: 'the deferred send still carries the user value (deviation from KDE)');
       expect(view(c).volumeDb, -30.0);
+    });
+  });
+
+  group('mDNS model name (3.9.5)', () {
+    const host = 'Expert140Pro-K48A00904ZE1V.local';
+
+    test('a hit for a heard IP names it, the name survives re-ingestion and the tick, and the sheet row reads resolved', () async {
+      final c = make(traced: true);
+      c.read(ampStateProvider);
+      transport.emitIncoming(buildStatusPacket(deviceName: 'My Devialet-ETH'), from: '192.0.2.5');
+      await settle();
+      expect(view(c).selectedAmp!.isResolved, isFalse);
+      mdns.emit(host, ip: '192.0.2.5');
+      await settle();
+      expect(view(c).selectedAmp!.model, 'Devialet Expert 140 Pro');
+      expect(view(c).selectedAmp!.displayName, 'Devialet Expert 140 Pro');
+      expect(view(c).selectedAmp!.name, 'My Devialet-ETH', reason: 'the UDP name is kept as the subtitle');
+      for (var i = 0; i < 20; i++) {
+        clock.advance(const Duration(milliseconds: 200));
+        transport.emitIncoming(buildStatusPacket(deviceName: 'My Devialet-ETH', volumeRaw: 140 + i), from: '192.0.2.5');
+        await settle();
+        ticker.tick();
+        await settle();
+      }
+      expect(view(c).selectedAmp!.model, 'Devialet Expert 140 Pro', reason: 'carried forward (the ~1 s broadcast must not wipe it)');
+      expect(events().where((e) => e.startsWith('mdns ') || e.startsWith('model ')), [
+        'mdns session open reason=start',
+        'mdns hit host=$host ip=192.0.2.5 known=true',
+        'model ip=192.0.2.5 model=Devialet Expert 140 Pro',
+        'mdns applied ip=192.0.2.5 model=Devialet Expert 140 Pro',
+        'mdns session close reason=resolved',
+      ]);
+    });
+
+    test('a hit for an IP never heard creates no amp; the name is applied the moment that IP broadcasts (replay)', () async {
+      final c = make();
+      c.read(ampStateProvider);
+      mdns.emit(host, ip: '192.0.2.99');
+      await settle();
+      expect(c.read(ampStateProvider).amps, isEmpty, reason: 'trust gate: no phantom amp');
+      expect(view(c).knownAmps, isEmpty);
+      transport.emitIncoming(buildStatusPacket(deviceName: 'Late'), from: '192.0.2.99');
+      await settle();
+      expect(view(c).selectedAmp!.model, 'Devialet Expert 140 Pro', reason: 'from the cache, in the same ingest');
+      // Counter-run (manual, checklist 20): make `setModelName` insert a
+      // TrackedAmp for an unknown IP and `amps` is no longer empty above.
+    });
+
+    test('setModelName never clears or overwrites a resolved name; null is ignored (checklist 28)', () async {
+      final c = make();
+      c.read(ampStateProvider);
+      transport.emitIncoming(buildStatusPacket(), from: '192.0.2.5');
+      await settle();
+      owner(c).setModelName('192.0.2.5', 'Devialet Expert 140 Pro');
+      owner(c).setModelName('192.0.2.5', null);
+      owner(c).setModelName('192.0.2.5', 'Devialet Other');
+      expect(view(c).selectedAmp!.model, 'Devialet Expert 140 Pro');
+      owner(c).setModelName('192.0.2.77', 'Devialet Ghost');
+      expect(c.read(ampStateProvider).amps.containsKey('192.0.2.77'), isFalse);
+    });
+
+    test('a source that cannot run leaves the amp on its UDP name with the unresolved tag and traces once', () async {
+      final c = make(traced: true);
+      c.read(ampStateProvider);
+      mdns.fail(StateError('bind 5353'));
+      await settle();
+      transport.emitIncoming(buildStatusPacket(deviceName: 'My Devialet-ETH'), from: '192.0.2.5');
+      await settle();
+      expect(view(c).selectedAmp!.isResolved, isFalse);
+      expect(view(c).selectedAmp!.displayName, 'My Devialet-ETH');
+      expect(events().where((e) => e.startsWith('mdns unavailable')), ['mdns unavailable error=Bad state: bind 5353']);
+    });
+
+    test('disposing the owner closes the browse session', () async {
+      final c = make();
+      c.read(ampStateProvider);
+      await settle();
+      expect(mdns.activeSubscriptions, 1);
+      c.dispose();
+      await settle();
+      expect(mdns.activeSubscriptions, 0);
     });
   });
 

@@ -9,6 +9,7 @@ import 'amp_trace.dart';
 import 'amp_tracker.dart';
 import 'control_view_state.dart';
 import 'devialet_client_provider.dart';
+import 'model_name_resolver.dart';
 import 'monotonic_clock.dart';
 import 'settings/app_settings.dart';
 import 'settings/settings_owner.dart';
@@ -24,6 +25,9 @@ class AmpStateOwner extends Notifier<AmpState> {
   late MonotonicClock _clock;
   late AmpCommandSink _sink;
   late AmpTrace _trace;
+
+  /// Task 3.9.5: mDNS hits → [setModelName], gated on IPs heard here.
+  late ModelNameResolver _modelNames;
 
   /// Task 3.6.6: the last `(selected ip, clamp-eligible)` seen after a
   /// write; a false→true edge (connection landing, power reaching On, the
@@ -63,10 +67,18 @@ class AmpStateOwner extends Notifier<AmpState> {
     client.startListening();
     final reports = client.statusReports.listen(ingest);
     final ticks = ref.watch(staleTickProvider).listen((_) => _onTick());
+    _modelNames = ModelNameResolver(
+      source: ref.watch(modelNameSourceProvider),
+      apply: setModelName,
+      clock: _clock,
+      trace: _trace,
+    );
+    _modelNames.start();
     ref.onDispose(() {
       reports.cancel();
       ticks.cancel();
       client.stopListening();
+      _modelNames.dispose();
     });
     final initial = AmpState.initial.copyWith(
       now: _clock.now(),
@@ -93,6 +105,7 @@ class AmpStateOwner extends Notifier<AmpState> {
   void ingest(AmpStatusReport report) {
     final ip = report.senderIp;
     final before = _trace.enabled ? state.amps[ip] : null;
+    final isNew = !state.amps.containsKey(ip);
     final view = _viewIfTracing;
     state = state.ingest(report, _now);
     if (_trace.enabled) {
@@ -114,6 +127,8 @@ class AmpStateOwner extends Notifier<AmpState> {
     }
     _afterWrite(view);
     _runBootFollowUps();
+    // After the write, so a cached mDNS name finds its amp (trust gate).
+    if (isNew) _modelNames.onAmpHeard(ip);
   }
 
   void _onTick() {
@@ -130,6 +145,7 @@ class AmpStateOwner extends Notifier<AmpState> {
     }
     _afterWrite(view);
     _runBootFollowUps();
+    _modelNames.onTick();
   }
 
   // ---- After every state write
@@ -375,12 +391,23 @@ class AmpStateOwner extends Notifier<AmpState> {
   /// silent without a clock advance. Ignored for an amp never heard from.
   void seedSilent(String ip) => _arm(ip, (a) => a.copyWith(lastSeen: _now - kStaleAfter));
 
-  // ---- Seams for later tasks
+  // ---- Seams
 
-  /// Task 3.9.5 (mDNS). Ignored for an amp never heard from.
+  /// Task 3.9.5: the mDNS-resolved make/model for [ip] — from the
+  /// resolver, or a fixture's seeding. **Ignored for an amp never heard
+  /// from** (the trust gate: `_spotify-connect._tcp` is not
+  /// Devialet-specific, so a hit for an unknown IP must never create or
+  /// name an amp) and **never cleared or overwritten once set** (resolved
+  /// once, KDE). Both rules live here, in the one function every model
+  /// name passes through (checklist 28); `AmpState.ingest` carries the
+  /// value across every broadcast.
   void setModelName(String ip, String? model) {
+    if (model == null) return;
+    final amp = state.amps[ip];
+    if (amp == null || amp.modelName != null) return;
     final view = _viewIfTracing;
     state = state.updateAmp(ip, (a) => a.copyWith(modelName: model));
+    _trace('model', {'ip': ip, 'model': model});
     _afterWrite(view);
   }
 

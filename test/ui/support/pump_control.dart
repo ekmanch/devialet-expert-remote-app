@@ -8,6 +8,7 @@ import 'package:devialet_expert_remote_app/domain/amp_state_owner.dart';
 import 'package:devialet_expert_remote_app/domain/debug/simulated_amp.dart';
 import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
 import 'package:devialet_expert_remote_app/domain/devialet_client_provider.dart';
+import 'package:devialet_expert_remote_app/domain/model_name_resolver.dart';
 import 'package:devialet_expert_remote_app/domain/monotonic_clock.dart';
 import 'package:devialet_expert_remote_app/domain/settings/app_settings.dart';
 import 'package:devialet_expert_remote_app/domain/settings/hydrated_settings.dart';
@@ -24,6 +25,7 @@ import 'package:devialet_expert_remote_app/ui/settings/url_opener.dart';
 
 import '../../domain/support/fake_time.dart';
 import '../../domain/support/settings_support.dart';
+import '../../networking/fake_model_name_source.dart';
 import '../../networking/fake_udp_transport.dart';
 
 /// Galaxy S25-ish logical size; the mockups are 390 wide.
@@ -48,6 +50,8 @@ Widget hermeticApp({
     overrides: [
       if (variant != null) uiVariantProvider.overrideWithValue(variant),
       devialetTransportProvider.overrideWithValue(FakeUdpTransport()),
+      // No 5353 socket under `flutter test` either (checklist 19).
+      modelNameSourceProvider.overrideWithValue(FakeModelNameSource()),
       monotonicClockProvider.overrideWithValue(clock ?? FakeClock()),
       staleTickProvider.overrideWithValue(ticks ?? const Stream<void>.empty()),
       hydratedSettingsProvider.overrideWithValue(

@@ -26,7 +26,16 @@ typedef TraceEmit = void Function(String line);
 /// - `view` — the *displayed* power / volume / mute / hasAmp / source
 ///   changed: what the dial showed, from the same derivation the UI renders;
 /// - `sheet kind=none|amp|source` — the owner's sheet slot changed (Task
-///   3.8.2), so a dismissal path that forgot to write back is visible.
+///   3.8.2), so a dismissal path that forgot to write back is visible;
+/// - `mdns session open reason=start|new-ip` / `mdns session close
+///   reason=resolved|budget|dispose` — a model-name browse session (Task
+///   3.9.5); `mdns hit host= ip= known=` — a `_spotify-connect._tcp` hit
+///   (first time per IP; `known` says whether the trust gate lets it
+///   through now or it waits in the cache); `mdns applied ip= model=` —
+///   the resolver handed a parsed name to the owner; `mdns unavailable
+///   error=` — the source cannot run (bind / join / permission), once per
+///   session attempt; `model ip= model=` — the owner accepted a name
+///   (never twice for one IP).
 ///
 /// The default is [none]: `lib/domain/` has no Flutter import, so the
 /// `debugPrint` emitter is injected by `main.dart` under `kDebugMode` and

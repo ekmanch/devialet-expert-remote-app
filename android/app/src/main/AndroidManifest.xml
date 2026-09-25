@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- UDP control + status broadcasts. Only the debug/profile manifests
+         carried this (the Flutter template's), so no release build had a
+         working socket until Task 3.9.x (checklist 17). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- WifiManager.MulticastLock for the mDNS model-name browse (Task 3.9.5). -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
     <application
         android:label="devialet_expert_remote_app"
         android:name="${applicationName}"

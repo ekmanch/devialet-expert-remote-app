@@ -37,6 +37,8 @@ dependencies:
   flutter_riverpod: ^3.4.2
   shared_preferences: ^2.5.5
   url_launcher: ^6.3.2
+  # Task 3.9.5: pure-Dart mDNS for the model name on Android / desktop.
+  multicast_dns: ^0.3.3
 
 dev_dependencies:
   flutter_test:
