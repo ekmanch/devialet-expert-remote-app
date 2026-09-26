@@ -340,6 +340,13 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
       through one `DimmedGroup` at four gate points, gating derived from
       `ControlViewState`'s getters so every input path is covered
       (checklist item 6; `test/ui/control_screen_states_test.dart`).
+      *spike/ui-redesign (2026-09-26):* power moved onto the amp card, so
+      "whole action row 0.4 (power included)" no longer applies. The power
+      circle dims by itself to **0.35** (mockup `.card-power` under
+      `.device-dot.none / .waiting`) and absorbs its taps (owner decision:
+      no fall-through to the amp sheet). Mute now sits inside the volume
+      group and dims with it at 0.4. Guards: `control_screen_states_test`,
+      `device_card_power_test`.
 - [x] **2.0.9** — **Source row:** closed row shows an icon chip following the active
       source's glyph, eyebrow label, name (elided — "Chromecast Audio
       Extra Long" is the test case), caret; placeholder "No source". Open: a
@@ -354,6 +361,11 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
       the footer slot altogether, so the status word went with it; the
       device card's subtitle ("· Connected" / "Tap to connect") is the
       one place the link state is shown.
+      *spike/ui-redesign (2026-09-26):* "· Connected" left the card
+      subtitle with alternate v44b — the subtitle is the bare IP while On
+      or Off; the dot alone carries the link state (filled / hollow /
+      dashed / pulsing). "Booting…", the waiting line and "Tap to connect"
+      are unchanged.
 - [x] **2.0.11** — **Theme tokens** (copper/graphite palette, dark + light variants)
       lifted from the mockup CSS into one place so Task 3.4.x's Theme
       setting and Task 5.0.0's icon can reuse them. Fonts in the mockups
@@ -383,6 +395,16 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
       this task**. Measured row heights and button widths are per width
       class (checklist items 14, 16). Checklist for the soak (both run
       configs, `UI_VARIANT=android` and `=ios`):
+      ✔ 2026-09-26 spike/ui-redesign, S25 against the real amp (scripted
+        from the dev machine, Android variant): the card's amp area opens
+        the amp sheet and the power circle toggles power with no sheet
+        event, in every state — the amp area stays live while booting
+        (owner, hands-on), the circle is inert then; Off state; the
+        booting ring at two phases with the glyph kept; boot confirmed
+        ≈ 15 s; hold-to-repeat three steps in 450 ms; mute on Optical 1
+        with the accent circle and "Muted"; the v47 amp sheet. Owner
+        soak found nothing obvious; the iOS variant preview looked as
+        expected on Android hardware.
       - cycle all six scenarios with the debug bar; compare each against
         the current mockup (v40) side by side (fonts, sizes, spacing,
         colours);
@@ -663,6 +685,17 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
       3.11.x. Hands-on check on the S25 in both variants; no small
       physical phone exists, so the small-screen case is verified by the
       fit test and an emulator.
+      *Superseded on spike/ui-redesign (2026-09-26) by the mockups' v47c
+      "filled" layout, which goes the other way:* the dial **grows** from
+      220 into the spare height (`size = clamp(220 + spare − 24, 220,
+      min(0.88 × width, 300))`, `FilledControlLayout`), Source is pinned
+      to the bottom, the spare sits between the round row and Source with
+      an 8 dp minimum, and a screen shorter than the natural column
+      scrolls. Measured on the S25 with the bundled fonts: dial 262.7 dp,
+      no scroll (`control_screen_fit_test`, band 258–268). The 180 dp
+      shrink floor, the flexible gaps and the three-height table are not
+      done; if a small phone ever matters, that is the remaining half of
+      this item.
 
 ## Task 3.0.x-3.3.x — Software architecture: state owner + persistence layer
 
