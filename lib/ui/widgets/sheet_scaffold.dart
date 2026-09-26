@@ -14,6 +14,10 @@ import 'header_icon_button.dart';
 /// back chevron beside the title (a 44 dp [HeaderIconButton] overhanging
 /// the content edge by 12 like the Android back arrow) and indents the
 /// subtitle under the title — the amp picker's manual-entry view.
+/// [footer] sits *below* the scrolling body, always visible (v45: the amp
+/// list scrolls, "Enter IP Manually" is pinned — the escape hatch never
+/// needs scrolling); [bodyFade] fades the body's last dp so a cut-off row
+/// reads as "more below" (the mockup's 14 px mask on `.sheet-list`).
 class SheetScaffold extends StatelessWidget {
   const SheetScaffold({
     super.key,
@@ -25,10 +29,14 @@ class SheetScaffold extends StatelessWidget {
     this.backdropOffset = Offset.zero,
     this.onBack,
     this.backKey,
+    this.footer,
+    this.bodyFade,
   });
 
   final VoidCallback? onBack;
   final Key? backKey;
+  final Widget? footer;
+  final double? bodyFade;
 
   /// The back button's visible width inside the content edge
   /// (44 − 12 overhang); the title and subtitle start after it.
@@ -43,6 +51,22 @@ class SheetScaffold extends StatelessWidget {
   /// Where the backdrop's top-right corner lands relative to the panel's:
   /// negative x = past the right edge, negative y = above the top.
   final Offset backdropOffset;
+
+  /// `mask-image: linear-gradient(to bottom, #000 calc(100% − fade), transparent)`.
+  Widget _fadeBottom(Widget body) {
+    final fade = bodyFade;
+    if (fade == null) return body;
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (bounds) => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: const [Color(0xFF000000), Color(0xFF000000), Color(0x00000000)],
+        stops: [0, bounds.height <= fade ? 0 : 1 - fade / bounds.height, 1],
+      ).createShader(Offset.zero & bounds.size),
+      child: body,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +116,8 @@ class SheetScaffold extends StatelessWidget {
                 ? subtitleText
                 : Row(children: [leading, const SizedBox(width: 10), Flexible(child: subtitleText)]),
           ),
-          Flexible(child: SingleChildScrollView(child: child)),
+          Flexible(child: _fadeBottom(SingleChildScrollView(child: child))),
+          ?footer,
         ],
       ),
     );

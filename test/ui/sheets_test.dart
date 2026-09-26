@@ -8,6 +8,7 @@ import 'package:devialet_expert_remote_app/ui/platform/adaptive_text_field.dart'
 import 'package:devialet_expert_remote_app/domain/amp_state_owner.dart';
 import 'package:devialet_expert_remote_app/domain/control_view_state.dart';
 import 'package:devialet_expert_remote_app/domain/debug/synthetic_status.dart';
+import 'package:devialet_expert_remote_app/ui/control/amp_sheet.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
 import 'package:devialet_expert_remote_app/ui/control/device_card.dart';
 import 'package:devialet_expert_remote_app/ui/platform/adaptive_pressable.dart';
@@ -15,12 +16,10 @@ import 'package:devialet_expert_remote_app/ui/widgets/check_mark.dart';
 
 import 'support/pump_control.dart';
 
-/// Whether an amp-sheet row shows its check mark (the mark is always in
-/// the tree, faded to 0 when unselected — the rows never reflow).
-bool rowChecked(WidgetTester tester, Finder row) {
-  final check = find.ancestor(of: find.descendant(of: row, matching: find.byType(CheckMark)), matching: find.byType(Opacity)).first;
-  return tester.widget<Opacity>(check).opacity == 1;
-}
+/// Whether an amp-sheet row shows its check mark (v47: only the selected
+/// row has one in the tree; the others give the subtitle its space).
+bool rowChecked(WidgetTester tester, Finder row) =>
+    find.descendant(of: row, matching: find.byType(CheckMark)).evaluate().isNotEmpty;
 
 /// The opacity of a row's content (dot + text), 0.5 for a silent, unselected amp.
 double rowOpacity(WidgetTester tester, Finder row) {
@@ -30,19 +29,74 @@ double rowOpacity(WidgetTester tester, Finder row) {
 
 void main() {
   group('amp sheet', () {
-    testWidgets('None first, then a divider, then amps; unresolved amp is tagged', (tester) async {
+    testWidgets('None first, then a divider, then amps; every row is titled model ?? name with the IP alone below (v47)', (tester) async {
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
       await openAmpSheet(tester);
       expect(find.text('Choose Amplifier'), findsOneWidget);
+      expect(find.text('Listening for amplifiers'), findsOneWidget);
       expect(find.text("Don't connect to any amplifier"), findsOneWidget);
       final none = tester.getTopLeft(find.text('None'));
       final first = tester.getTopLeft(find.text('Devialet Expert 140 Pro').last);
       final third = tester.getTopLeft(find.text('Devialet-ETH'));
       expect(none.dy, lessThan(first.dy));
       expect(first.dy, lessThan(third.dy));
-      expect(find.text('My Devialet \u00b7 192.0.2.22'), findsOneWidget);
-      expect(find.text('192.0.2.24 \u00b7 name unresolved'), findsOneWidget);
+      // v47: no friendly name, no "name unresolved" marker — the IP only.
+      expect(find.descendant(of: find.byKey(ControlKeys.ampRow('192.0.2.22')), matching: find.text('192.0.2.22')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(ControlKeys.ampRow('192.0.2.24')), matching: find.text('192.0.2.24')), findsOneWidget);
+      expect(find.textContaining('My Devialet'), findsNothing);
+      expect(find.textContaining('name unresolved'), findsNothing);
       expect(find.text('Enter IP Manually'), findsOneWidget);
+    });
+
+    test('v47 subtitle rule: the IP, or "Online" / nothing when the IP is already the title', () {
+      AmpRef amp({String name = 'My Devialet', String? model = 'Devialet Expert 140 Pro', bool online = true}) =>
+          AmpRef(id: 'a', name: name, model: model, ip: '192.0.2.22', online: online);
+      expect(AmpSheet.subtitleFor(amp(), selected: true), '192.0.2.22');
+      expect(AmpSheet.subtitleFor(amp(model: null), selected: false), '192.0.2.22', reason: 'unresolved: still the IP');
+      expect(AmpSheet.subtitleFor(amp(model: null, name: ''), selected: false), 'Online', reason: 'IP-titled online row');
+      expect(AmpSheet.subtitleFor(amp(model: null, name: '', online: false), selected: false), '', reason: 'IP-titled silent row: the status alone');
+      expect(AmpSheet.subtitleFor(amp(online: false), selected: false), '192.0.2.22');
+    });
+
+    testWidgets('v47: only the selected row carries a tick; the others give the subtitle the full row width', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      await openAmpSheet(tester);
+      expect(find.descendant(of: find.byType(AmpSheet), matching: find.byType(CheckMark)), findsOneWidget);
+      final selected = find.byKey(ControlKeys.ampRow('192.0.2.22'));
+      final other = find.byKey(ControlKeys.ampRow('192.0.2.23'));
+      expect(rowChecked(tester, selected), isTrue);
+      expect(rowChecked(tester, other), isFalse);
+      Rect sub(Finder row) => tester.getRect(find.descendant(of: row, matching: find.byType(Text)).last);
+      final tick = tester.getRect(find.descendant(of: selected, matching: find.byType(CheckMark)));
+      expect(sub(selected).right, lessThanOrEqualTo(tick.left), reason: 'the selected row still stops before its tick');
+      // The unselected row's text column reaches the row's content edge (10 dp padding), no tick slot.
+      final textColumn = find.descendant(of: other, matching: find.byType(Column)).first;
+      expect(tester.getRect(textColumn).right, closeTo(tester.getRect(other).right - 10, 0.01));
+    });
+
+    testWidgets('v45: a long list scrolls inside the sheet; the divider and "Enter IP Manually" stay pinned and tappable', (tester) async {
+      await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
+      final owner = containerOf(tester).read(ampStateProvider.notifier);
+      for (var i = 40; i < 52; i++) {
+        owner.ingest(syntheticReport(ip: '192.0.2.$i', name: 'Amp $i'));
+      }
+      await openAmpSheet(tester);
+      final list = find.descendant(of: find.byType(AmpSheet), matching: find.byType(Scrollable));
+      final position = tester.state<ScrollableState>(list).position;
+      expect(position.maxScrollExtent, greaterThan(0), reason: 'twelve extra rows outgrow the 72 % panel');
+      final manual = tester.getRect(find.byKey(ControlKeys.ampManualRow));
+      expect(manual.top, greaterThanOrEqualTo(tester.getRect(list).bottom), reason: 'pinned below the list, not inside it');
+      expect(manual.bottom, lessThanOrEqualTo(phonePortrait.height));
+      // The fade sits on the list only.
+      expect(find.ancestor(of: list, matching: find.byType(ShaderMask)), findsOneWidget);
+      expect(find.ancestor(of: find.byKey(ControlKeys.ampManualRow), matching: find.byType(ShaderMask)), findsNothing);
+      // Scrolled to the end, the last row is above the pinned row and the manual row still opens the entry view.
+      await tester.drag(list, const Offset(0, -2000));
+      await tester.pump();
+      expect(tester.getRect(find.byKey(ControlKeys.ampRow('192.0.2.51'))).bottom, lessThanOrEqualTo(manual.top + 0.01));
+      await tester.tap(find.byKey(ControlKeys.ampManualRow));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter IP Address'), findsOneWidget);
     });
 
     testWidgets('choosing None disconnects; choosing an amp connects to it', (tester) async {
@@ -103,7 +157,7 @@ void main() {
       await settleSheet(tester);
       expect(find.text('MANUAL'), findsNothing);
       expect(find.byKey(ControlKeys.ampGroupLabel), findsNothing);
-      expect(find.descendant(of: row, matching: find.text('192.0.2.9 \u00b7 name unresolved')), findsOneWidget);
+      expect(find.descendant(of: row, matching: find.text('192.0.2.9')), findsOneWidget, reason: 'v47: the IP alone under the name');
       expect(rowChecked(tester, row), isTrue);
       expect(textAt(tester, ControlKeys.deviceName), 'Manual');
       expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.9');

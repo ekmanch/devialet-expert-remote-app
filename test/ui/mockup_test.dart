@@ -225,7 +225,7 @@ void main() {
       expect(dots, isNotEmpty);
       expect(dots.map((d) => d.size), everyElement(13));
       expect(find.text('✓'), findsNothing);
-      expect(find.descendant(of: find.byType(AmpSheet), matching: find.byType(CheckMark)), findsAtLeastNWidgets(2));
+      expect(find.descendant(of: find.byType(AmpSheet), matching: find.byType(CheckMark)), findsOneWidget, reason: 'v47: the selected row only');
     });
 
     for (final brightness in Brightness.values) {
@@ -471,7 +471,7 @@ void main() {
       await tester.tap(find.byKey(SettingsUiKeys.backButton));
       await tester.pumpAndSettle();
       await openAmpSheet(tester);
-      expect(tester.widget<Text>(find.text('Amplifiers found on your network')).style!.color, t.textDim);
+      expect(tester.widget<Text>(find.text('Listening for amplifiers')).style!.color, t.textDim);
       expect(tester.widget<Text>(find.text("Don't connect to any amplifier")).style!.color, t.textDim);
     });
   });
