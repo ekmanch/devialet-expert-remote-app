@@ -5,7 +5,7 @@ import 'package:flutter/widgets.dart';
 /// asset (checklist item 18). [strokeWidth] is in viewBox units, so it
 /// scales with [size] exactly as the SVG's `stroke-width` does (the v36
 /// gear and the alternate layout's round-button glyphs are 1.8, the rest 2).
-enum StrokeIconKind { gear, speaker, speakerMuted, power, minus, plus }
+enum StrokeIconKind { gear, speakerMuted, power, minus, plus }
 
 class StrokeIcon extends StatelessWidget {
   const StrokeIcon(this.kind, {super.key, required this.color, this.size = 16, this.strokeWidth = 2});
@@ -43,14 +43,6 @@ class _StrokeIconPainter extends CustomPainter {
       ..color = color;
 
     switch (kind) {
-      case StrokeIconKind.speaker:
-        canvas.drawPath(_speakerBody(), stroke);
-        canvas.drawPath(
-          Path()
-            ..moveTo(15.5, 8.5)
-            ..arcToPoint(const Offset(15.5, 15.5), radius: const Radius.circular(5), clockwise: true),
-          stroke,
-        );
       case StrokeIconKind.speakerMuted:
         // alternate v47b: `M11 5 6.5 9H3v6h3.5l4.5 4V5Z` with the cross
         // pulled in to 16–21 so the glyph sits centred in a round button.
@@ -145,16 +137,6 @@ class _StrokeIconPainter extends CustomPainter {
     ..lineTo(3, 9)
     ..lineTo(3, 15)
     ..lineTo(6.5, 15)
-    ..lineTo(11, 19)
-    ..close();
-
-  /// `M11 5 6 9H2v6h4l5 4V5Z`
-  static Path _speakerBody() => Path()
-    ..moveTo(11, 5)
-    ..lineTo(6, 9)
-    ..lineTo(2, 9)
-    ..lineTo(2, 15)
-    ..lineTo(6, 15)
     ..lineTo(11, 19)
     ..close();
 

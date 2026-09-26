@@ -9,9 +9,12 @@ import 'package:devialet_expert_remote_app/ui/control/control_layout.dart';
 
 import 'support/pump_control.dart';
 
+/// On the ring track; the dial grows with the window (v47c), so the
+/// track radius is 96 × (dial size / 220).
 Offset ringPoint(WidgetTester tester, double angleDeg) {
   final center = tester.getCenter(find.byKey(ControlKeys.dial));
-  return center + Offset(math.cos(angleDeg * math.pi / 180), math.sin(angleDeg * math.pi / 180)) * 96;
+  final r = tester.getSize(find.byKey(ControlKeys.dial)).width * 96 / 220;
+  return center + Offset(math.cos(angleDeg * math.pi / 180), math.sin(angleDeg * math.pi / 180)) * r;
 }
 
 void main() {

@@ -12,7 +12,10 @@ import 'volume_dial_math.dart';
 /// dial's start angle, and a rotary drag on the ring band. [minDb] /
 /// [maxDb] are parameters (the floor/ceiling settings later), never
 /// constants (TODO 2.0.4). [child] is the centre readout and is not a
-/// drag target.
+/// drag target. [trackRadius], [trackWidth] and [innerHitSlop] are dp at
+/// the 220 base and do **not** follow [size] by themselves — a caller
+/// that grows the dial (the filled layout, v47c) scales all three by
+/// `size / 220`, as the mockup's SVG does with its whole viewBox.
 class VolumeDial extends StatefulWidget {
   const VolumeDial({
     super.key,
@@ -266,18 +269,22 @@ class _DialRingPainter extends CustomPainter {
 /// The dial's centre: value (34 mono, copper; in light the v39 two-stop
 /// gold gradient clipped to the digits — `AppTokens.dialValueGradientColors`),
 /// unit (12 mono, kept in layout when hidden so nothing shifts) and the
-/// active source label (10.5 display, uppercase).
+/// active source label (10.5 display, uppercase). Every size is × [scale]
+/// = dial size / 220 (alternate v47c `--dial-k`), so the readout grows
+/// with the dial.
 class DialReadout extends StatelessWidget {
   const DialReadout({
     super.key,
     required this.valueText,
     required this.unitVisible,
     required this.sourceLabel,
+    this.scale = 1,
   });
 
   final String valueText;
   final bool unitVisible;
   final String sourceLabel;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +294,7 @@ class DialReadout extends StatelessWidget {
       valueText,
       key: ControlKeys.dialValue,
       style: theme.type
-          .mono(size: 34, weight: FontWeight.w500, letterSpacingEm: -0.01, color: t.copperBright, height: 1)
+          .mono(size: 34 * scale, weight: FontWeight.w500, letterSpacingEm: -0.01, color: t.copperBright, height: 1)
           .copyWith(shadows: t.isDark ? [Shadow(color: t.accentTint(0.35), blurRadius: 18)] : null),
     );
     final gradient = t.dialValueGradientColors;
@@ -310,16 +317,16 @@ class DialReadout extends StatelessWidget {
           maintainSize: true,
           maintainAnimation: true,
           maintainState: true,
-          child: Text('dB', key: ControlKeys.dialUnit, style: theme.type.mono(size: 12, letterSpacingEm: 0.05, color: t.textDim)),
+          child: Text('dB', key: ControlKeys.dialUnit, style: theme.type.mono(size: 12 * scale, letterSpacingEm: 0.05, color: t.textDim)),
         ),
         Padding(
-          padding: const EdgeInsets.only(top: 8),
+          padding: EdgeInsets.only(top: 8 * scale),
           child: Text(
             sourceLabel.toUpperCase(),
             key: ControlKeys.dialSourceLabel,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.type.display(size: 10.5, letterSpacingEm: 0.2, color: t.textFaint),
+            style: theme.type.display(size: 10.5 * scale, letterSpacingEm: 0.2, color: t.textFaint),
           ),
         ),
       ],

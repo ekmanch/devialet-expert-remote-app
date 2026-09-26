@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,8 +14,8 @@ import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
 import '../widgets/dimmed_group.dart';
 import '../widgets/section_label.dart';
-import 'action_row.dart';
 import 'amp_sheet.dart';
+import 'control_fill_layout.dart';
 import 'control_header.dart';
 import 'control_keys.dart';
 import 'control_layout.dart';
@@ -134,91 +136,124 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
       valueText = formatDb(shownDb);
     }
 
-    final column = Column(
-      key: ControlKeys.column,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ControlHeader(onSettingsTap: _openSettings),
-        DeviceCard(state: state, onTap: _openAmpSheet),
-        const SectionLabel('Volume', first: true, accent: true, top: kControlSectionTopFirst),
-        DimmedGroup(
-          key: ControlKeys.dialWrap,
-          dimmed: !state.volumeGroupEnabled,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: kControlDialTop, bottom: kControlDialBottom),
-                child: VolumeDial(
-                  key: _dialKey,
-                  minDb: state.floorDb,
-                  maxDb: state.ceilingDb,
-                  stepDb: state.stepDb,
-                  valueDb: shownDb,
-                  enabled: state.volumeGroupEnabled,
-                  showArc: state.hasAmp,
-                  onChanged: (db) => setState(() => _dragDb = db),
-                  onChangeEnd: (db) {
-                    notifier.setVolumeDb(db);
-                    setState(() => _dragDb = null);
-                  },
-                  child: DialReadout(
-                    valueText: valueText,
-                    unitVisible: state.hasAmp && (!state.isMuted || _dragDb != null),
-                    sourceLabel: state.hasAmp ? (state.activeSource?.name ?? 'No source') : 'No source',
-                  ),
-                ),
-              ),
-              VolumeButtons(
-                enabled: state.volumeGroupEnabled,
-                onMinus: () => notifier.stepVolume(-1),
-                onPlus: () => notifier.stepVolume(1),
-              ),
-            ],
-          ),
-        ),
-        DimmedGroup(
-          key: ControlKeys.actionRow,
-          dimmed: !state.hasAmp,
-          child: ActionRow(state: state, onMute: notifier.toggleMute, onPower: notifier.togglePower),
-        ),
-        const SectionLabel('Source', accent: true, top: kControlSectionTop),
-        DimmedGroup(
-          key: ControlKeys.sourceTrigger,
-          dimmed: !state.volumeGroupEnabled,
-          opacity: state.hasAmp ? 0.4 : 0.5,
-          blockTaps: state.hasAmp,
-          child: SourceTrigger(state: state, onTap: _openSourceSheet),
-        ),
-      ],
+    // The dial slot is laid out by FilledControlLayout at the fitted size;
+    // everything that scales with it (ring geometry, readout type) reads
+    // that size here, in layout, from the tight constraints.
+    final dial = DimmedGroup(
+      key: ControlKeys.dialWrap,
+      dimmed: !state.volumeGroupEnabled,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = constraints.maxWidth;
+          final k = size / kControlDialBase;
+          return VolumeDial(
+            key: _dialKey,
+            size: size,
+            trackRadius: 96 * k,
+            trackWidth: 10 * k,
+            innerHitSlop: 28 * k,
+            minDb: state.floorDb,
+            maxDb: state.ceilingDb,
+            stepDb: state.stepDb,
+            valueDb: shownDb,
+            enabled: state.volumeGroupEnabled,
+            showArc: state.hasAmp,
+            onChanged: (db) => setState(() => _dragDb = db),
+            onChangeEnd: (db) {
+              notifier.setVolumeDb(db);
+              setState(() => _dragDb = null);
+            },
+            child: DialReadout(
+              scale: k,
+              valueText: valueText,
+              unitVisible: state.hasAmp && (!state.isMuted || _dragDb != null),
+              sourceLabel: state.hasAmp ? (state.activeSource?.name ?? 'No source') : 'No source',
+            ),
+          );
+        },
+      ),
     );
 
-    final body = SafeArea(
-      child: SingleChildScrollView(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: widthClass == WindowWidthClass.compact ? double.infinity : kInterimColumnMaxWidth,
-            ),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                style.sidePadding,
-                style.contentTopPadding,
-                style.sidePadding,
-                style.contentBottomPadding,
-              ),
-              child: column,
-            ),
-          ),
+    final column = FilledControlLayout(
+      key: ControlKeys.column,
+      top: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ControlHeader(onSettingsTap: _openSettings),
+          DeviceCard(state: state, onTap: _openAmpSheet, onPower: notifier.togglePower),
+          // Stays "Volume" on the alternate layout: power is on the card,
+          // so this block is only volume + mute (mainline v48 says "Controls").
+          const SectionLabel('Volume', first: true, accent: true, top: kControlSectionTopFirst),
+        ],
+      ),
+      dial: dial,
+      roundRow: DimmedGroup(
+        dimmed: !state.volumeGroupEnabled,
+        child: VolumeButtons(
+          key: ControlKeys.roundRow,
+          enabled: state.volumeGroupEnabled,
+          onMinus: () => notifier.stepVolume(-1),
+          onPlus: () => notifier.stepVolume(1),
+          isMuted: state.isMuted,
+          onMute: notifier.toggleMute,
         ),
+      ),
+      bottom: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SectionLabel('Source', key: ControlKeys.sourceLabel, accent: true, top: kControlSectionTop),
+          DimmedGroup(
+            key: ControlKeys.sourceTrigger,
+            dimmed: !state.volumeGroupEnabled,
+            opacity: state.hasAmp ? 0.4 : 0.5,
+            blockTaps: state.hasAmp,
+            child: SourceTrigger(state: state, onTap: _openSourceSheet),
+          ),
+        ],
+      ),
+    );
+
+    // The viewport height is the column's *minimum* (fill), never its
+    // maximum (scroll). `maintainBottomViewPadding` + the scaffolds'
+    // `resizeToAvoidBottomInset: false` below: the keyboard under the amp
+    // sheet's manual-IP field must not re-fit the dial behind the scrim;
+    // the sheet route handles its own inset.
+    final body = SafeArea(
+      maintainBottomViewPadding: true,
+      child: LayoutBuilder(
+        builder: (context, viewport) {
+          final minHeight = viewport.maxHeight.isFinite
+              ? math.max(0.0, viewport.maxHeight - style.contentTopPadding - style.contentBottomPadding)
+              : 0.0;
+          return SingleChildScrollView(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: widthClass == WindowWidthClass.compact ? double.infinity : kInterimColumnMaxWidth,
+                ),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    style.sidePadding,
+                    style.contentTopPadding,
+                    style.sidePadding,
+                    style.contentBottomPadding,
+                  ),
+                  child: ConstrainedBox(constraints: BoxConstraints(minHeight: minHeight), child: column),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
 
     if (style.isCupertino) {
       return CupertinoPageScaffold(
         backgroundColor: t.bg,
+        resizeToAvoidBottomInset: false,
         child: Material(type: MaterialType.transparency, child: body),
       );
     }
-    return Scaffold(backgroundColor: t.bg, body: body);
+    return Scaffold(backgroundColor: t.bg, resizeToAvoidBottomInset: false, body: body);
   }
 }

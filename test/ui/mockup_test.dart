@@ -131,10 +131,10 @@ void main() {
       expect(name.style!.fontWeight, FontWeight.w600);
     });
 
-    testWidgets('no footer status word; the device card carries the state', (tester) async {
+    testWidgets('no footer status word; the device card carries the state (alternate v44b: the bare IP, the dot is the link state)', (tester) async {
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
       expect(find.text('Connected'), findsNothing);
-      expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.22 · Connected');
+      expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.22');
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.notConnected));
       expect(find.text('Not connected'), findsNothing);
       expect(textAt(tester, ControlKeys.deviceSub), 'Tap to connect');

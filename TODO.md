@@ -328,6 +328,9 @@ fake owner), `lib/config/window_class.dart`, `lib/ui/theme/`,
       Done structurally (`WidestLabel` lays every candidate out invisibly;
       `test/ui/widest_label_test.dart` pins icon position and label width
       across states). The on-device measurement is 2.0.13.
+      *spike/ui-redesign (2026-09-26):* `WidestLabel` and its test were
+      removed on that branch — no labelled toggles remain (mute and power
+      are icon-only circles); see git history if mainline needs it back.
 - [x] **2.0.8** — **Disabled presentation:** Off / Booting: every non-power control
       dimmed to **0.4** opacity, disabled, **keeping last-known text**
       ("−25.0", "Unmute", source name). No amp (incl. a silent amp, see

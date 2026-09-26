@@ -58,7 +58,7 @@ void main() {
       await tapRow(tester, 'Devialet Expert 220 Pro');
       await tester.pumpAndSettle();
       expect(textAt(tester, ControlKeys.deviceName), 'Devialet Expert 220 Pro');
-      expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.23 \u00b7 Connected');
+      expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.23');
     });
 
     testWidgets('manual IP: invalid stays; a valid one is a tagged, checked, waiting row until its first broadcast (3.9.3)', (tester) async {
@@ -106,7 +106,7 @@ void main() {
       expect(find.descendant(of: row, matching: find.text('192.0.2.9 \u00b7 name unresolved')), findsOneWidget);
       expect(rowChecked(tester, row), isTrue);
       expect(textAt(tester, ControlKeys.deviceName), 'Manual');
-      expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.9 \u00b7 Connected');
+      expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.9');
     });
 
     testWidgets('3.9.0: the list is live while open — a new amp appears, a silent one drops under "Not responding" with "Last seen", and comes back', (tester) async {

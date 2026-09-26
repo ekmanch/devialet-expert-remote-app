@@ -11,6 +11,7 @@ abstract final class ControlKeys {
   static const deviceDot = ValueKey('control.deviceDot');
   static const deviceName = ValueKey('control.deviceName');
   static const deviceSub = ValueKey('control.deviceSub');
+  static const deviceDivider = ValueKey('control.deviceDivider');
   static const dialWrap = ValueKey('control.dialWrap');
   static const dial = ValueKey('control.dial');
   static const dialValue = ValueKey('control.dialValue');
@@ -18,13 +19,12 @@ abstract final class ControlKeys {
   static const dialSourceLabel = ValueKey('control.dialSourceLabel');
   static const volMinus = ValueKey('control.volMinus');
   static const volPlus = ValueKey('control.volPlus');
-  static const actionRow = ValueKey('control.actionRow');
+  static const roundRow = ValueKey('control.roundRow');
   static const muteButton = ValueKey('control.mute');
-  static const muteLabel = ValueKey('control.muteLabel');
   static const muteIcon = ValueKey('control.muteIcon');
   static const powerButton = ValueKey('control.power');
-  static const powerLabel = ValueKey('control.powerLabel');
   static const powerIcon = ValueKey('control.powerIcon');
+  static const sourceLabel = ValueKey('control.sourceLabel');
   static const sourceTrigger = ValueKey('control.sourceTrigger');
   static const sourceName = ValueKey('control.sourceName');
   static const sourceRows = ValueKey('control.sourceRows');
@@ -33,5 +33,7 @@ abstract final class ControlKeys {
   static const sheetBack = ValueKey('control.sheetBack');
   static ValueKey<String> ampRow(String ip) => ValueKey('control.ampRow.$ip');
   static const ampNoneRow = ValueKey('control.ampRow.none');
+  static const ampList = ValueKey('control.ampList');
+  static const ampManualRow = ValueKey('control.ampManualRow');
   static const ampGroupLabel = ValueKey('control.ampGroupLabel');
 }
