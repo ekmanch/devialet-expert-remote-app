@@ -1,31 +1,35 @@
 import 'package:flutter/widgets.dart';
 
-/// The mockups' four inline SVGs (24-unit viewBox, `stroke: currentColor`,
+/// The mockups' inline SVGs (24-unit viewBox, `stroke: currentColor`,
 /// `fill: none`) as painters, tinted through the framework rather than the
-/// asset (checklist item 18).
-enum StrokeIconKind { gear, speaker, speakerMuted, power }
+/// asset (checklist item 18). [strokeWidth] is in viewBox units, so it
+/// scales with [size] exactly as the SVG's `stroke-width` does (the v36
+/// gear and the alternate layout's round-button glyphs are 1.8, the rest 2).
+enum StrokeIconKind { gear, speaker, speakerMuted, power, minus, plus }
 
 class StrokeIcon extends StatelessWidget {
-  const StrokeIcon(this.kind, {super.key, required this.color, this.size = 16});
+  const StrokeIcon(this.kind, {super.key, required this.color, this.size = 16, this.strokeWidth = 2});
 
   final StrokeIconKind kind;
   final Color color;
   final double size;
+  final double strokeWidth;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox.square(
       dimension: size,
-      child: CustomPaint(painter: _StrokeIconPainter(kind: kind, color: color)),
+      child: CustomPaint(painter: _StrokeIconPainter(kind: kind, color: color, strokeWidth: strokeWidth)),
     );
   }
 }
 
 class _StrokeIconPainter extends CustomPainter {
-  const _StrokeIconPainter({required this.kind, required this.color});
+  const _StrokeIconPainter({required this.kind, required this.color, required this.strokeWidth});
 
   final StrokeIconKind kind;
   final Color color;
+  final double strokeWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -33,7 +37,7 @@ class _StrokeIconPainter extends CustomPainter {
     canvas.scale(scale, scale);
     final stroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
+      ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..color = color;
@@ -48,9 +52,16 @@ class _StrokeIconPainter extends CustomPainter {
           stroke,
         );
       case StrokeIconKind.speakerMuted:
-        canvas.drawPath(_speakerBody(), stroke);
-        canvas.drawLine(const Offset(23, 9), const Offset(17, 15), stroke);
-        canvas.drawLine(const Offset(17, 9), const Offset(23, 15), stroke);
+        // alternate v47b: `M11 5 6.5 9H3v6h3.5l4.5 4V5Z` with the cross
+        // pulled in to 16–21 so the glyph sits centred in a round button.
+        canvas.drawPath(_mutedSpeakerBody(), stroke);
+        canvas.drawLine(const Offset(21, 9.5), const Offset(16, 14.5), stroke);
+        canvas.drawLine(const Offset(16, 9.5), const Offset(21, 14.5), stroke);
+      case StrokeIconKind.minus:
+        canvas.drawLine(const Offset(6, 12), const Offset(18, 12), stroke);
+      case StrokeIconKind.plus:
+        canvas.drawLine(const Offset(6, 12), const Offset(18, 12), stroke);
+        canvas.drawLine(const Offset(12, 6), const Offset(12, 18), stroke);
       case StrokeIconKind.power:
         canvas.drawPath(
           Path()
@@ -65,9 +76,9 @@ class _StrokeIconPainter extends CustomPainter {
         );
         canvas.drawLine(const Offset(12, 2), const Offset(12, 12), stroke);
       case StrokeIconKind.gear:
-        // v36: the cog outline (`stroke-width 1.8`, round caps/joins) with
-        // a hollow r3 hub, replacing the ring-and-spokes glyph.
-        stroke.strokeWidth = 1.8;
+        // v36: the cog outline (round caps/joins; the header passes
+        // `strokeWidth: 1.8`) with a hollow r3 hub, replacing the
+        // ring-and-spokes glyph.
         canvas.drawPath(_gearOutline(), stroke);
         canvas.drawCircle(const Offset(12, 12), 3, stroke);
     }
@@ -127,6 +138,16 @@ class _StrokeIconPainter extends CustomPainter {
     ..arcToPoint(const Offset(12.22, 2), radius: const Radius.circular(2), clockwise: false)
     ..close();
 
+  /// `M11 5 6.5 9H3v6h3.5l4.5 4V5Z` (alternate v47b)
+  static Path _mutedSpeakerBody() => Path()
+    ..moveTo(11, 5)
+    ..lineTo(6.5, 9)
+    ..lineTo(3, 9)
+    ..lineTo(3, 15)
+    ..lineTo(6.5, 15)
+    ..lineTo(11, 19)
+    ..close();
+
   /// `M11 5 6 9H2v6h4l5 4V5Z`
   static Path _speakerBody() => Path()
     ..moveTo(11, 5)
@@ -138,5 +159,6 @@ class _StrokeIconPainter extends CustomPainter {
     ..close();
 
   @override
-  bool shouldRepaint(_StrokeIconPainter old) => old.kind != kind || old.color != color;
+  bool shouldRepaint(_StrokeIconPainter old) =>
+      old.kind != kind || old.color != color || old.strokeWidth != strokeWidth;
 }

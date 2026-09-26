@@ -61,7 +61,7 @@ class ControlHeader extends StatelessWidget {
               key: ControlKeys.gearButton,
               onTap: onSettingsTap,
               overhang: 10,
-              child: StrokeIcon(StrokeIconKind.gear, color: t.textDim, size: 23),
+              child: StrokeIcon(StrokeIconKind.gear, color: t.textDim, size: 23, strokeWidth: 1.8),
             ),
           ),
         ],

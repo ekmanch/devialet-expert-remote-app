@@ -43,6 +43,9 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.glyphGoldColors,
     required this.dialValueGradientColors,
     required this.listenArc,
+    required this.bootRing,
+    required this.bootRingRest,
+    required this.bootGlyphGradientColors,
   });
 
   final Brightness brightness;
@@ -118,6 +121,23 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// copper in dark (`#a06f4a`), the accent in light.
   final Color listenArc;
 
+  /// The booting power circle's comet ring (alternate v47c/v47e): ONE flat
+  /// colour whose alpha ramps along the sweep — never a hue gradient. Dark
+  /// = `--warning-bright` (`#e0b563`); light is a brighter `#f5c542` on
+  /// purpose ("a gradient looks off at this speed, just a brighter yellow").
+  final Color bootRing;
+
+  /// The circle's resting border under the ring while booting: dark
+  /// `rgba(224,181,99,.18)`, light `rgba(245,197,66,.28)`.
+  final Color bootRingRest;
+
+  /// Light theme booting glyph (alternate v47d): the dial's metallic-gold
+  /// family clipped to the power strokes, `#bootGold` in the mockup —
+  /// `9c6a0c → e9c46a (25 %) → c98a14 (48 %) → f0cf7e (72 %) → a8710b`,
+  /// top-left to bottom-right. `null` = flat [warningBright] (dark).
+  final List<Color>? bootGlyphGradientColors;
+  static const List<double> bootGlyphGradientStops = [0.0, 0.25, 0.48, 0.72, 1.0];
+
   /// Bare header icon buttons' press feedback (v36): a neutral
   /// `rgba(127,127,127,.16)` disc, the same in both themes.
   static const Color iconPressHighlight = Color(0x297F7F7F);
@@ -160,6 +180,9 @@ class AppTokens extends ThemeExtension<AppTokens> {
     glyphGoldColors: null,
     dialValueGradientColors: null,
     listenArc: Color(0xFFA06F4A),
+    bootRing: Color(0xFFE0B563),
+    bootRingRest: Color(0x2EE0B563),
+    bootGlyphGradientColors: null,
   );
 
   static const AppTokens light = AppTokens(
@@ -205,6 +228,15 @@ class AppTokens extends ThemeExtension<AppTokens> {
     glyphGoldColors: [Color(0xFFFCECC0), Color(0xFFF0A623), Color(0xFFA8710B)],
     dialValueGradientColors: [Color(0xFFDCA136), Color(0xFFF3CF7C)],
     listenArc: Color(0xFFC79A2E),
+    bootRing: Color(0xFFF5C542),
+    bootRingRest: Color(0x47F5C542),
+    bootGlyphGradientColors: [
+      Color(0xFF9C6A0C),
+      Color(0xFFE9C46A),
+      Color(0xFFC98A14),
+      Color(0xFFF0CF7E),
+      Color(0xFFA8710B),
+    ],
   );
 
   static AppTokens forBrightness(Brightness b) => b == Brightness.dark ? dark : light;
