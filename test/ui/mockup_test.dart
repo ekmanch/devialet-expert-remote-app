@@ -131,10 +131,10 @@ void main() {
       expect(name.style!.fontWeight, FontWeight.w600);
     });
 
-    testWidgets('no footer status word; the device card carries the state', (tester) async {
+    testWidgets('no footer status word; the device card carries the state (alternate v44b: the bare IP, the dot is the link state)', (tester) async {
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.connected));
       expect(find.text('Connected'), findsNothing);
-      expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.22 · Connected');
+      expect(textAt(tester, ControlKeys.deviceSub), '192.0.2.22');
       await pumpControl(tester, state: ControlViewState.forScenario(DebugScenario.notConnected));
       expect(find.text('Not connected'), findsNothing);
       expect(textAt(tester, ControlKeys.deviceSub), 'Tap to connect');
@@ -225,7 +225,7 @@ void main() {
       expect(dots, isNotEmpty);
       expect(dots.map((d) => d.size), everyElement(13));
       expect(find.text('✓'), findsNothing);
-      expect(find.descendant(of: find.byType(AmpSheet), matching: find.byType(CheckMark)), findsAtLeastNWidgets(2));
+      expect(find.descendant(of: find.byType(AmpSheet), matching: find.byType(CheckMark)), findsOneWidget, reason: 'v47: the selected row only');
     });
 
     for (final brightness in Brightness.values) {
@@ -471,7 +471,7 @@ void main() {
       await tester.tap(find.byKey(SettingsUiKeys.backButton));
       await tester.pumpAndSettle();
       await openAmpSheet(tester);
-      expect(tester.widget<Text>(find.text('Amplifiers found on your network')).style!.color, t.textDim);
+      expect(tester.widget<Text>(find.text('Listening for amplifiers')).style!.color, t.textDim);
       expect(tester.widget<Text>(find.text("Don't connect to any amplifier")).style!.color, t.textDim);
     });
   });

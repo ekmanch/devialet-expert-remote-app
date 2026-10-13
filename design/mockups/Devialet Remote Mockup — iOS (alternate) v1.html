@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Devialet Expert Pro Remote — iOS Mockup (Apple-native variant)</title>
+<title>ALTERNATE v48 (based on v48) — Devialet Expert Pro Remote — iOS Mockup (Apple-native variant)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -867,6 +867,115 @@
   @keyframes ampRingPulse{0%,100%{opacity:1;} 50%{opacity:.3;}}
   @media (prefers-reduced-motion: reduce){ .amp-option.offline.connected .amp-dot, .device-dot.waiting{animation:none;} }
   .device-sub{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}  /* v44: status line never wraps */
+
+  /* ---- v45: amp sheet scrolls; "Enter IP Manually" is pinned ----
+     With every known amp listed (v44) the list can outgrow the sheet.
+     The list now scrolls inside the sheet, and the manual-IP row sits
+     below it, always visible — the escape hatch never needs scrolling. */
+  #ampSheetOverlay .sheet-panel{overflow:hidden;}
+  #ampListView{display:flex; flex-direction:column; flex:1 1 auto; min-height:0;}
+  #ampListView > *{flex-shrink:0;}
+  #ampListView > .sheet-list{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;
+    -webkit-mask-image:linear-gradient(to bottom, #000 calc(100% - 14px), transparent);
+            mask-image:linear-gradient(to bottom, #000 calc(100% - 14px), transparent);}
+  .amp-sub{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}  /* v46: one line; trims the end, not the status */
+  .amp-info{min-width:0;}
+  /* v47: unselected amp rows don't reserve the tick's space, so the subtitle gets the full width */
+  #ampList .amp-option:not(.connected) .amp-check{display:none;}
+  /* ================= ALTERNATE layout (on top of v44) =================
+     Round − · mute · + row under the dial (original button colours),
+     and power as a round button on the amp card instead of under
+     "Volume". Everything else is identical to the v44 mainline. */
+  .sr-only{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
+  .round-row{display:flex; justify-content:center; align-items:center; gap:30px;}
+  .rb{
+    flex:none !important; width:60px !important; height:60px !important; padding:0 !important;
+    border-radius:50% !important; display:flex !important; align-items:center; justify-content:center; gap:0 !important;
+  }
+  .rb .icon{width:24px; height:24px;}
+  #muteBtn.rb.active{background:rgba(var(--accent-rgb),0.14); border-color:var(--copper-dim); color:var(--copper-bright);}
+  #actionRow{display:none !important;}
+  .card-power{width:46px !important; height:46px !important; margin-left:auto;}
+  .card-power .icon{width:21px; height:21px;}
+  .card-power .spinner{width:18px; height:18px;}
+  /* No amp selected, or the chosen amp isn't responding (v44): power
+     can't do anything, so it dims and ignores taps. */
+  .device-card:has(.device-dot.none) .card-power,
+  .device-card:has(.device-dot.waiting) .card-power{opacity:.35; pointer-events:none;}
+
+  /* alternate v44b: the card is two tap targets. Chevron = "tap the amp
+     area to change amp / enter an IP"; divider + circle = power. */
+  .card-chev{margin-left:auto; color:var(--text-faint);}
+  .card-divider{width:1px; height:30px; background:var(--divider); flex-shrink:0;}
+  .card-power{margin-left:0 !important;}
+  .device-name{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  /* fit a 360px-wide phone (S25): tighter card gaps, slightly smaller power circle */
+  .device-card{gap:8px !important;}
+  .card-power{width:44px !important; height:44px !important;}
+
+  /* alternate v47b: mute is a toggle, not a state readout. The icon always
+     names the function (muted speaker); the button lights up in the accent
+     while mute is active. Overrides the JS icon swap (inline styles). */
+  #muteBtn.rb #muteIconOn{display:none !important;}
+  #muteBtn.rb #muteIconOff{display:block !important;}
+
+  /* ======== alternate v47c ======== */
+  /* Frame: real device proportions (402×874). The old frame shrank
+     to fit its content, which hid the spare height the phone really has. */
+  .phone{width:402px; height:874px; display:flex; flex-direction:column;}
+  .viewport{flex:1 1 auto; min-height:0;}
+  .screens{height:100%;}
+  .screen{height:100%; overflow-y:auto; scrollbar-width:none;}
+  .screen::-webkit-scrollbar{display:none;}
+
+  /* "Filled" Control layout:
+     1. Source is pinned to the bottom (thumb zone); spare height sits
+        between the volume block and Source, not under everything.
+     2. The dial grows into the spare height, capped by width
+        (fitDial() below; in Flutter this is a LayoutBuilder).
+     3. Round −/mute/+ buttons 60 → 66, with a bit more gap. */
+  .screens .screen:first-child .content{display:flex; flex-direction:column; min-height:100%;}
+  .fill-spacer{flex:1 1 auto; min-height:8px;}
+  .dial{width:var(--dial-size,220px) !important; height:var(--dial-size,220px) !important;}
+  .dial > svg{width:100%; height:100%;}
+  .dial-value{font-size:calc(34px * var(--dial-k,1));}
+  .dial-unit{font-size:calc(12px * var(--dial-k,1));}
+  .dial-label{font-size:calc(10.5px * var(--dial-k,1)); margin-top:calc(8px * var(--dial-k,1));}
+  .screens .screen:first-child .vol-buttons{margin-top:calc(14px * var(--dial-k,1));}
+  #volButtons{gap:34px;}
+  #volButtons .rb{width:66px !important; height:66px !important;}
+  #volButtons .rb .icon{width:26px; height:26px;}
+
+  /* Booting: the power button's own outline becomes the progress ring
+     (no spinner inside a round button). The icon stays, tinted amber. */
+  .phone{--boot-amber:#e0b563; --boot-amber-0:rgba(224,181,99,0);}
+  #powerBtn{position:relative;}
+  #powerSpinner{display:none !important;}
+  #powerBtn.state-booting #powerIcon{display:block !important;}
+  #powerBtn.state-booting{border-color:rgba(224,181,99,.18) !important;}
+  #powerBtn.state-booting::after{content:''; position:absolute; inset:-1px; border-radius:50%; pointer-events:none;
+    background:conic-gradient(from 0deg, var(--boot-amber-0) 0deg, var(--boot-amber-0) 120deg, var(--boot-amber) 340deg, var(--boot-amber-0) 341deg);
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 2.2px), #000 calc(100% - 1.8px));
+            mask:radial-gradient(farthest-side, transparent calc(100% - 2.2px), #000 calc(100% - 1.8px));
+    animation:spin .9s linear infinite;}
+  @media (prefers-reduced-motion: reduce){ #powerBtn.state-booting::after{animation-duration:2.5s;} }
+
+  /* iOS: the whole card shrinks on press (iOS feedback); don't do that
+     when the press is on the power circle, which is its own button. */
+  .device-card:has(#powerBtn:active){transform:none; opacity:1;}
+  #volButtons .rb:active, #powerBtn:active{transform:scale(0.92);}
+
+  /* ======== alternate v47d / v47e ======== */
+  /* Light theme only (dark is unchanged):
+     - v47d: the booting power icon is metallic gold (the dial's goldGrad
+       family), instead of flat yellow that read muddy next to the other
+       gold accents.
+     - v47e: the spinning ring stays a FLAT colour (a gradient looks off at
+       this speed), just a brighter yellow than dark theme's. */
+  .phone.light{--boot-amber:#f5c542; --boot-amber-0:rgba(245,197,66,0);}
+  .phone.light #powerBtn.state-booting{color:#b27f18; border-color:rgba(245,197,66,.28) !important;}
+  .phone.light #powerBtn.state-booting #powerIcon path,
+  .phone.light #powerBtn.state-booting #powerIcon line{stroke:url(#bootGold);}
 </style>
 </head>
 <body>
@@ -903,13 +1012,20 @@
         <p class="device-name" id="deviceName">Devialet Expert 140 Pro</p>
         <p class="device-sub" id="deviceSub">192.168.0.22 · Connected</p>
       </div>
-      <div class="device-chevron">Change ›</div>
+      <span class="chevron-r card-chev"><svg class="chev" viewBox="0 0 18 18" aria-hidden="true"><path d="M7 4.2 L11.8 9 L7 13.8"/></svg></span>
+      <div class="card-divider"></div>
+      <div class="action-btn power-btn rb card-power state-on" id="powerBtn" onclick="event.stopPropagation(); togglePower()" title="Power" aria-label="Power">
+          <svg class="icon" id="powerIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><defs><linearGradient id="bootGold" gradientUnits="userSpaceOnUse" x1="3" y1="2" x2="21" y2="22"><stop offset="0%" stop-color="#9c6a0c"/><stop offset="25%" stop-color="#e9c46a"/><stop offset="48%" stop-color="#c98a14"/><stop offset="72%" stop-color="#f0cf7e"/><stop offset="100%" stop-color="#a8710b"/></linearGradient></defs><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+          <div class="spinner" id="powerSpinner" style="display:none;"></div>
+          <span id="powerLabel" class="sr-only">Power Off</span>
+        </div>
     </div>
 
     <!-- No segmented control here — Control is the only tab in the iOS
          v1, so the Android app's Control/Sound switcher is dropped
          entirely rather than shown disabled. -->
 
+    <!-- alternate v48: stays "Volume": power lives on the amp card here, so this block is only volume + mute -->
     <p class="section-label first">Volume</p>
     <div class="dial-wrap" id="dialWrap">
       <div class="dial">
@@ -936,25 +1052,24 @@
           <div class="dial-label" id="dialSourceLabel">Optical 1</div>
         </div>
       </div>
-      <div class="vol-buttons" id="volButtons">
-        <div class="vol-btn">−</div>
-        <div class="vol-btn">+</div>
+      <div class="vol-buttons round-row" id="volButtons">
+        <div class="vol-btn rb" title="Volume down" aria-label="Volume down">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="18" y2="12"/></svg>
+        </div>
+        <div class="action-btn rb" id="muteBtn" onclick="toggleMute()" title="Mute" aria-label="Mute">
+          <svg class="icon" id="muteIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5l4.5 4V5Z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6"/><path d="M18.3 6.6a7.6 7.6 0 0 1 0 10.8"/></svg>
+          <svg class="icon" id="muteIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M11 5 6.5 9H3v6h3.5l4.5 4V5Z"/><line x1="21" y1="9.5" x2="16" y2="14.5"/><line x1="16" y1="9.5" x2="21" y2="14.5"/></svg>
+          <span id="muteLabel" class="sr-only">Mute</span>
+        </div>
+        <div class="vol-btn rb" title="Volume up" aria-label="Volume up">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="18" y2="12"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+        </div>
       </div>
     </div>
 
-    <div class="action-row" id="actionRow">
-      <div class="action-btn" id="muteBtn" onclick="toggleMute()">
-        <svg class="icon" id="muteIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
-        <svg class="icon" id="muteIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-        <span id="muteLabel">Mute</span>
-      </div>
-      <div class="action-btn power-btn state-on" id="powerBtn" onclick="togglePower()">
-        <svg class="icon" id="powerIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
-        <div class="spinner" id="powerSpinner" style="display:none;"></div>
-        <span id="powerLabel">Power Off</span>
-      </div>
-    </div>
+    <div class="action-row" id="actionRow"></div>
 
+    <div class="fill-spacer" id="fillSpacer"></div>
     <p class="section-label">Source</p>
     <div class="source-trigger" id="sourceTrigger" onclick="openSheet()">
       <div class="source-icon" id="triggerIcon"><svg class="g" viewBox="0 0 20 20" aria-hidden="true"><circle class="s" cx="10" cy="10" r="7.2"/><circle class="f" cx="10" cy="10" r="3"/></svg></div>
@@ -1083,7 +1198,7 @@
 
       <div id="ampListView">
         <p class="sheet-title">Choose Amplifier</p>
-        <p class="sheet-sub listening"><svg class="listen-arcs" width="26" height="26" viewBox="0 0 48 48" aria-hidden="true"><path class="la la1" d="M22 13 A9 9 0 1 0 31 22"/><path class="la la2" d="M9 29.5 A15 15 0 0 0 36.5 18.1"/><path class="la la3" d="M20.2 42.9 A21 21 0 0 0 42.7 18.4"/></svg><span>Listening for amplifiers on your network</span></p>
+        <p class="sheet-sub listening"><svg class="listen-arcs" width="26" height="26" viewBox="0 0 48 48" aria-hidden="true"><path class="la la1" d="M22 13 A9 9 0 1 0 31 22"/><path class="la la2" d="M9 29.5 A15 15 0 0 0 36.5 18.1"/><path class="la la3" d="M20.2 42.9 A21 21 0 0 0 42.7 18.4"/></svg><span>Listening for amplifiers</span></p>
         <div class="sheet-list" id="ampList"></div>
         <div class="sheet-divider"></div>
         <div class="source-option manual-entry-row" onclick="showManualEntry()">
@@ -1230,9 +1345,7 @@
   const amplifiers = [
     {name:'My Devialet', modelName:'Devialet Expert 140 Pro', ip:'192.168.0.22', connected:true, online:true},
     {name:'Living Room Expert', modelName:'Devialet Expert 220 Pro', ip:'192.168.0.31', connected:false, online:true},
-    {name:'Studio Phantom', modelName:null, ip:'192.168.0.44', connected:false, online:true}, // model unresolved - fallback example
-    {name:'Office Expert', modelName:'Devialet Expert 140 Pro', ip:'192.168.0.57', connected:false, online:false, lastSeen:'2 min ago'},
-    {name:null, modelName:null, ip:'192.168.0.63', connected:false, online:false, manual:true, lastSeen:null}
+    {name:'Office Expert', modelName:'Devialet Expert 140 Pro', ip:'192.168.0.57', connected:false, online:false, lastSeen:'2 min ago'}
   ];
   function ampReachable(){
     if (!ampConnected) return false;
@@ -1268,13 +1381,14 @@
       const selected = ampConnected && a.connected;
       const offline = !(a.online !== false && !a.connecting);
       const title = a.modelName || a.name || a.ip;
-      let base = a.modelName ? `${a.name} · ${a.ip}` : (title === a.ip ? '' : a.ip);
+      let base = title === a.ip ? '' : a.ip;   // v47: model name above, IP only below (no friendly name)
       let status = '';
       if (offline){
         base = title === a.ip ? '' : a.ip;
         status = selected ? ampWaitingText(a) : (a.lastSeen ? `Last seen ${a.lastSeen}` : 'Not seen yet');
       } else if (!base){ base = 'Online'; }
-      const sub = [base, status ? `<span class="amp-status">${status}</span>` : ''].filter(Boolean).join(' · ');
+      const statusHtml = status ? `<span class="amp-status">${status}</span>` : '';
+      const sub = [base, statusHtml].filter(Boolean).join(' · ');   // v47: IP first on every row
       const div = document.createElement('div');
       div.className = 'amp-option' + (selected ? ' connected' : '') + (offline ? ' offline' : '');
       div.innerHTML = `<div class="amp-dot"></div>
@@ -1367,7 +1481,7 @@
       label.textContent = 'Power Off';
       icon.style.display = '';
       spinner.style.display = 'none';
-      if (active) sub.textContent = active.ip + ' · Connected';
+      if (active) sub.textContent = active.ip;  // alternate: no ' · Connected' (dot + live power button say it; saves width)
     } else if (state === 'off'){
       btn.classList.add('state-off');
       label.textContent = 'Power On';
@@ -1377,7 +1491,7 @@
       // The remote is still reachable over UDP while the amp itself is
       // powered down — "Connected" describes that link, not the amp's
       // power state, so it stays even though the amp is off.
-      if (active) sub.textContent = active.ip + ' · Connected';
+      if (active) sub.textContent = active.ip;  // alternate: no ' · Connected' (dot + live power button say it; saves width)
     } else if (state === 'booting'){
       btn.classList.add('state-booting');
       label.textContent = 'Powering on…';
@@ -1432,7 +1546,7 @@
     document.getElementById('deviceDot').classList.toggle('none', !ampConnected);
     document.getElementById('deviceInfo').classList.toggle('dim', !ampConnected);
     document.getElementById('deviceName').textContent = ampConnected ? (active.modelName || active.name || active.ip) : 'No Amplifier';
-    document.getElementById('deviceSub').textContent = ampConnected ? (active.ip + ' · Connected') : 'Tap to connect';
+    document.getElementById('deviceSub').textContent = ampConnected ? active.ip : 'Tap to connect';
     document.getElementById('sourceSheetSub').textContent = ampConnected ? (active.modelName || active.name || active.ip) : 'No amplifier connected';
 
     document.getElementById('actionRow').classList.toggle('disabled-overlay', !ampReachable());
@@ -1491,7 +1605,7 @@
   function showAmpList(){
     kbOpen(false);
     document.getElementById('ampManualView').style.display = 'none';
-    document.getElementById('ampListView').style.display = 'block';
+    document.getElementById('ampListView').style.display = '';  // v45: let CSS keep it a flex column
   }
   function connectManualIp(){
     const val = document.getElementById('manualIpInput').value.trim();
@@ -1654,6 +1768,27 @@
     else if (k === 'ok') connectManualIp();
     else i.value += k;
   }
+  // ---- alternate v47c: the dial absorbs spare height (Flutter: LayoutBuilder) ----
+  // Measure the spare height with the dial at its base 220, then grow the
+  // dial into it, leaving a little breathing room above Source. Capped at
+  // 88% of the content width and 300 px.
+  function fitDial(){
+    const phone = document.querySelector('.phone');
+    phone.style.setProperty('--dial-size', '220px');
+    phone.style.setProperty('--dial-k', '1');
+    const spare = document.getElementById('fillSpacer').getBoundingClientRect().height;
+    const content = document.getElementById('dialWrap').parentElement;
+    const cs = getComputedStyle(content);
+    const innerW = content.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const KEEP_GAP = 24;
+    const size = Math.round(Math.max(220, Math.min(220 + spare - KEEP_GAP, innerW * 0.88, 300)));
+    phone.style.setProperty('--dial-size', size + 'px');
+    phone.style.setProperty('--dial-k', (size / 220).toFixed(3));
+  }
+  fitDial();
+  window.addEventListener('resize', fitDial);
+  window.addEventListener('load', fitDial);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitDial);
 </script>
 
 </body>

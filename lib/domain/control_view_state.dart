@@ -218,13 +218,13 @@ class ControlViewState {
   /// |------------------------|-----------------------------------------------|-----------------|
   /// | dial drag / snap       | `VolumeDial.enabled` + `DimmedGroup(dialWrap)` | `setVolumeDb`   |
   /// | VOL − / +              | `VolumeButtons.enabled` + `DimmedGroup(dialWrap)` | `stepVolume` |
-  /// | mute                   | `MuteButton.enabled` + two `DimmedGroup`s      | `toggleMute`    |
+  /// | mute                   | `VolumeButtons.enabled` + `DimmedGroup(dialWrap)` | `toggleMute` |
   /// | power                  | `PowerButton.enabled` ([powerCommandAllowed])  | `togglePower`   |
   /// | source trigger         | `DimmedGroup(sourceTrigger, blockTaps: hasAmp)` | — (`openSheet`, ungated: the empty-state sheet is reachable with no amp) |
   /// | source sheet rows      | `DimmedGroup(sourceRows)` + row `enabled`      | `selectSource`  |
   /// | sheet open / close     | trigger gates above; every route completion writes back | `openSheet` / `closeSheet` (not amp commands); the source sheet auto-closes on the On→not-On edge (3.8.2) |
   /// | amp sheet rows / None / manual IP | none, by design                     | none — selection is not an amp command |
-  /// | device card, gear      | always live (open a sheet / Settings)          | —               |
+  /// | device card, gear      | always live (open a sheet / Settings); the card's power circle is its own target (`AdaptivePressable.overlay`), dimmed + absorbing without an amp | — |
   /// | VOL ± screen-reader tap (no pointer) | `AdaptivePressable.enabled` nulls `onTap` | `stepVolume` (3.6.1) |
   /// | hardware keys / Shortcuts / Actions | none exist                        | —               |
   /// | debug bar              | `kDebugMode`; drives `ingest`, not intents     | bypassed by design |

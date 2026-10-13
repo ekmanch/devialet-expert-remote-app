@@ -5,8 +5,10 @@ import 'package:flutter/widgets.dart';
 import '../../domain/control_view_state.dart';
 import '../platform/adaptive_pressable.dart';
 import '../theme/app_theme.dart';
+import '../widgets/check_mark.dart';
 import '../widgets/dimmed_group.dart';
 import 'control_keys.dart';
+import 'power_button.dart';
 
 enum DeviceDotState { connected, off, none, booting, waiting }
 
@@ -183,18 +185,38 @@ class _DashedRingPainter extends CustomPainter {
 }
 
 /// The amp card: whole row is the tap target (TODO 2.0.2). Shows
-/// `model ?? name`, the IP with a status word, and the dot. "Connected"
-/// describes the UDP link, so it stays while the amp is Off. While
-/// *waiting* (Task 3.9.0, v44) the selection stays named, the dot is the
-/// pulsing accent ring and the status word — "Reconnecting…" for an amp
-/// heard before, "Connecting…" for one never heard — is the accent colour,
+/// `model ?? name`, the IP, the dot — and, on the alternate layout, the
+/// power circle (v44b): the card is two tap targets, "the amp area opens
+/// the amp sheet" (dot, name, chevron) and "the circle is power", split by
+/// a hairline. The subtitle is the bare IP while On or Off (the dot
+/// carries the link state; "· Connected" went with v44b). While *waiting*
+/// (Task 3.9.0, v44) the selection stays named, the dot is the pulsing
+/// accent ring and the status word — "Reconnecting…" for an amp heard
+/// before, "Connecting…" for one never heard — is the accent colour,
 /// followed by the IP only when the amp has a name of its own (a typed IP
 /// is already the title).
+///
+/// The power circle is the pressable's `overlay`, so a press on it never
+/// opens the sheet nor plays the card's press feedback; while no amp is
+/// selected or the amp is waiting it dims to 0.35 and *absorbs* its taps
+/// (owner decision 2026-09-26). The row reserves the circle's slot with a
+/// same-size placeholder and the overlay is inset by the card's own
+/// padding + border, from the same constants, so the two cannot drift.
 class DeviceCard extends StatelessWidget {
-  const DeviceCard({super.key, required this.state, required this.onTap});
+  const DeviceCard({super.key, required this.state, required this.onTap, required this.onPower});
 
   final ControlViewState state;
   final VoidCallback onTap;
+  final VoidCallback onPower;
+
+  /// `.device-card{padding:14px 16px; border:1px; gap:8px}` (alternate
+  /// v44b: 8, was 12) and the `.card-divider` 1 × 30. `Container` adds the
+  /// border to the padding, so content starts at padding + border.
+  static const double paddingH = 16;
+  static const double paddingV = 14;
+  static const double borderWidth = 1;
+  static const double gap = 8;
+  static const double dividerHeight = 30;
 
   static DeviceDotState dotStateFor(ControlViewState s) {
     if (s.isWaiting) return DeviceDotState.waiting;
@@ -218,7 +240,7 @@ class DeviceCard extends StatelessWidget {
     if (amp == null) return 'Tap to connect';
     if (s.isWaiting) return amp.name.isEmpty ? waitingStatusFor(amp) : '${waitingStatusFor(amp)} · ${amp.ip}';
     if (s.power == PowerPhase.booting) return 'Booting…';
-    return '${amp.ip} · Connected';
+    return amp.ip;
   }
 
   static TextSpan subtitleSpanFor(ControlViewState s, TextStyle base, Color accent) {
@@ -243,18 +265,37 @@ class DeviceCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       pressedScale: 0.97,
       pressedOpacity: 0.85,
+      overlay: Align(
+        alignment: Alignment.centerRight,
+        child: Padding(
+          padding: const EdgeInsets.only(right: paddingH + borderWidth),
+          child: DimmedGroup(
+            key: ControlKeys.powerButton,
+            // `.device-dot.none / .waiting` → `.card-power{opacity:.35}`.
+            dimmed: !state.hasAmp,
+            opacity: 0.35,
+            absorb: true,
+            child: PowerButton(
+              power: state.power,
+              hasAmp: state.hasAmp,
+              enabled: state.powerEnabled,
+              onTap: onPower,
+            ),
+          ),
+        ),
+      ),
       builder: (context, pressed) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: paddingH, vertical: paddingV),
         decoration: BoxDecoration(
           color: t.surface,
-          border: Border.all(color: t.divider),
+          border: Border.all(color: t.divider, width: borderWidth),
           borderRadius: BorderRadius.circular(18),
           boxShadow: t.cardShadow,
         ),
         child: Row(
           children: [
             DeviceDot(key: ControlKeys.deviceDot, state: dotStateFor(state)),
-            const SizedBox(width: 12),
+            const SizedBox(width: gap),
             Expanded(
               child: DimmedGroup(
                 // Only "No Amplifier" is dim; a waiting selection is named at
@@ -298,8 +339,18 @@ class DeviceCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Text('Change ›', style: theme.type.body(size: 14, color: t.textFaint)),
+            const SizedBox(width: gap),
+            ChevronMark(color: t.textFaint),
+            const SizedBox(width: gap),
+            SizedBox(
+              key: ControlKeys.deviceDivider,
+              width: 1,
+              height: dividerHeight,
+              child: ColoredBox(color: t.divider),
+            ),
+            const SizedBox(width: gap),
+            // The power circle's slot; the circle itself is the overlay.
+            const SizedBox.square(dimension: kPowerButtonSize),
           ],
         ),
       ),

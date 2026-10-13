@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:devialet_expert_remote_app/config/ui_variant.dart';
 import 'package:devialet_expert_remote_app/ui/control/control_keys.dart';
 import 'package:devialet_expert_remote_app/ui/control/volume_buttons.dart';
+import 'package:devialet_expert_remote_app/ui/theme/app_tokens.dart';
+import 'package:devialet_expert_remote_app/ui/widgets/stroke_icons.dart';
 
 import 'support/pump_control.dart';
 
@@ -26,7 +28,8 @@ class _HostState extends State<_Host> {
   void set(bool value) => setState(() => enabled = value);
 
   @override
-  Widget build(BuildContext context) => VolumeButtons(enabled: enabled, onMinus: widget.onMinus, onPlus: widget.onPlus);
+  Widget build(BuildContext context) =>
+      VolumeButtons(enabled: enabled, onMinus: widget.onMinus, onPlus: widget.onPlus, isMuted: false, onMute: () {});
 }
 
 /// Task 3.5.1: the VOL −/+ buttons are inert by their own `enabled` flag,
@@ -39,14 +42,83 @@ class _HostState extends State<_Host> {
 /// constants, `kVolumeHoldDelay` / `kVolumeRepeatInterval`), release stops,
 /// a bound (`false` from the step) ends the chain, disabling mid-hold
 /// stops it, and a screen reader's tap (no pointer) still steps once.
+///
+/// Alternate v47b/v47c: mute is the middle circle — its icon is always the
+/// muted speaker and only the circle's colours say "active"; the circles
+/// have no text, so the semantics labels are checked here. Red proofs (run
+/// once, 2026-09-26): returning the divider border while muted fails
+/// "accent while muted"; swapping the icon per state fails "icon constant".
 void main() {
+  Widget row({required bool enabled, required bool isMuted, VoidCallback? onMute, UiVariant variant = UiVariant.android}) =>
+      themed(
+        VolumeButtons(enabled: enabled, onMinus: () => true, onPlus: () => true, isMuted: isMuted, onMute: onMute ?? () {}),
+        variant: variant,
+      );
+  AnimatedContainer muteCircle(WidgetTester tester) => tester.widget<AnimatedContainer>(
+    find.descendant(of: find.byKey(ControlKeys.muteButton), matching: find.byType(AnimatedContainer)),
+  );
+  StrokeIcon muteIcon(WidgetTester tester) => tester.widget<StrokeIcon>(
+    find.descendant(of: find.byKey(ControlKeys.muteIcon), matching: find.byType(StrokeIcon)),
+  );
+
+  group('mute circle (v47b)', () {
+    testWidgets('the icon is the muted speaker in both states; the accent colours mark active', (tester) async {
+      final t = AppTokens.dark;
+      await tester.pumpWidget(row(enabled: true, isMuted: false));
+      expect(muteIcon(tester).kind, StrokeIconKind.speakerMuted);
+      expect(muteIcon(tester).color, t.text);
+      var d = muteCircle(tester).decoration! as BoxDecoration;
+      expect((d.color, (d.border! as Border).top.color, d.shape), (t.surface, t.divider, BoxShape.circle));
+
+      await tester.pumpWidget(row(enabled: true, isMuted: true));
+      expect(muteIcon(tester).kind, StrokeIconKind.speakerMuted, reason: 'the icon names the function, not the state');
+      expect(muteIcon(tester).color, t.copperBright);
+      d = muteCircle(tester).decoration! as BoxDecoration;
+      expect((d.color, (d.border! as Border).top.color), (t.accentTint(0.14), t.copperDim));
+    });
+
+    testWidgets('semantics: "Mute" / "Unmute" with the toggled state; −/+ are "Volume down" / "Volume up"', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(row(enabled: true, isMuted: false));
+      expect(tester.getSemantics(find.byKey(ControlKeys.muteButton)), isSemantics(label: 'Mute', isButton: true, isToggled: false, hasTapAction: true));
+      expect(tester.getSemantics(find.byKey(ControlKeys.volMinus)), isSemantics(label: 'Volume down', isButton: true, hasTapAction: true));
+      expect(tester.getSemantics(find.byKey(ControlKeys.volPlus)), isSemantics(label: 'Volume up', isButton: true, hasTapAction: true));
+      await tester.pumpWidget(row(enabled: true, isMuted: true));
+      expect(tester.getSemantics(find.byKey(ControlKeys.muteButton)), isSemantics(label: 'Unmute', isToggled: true));
+      handle.dispose();
+    });
+
+    for (final variant in UiVariant.values) {
+      testWidgets('${variant.name}: disabled mute swallows the tap; enabled fires once', (tester) async {
+        var taps = 0;
+        await tester.pumpWidget(row(enabled: false, isMuted: false, onMute: () => taps++, variant: variant));
+        await tester.tap(find.byKey(ControlKeys.muteButton));
+        expect(taps, 0);
+        await tester.pumpWidget(row(enabled: true, isMuted: false, onMute: () => taps++, variant: variant));
+        await tester.tap(find.byKey(ControlKeys.muteButton));
+        expect(taps, 1);
+      });
+    }
+
+    testWidgets('geometry: three 66 dp circles, 34 dp apart, 26 dp icons (v47c)', (tester) async {
+      await tester.pumpWidget(row(enabled: true, isMuted: false));
+      for (final key in [ControlKeys.volMinus, ControlKeys.muteButton, ControlKeys.volPlus]) {
+        expect(tester.getSize(find.byKey(key)), const Size(66, 66), reason: '$key');
+      }
+      expect(tester.getRect(find.byKey(ControlKeys.muteButton)).left - tester.getRect(find.byKey(ControlKeys.volMinus)).right, 34);
+      expect(tester.getRect(find.byKey(ControlKeys.volPlus)).left - tester.getRect(find.byKey(ControlKeys.muteButton)).right, 34);
+      expect(tester.getSize(find.byKey(ControlKeys.muteIcon)), const Size(26, 26));
+      expect(muteIcon(tester).strokeWidth, 1.8);
+    });
+  });
+
   for (final variant in UiVariant.values) {
     testWidgets('disabled VOL buttons swallow taps by themselves (${variant.name})', (tester) async {
       var minus = 0;
       var plus = 0;
       await tester.pumpWidget(
         themed(
-          VolumeButtons(enabled: false, onMinus: () => ++minus > 0, onPlus: () => ++plus > 0),
+          VolumeButtons(enabled: false, onMinus: () => ++minus > 0, onPlus: () => ++plus > 0, isMuted: false, onMute: () {}),
           variant: variant,
         ),
       );
@@ -63,7 +135,7 @@ void main() {
       var plus = 0;
       await tester.pumpWidget(
         themed(
-          VolumeButtons(enabled: true, onMinus: () => ++minus > 0, onPlus: () => ++plus > 0),
+          VolumeButtons(enabled: true, onMinus: () => ++minus > 0, onPlus: () => ++plus > 0, isMuted: false, onMute: () {}),
           variant: variant,
         ),
       );
@@ -77,7 +149,7 @@ void main() {
     testWidgets('hold: one step at once, then at 300, 400, 500 ms; release stops (${variant.name})', (tester) async {
       var plus = 0;
       await tester.pumpWidget(
-        themed(VolumeButtons(enabled: true, onMinus: () => true, onPlus: () => ++plus > 0), variant: variant),
+        themed(VolumeButtons(enabled: true, onMinus: () => true, onPlus: () => ++plus > 0, isMuted: false, onMute: () {}), variant: variant),
       );
       final gesture = await tester.startGesture(tester.getCenter(find.byKey(ControlKeys.volPlus)));
       await tester.pump();
@@ -99,7 +171,7 @@ void main() {
     testWidgets('a step that reports "did not move" ends the hold at the bound (${variant.name})', (tester) async {
       var calls = 0;
       await tester.pumpWidget(
-        themed(VolumeButtons(enabled: true, onMinus: () => true, onPlus: () => ++calls < 3), variant: variant),
+        themed(VolumeButtons(enabled: true, onMinus: () => true, onPlus: () => ++calls < 3, isMuted: false, onMute: () {}), variant: variant),
       );
       final gesture = await tester.startGesture(tester.getCenter(find.byKey(ControlKeys.volPlus)));
       await tester.pump();
@@ -139,7 +211,7 @@ void main() {
       final handle = tester.ensureSemantics();
       var plus = 0;
       await tester.pumpWidget(
-        themed(VolumeButtons(enabled: true, onMinus: () => true, onPlus: () => ++plus > 0), variant: variant),
+        themed(VolumeButtons(enabled: true, onMinus: () => true, onPlus: () => ++plus > 0, isMuted: false, onMute: () {}), variant: variant),
       );
       // The tap action lives on the variant's own gesture widget (InkWell /
       // GestureDetector), not on the keyed wrapper.

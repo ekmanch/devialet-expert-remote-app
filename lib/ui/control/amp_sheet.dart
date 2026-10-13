@@ -14,17 +14,21 @@ import 'control_keys.dart';
 import 'device_card.dart';
 import 'manual_entry_glyph.dart';
 
-/// "Choose Amplifier" (TODO 2.0.3, Task 3.9.0 / v44): "None" first
-/// (italic, dashed dot, "Don't connect to any amplifier"), divider, the
-/// responding amps (`model ?? name`, "· name unresolved" when only the UDP
-/// name is known), then — under a quiet "NOT RESPONDING" label — every
-/// amp known but silent (hollow ring, dimmed, "Last seen …"; the chosen
-/// one keeps its check with a pulsing accent ring and "Reconnecting…"),
-/// and the never-heard selection ("Connecting…", tagged MANUAL when it
-/// was typed here); then "Enter IP Manually", which swaps to the entry
-/// view inside the same sheet. The list is live: it re-derives from the
-/// owner on every broadcast and tick. Stateful so the draft survives a
-/// resize.
+/// "Choose Amplifier" (TODO 2.0.3, Task 3.9.0 / v44, mainline v45–v47):
+/// "None" first (italic, dashed dot, "Don't connect to any amplifier"),
+/// divider, the responding amps (title `model ?? name ?? ip`, the IP
+/// alone underneath — v47 dropped the friendly name and the "name
+/// unresolved" marker; a row titled by its IP reads "Online"), then —
+/// under a quiet "NOT RESPONDING" label — every amp known but silent
+/// (hollow ring, dimmed, "Last seen …"; the chosen one keeps its check
+/// with a pulsing accent ring and "Reconnecting…"), and the never-heard
+/// selection ("Connecting…", tagged MANUAL when it was typed here). That
+/// list scrolls inside the sheet (v45) with a fade at its foot; the
+/// divider and "Enter IP Manually" are pinned below it, always visible,
+/// and swap to the entry view inside the same sheet. Only the selected
+/// row carries a tick; the others give the subtitle the full width (v47).
+/// The list is live: it re-derives from the owner on every broadcast and
+/// tick. Stateful so the draft survives a resize.
 class AmpSheet extends ConsumerStatefulWidget {
   const AmpSheet({super.key});
 
@@ -34,6 +38,33 @@ class AmpSheet extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<AmpSheet> createState() => _AmpSheetState();
+
+  /// The plain part of a row's second line (mockup `renderAmps()` `base`,
+  /// v47: "model name above, IP only below, no friendly name"): the ip, or
+  /// nothing when the ip is already the title — except an online row
+  /// titled by its ip, which reads "Online" so the line is never empty.
+  /// Joined to [statusFor] with " · " by the row.
+  static String subtitleFor(AmpRef amp, {required bool selected}) {
+    final base = amp.displayName == amp.ip ? '' : amp.ip;
+    if (amp.online && base.isEmpty) return 'Online';
+    return base;
+  }
+
+  /// The accent-coloured status of a silent row: the waiting word for the
+  /// selection, "Last seen …" for the rest. `null` for an online row.
+  static String? statusFor(AmpRef amp, {required bool selected}) {
+    if (amp.online) return null;
+    if (selected) return DeviceCard.waitingStatusFor(amp);
+    return 'Last seen ${lastSeenLabel(amp.silentFor ?? Duration.zero)}';
+  }
+
+  /// The quantized silence (`AmpRef.silentFor`) as the mockup prints it.
+  static String lastSeenLabel(Duration silentFor) {
+    if (silentFor < const Duration(minutes: 1)) return 'just now';
+    if (silentFor < const Duration(hours: 1)) return '${silentFor.inMinutes} min ago';
+    return '${silentFor.inHours} h ago';
+  }
+
 }
 
 class _AmpSheetState extends ConsumerState<AmpSheet> {
@@ -66,14 +97,55 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
     popWhenSlotLeaves(ref, context, SheetKind.amp);
     return SheetScaffold(
       title: _showManual ? 'Enter IP Address' : 'Choose Amplifier',
-      subtitle: _showManual ? 'Connect to an amplifier by its address' : 'Amplifiers found on your network',
+      subtitle: _showManual ? 'Connect to an amplifier by its address' : 'Listening for amplifiers',
       // The entry view's way back is a bare chevron beside the title (the
       // owner's 2026-09-23 mockup update), not a "Back to list" line.
       onBack: _showManual ? () => setState(() => _showManual = false) : null,
       backKey: ControlKeys.sheetBack,
       // The listening arcs only exist (and so only animate) on the list view.
       subtitleLeading: _showManual ? null : const ListeningArcs(),
+      bodyFade: _showManual ? null : listFade,
+      footer: _showManual ? null : _buildManualRow(context),
       child: _showManual ? _buildManual(context) : _buildList(context, state),
+    );
+  }
+
+  /// v45: `mask-image: linear-gradient(to bottom, #000 calc(100% - 14px), transparent)`.
+  static const double listFade = 14;
+
+  /// The pinned foot of the list view: divider + "Enter IP Manually".
+  Widget _buildManualRow(BuildContext context) {
+    final theme = AppTheme.of(context);
+    final t = theme.tokens;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(height: 1, color: t.divider, margin: const EdgeInsets.symmetric(vertical: 6)),
+        AdaptivePressable(
+          key: ControlKeys.ampManualRow,
+          onTap: () => setState(() => _showManual = true),
+          borderRadius: BorderRadius.circular(12),
+          builder: (context, pressed) => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
+            decoration: BoxDecoration(
+              color: pressed ? t.surface2 : null,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: _AmpRow.leadingBox,
+                  height: 32,
+                  child: Center(child: ManualEntryGlyph(size: 15)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Enter IP Manually', style: theme.type.body(size: 15, color: t.text))),
+                const ChevronMark(),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -110,8 +182,8 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
           color: selected ? t.copperBright : t.text,
         ),
         tag: amp.manual ? 'Manual' : null,
-        subtitle: subtitleFor(amp, selected: selected),
-        status: statusFor(amp, selected: selected),
+        subtitle: AmpSheet.subtitleFor(amp, selected: selected),
+        status: AmpSheet.statusFor(amp, selected: selected),
         onTap: () {
           notifier.selectAmp(amp);
           Navigator.of(context).pop();
@@ -120,6 +192,7 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
     }
 
     return Column(
+      key: ControlKeys.ampList,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _AmpRow(
@@ -155,57 +228,8 @@ class _AmpSheetState extends ConsumerState<AmpSheet> {
           const _AmpGroupLabel('Not responding'),
           for (final amp in silent) row(amp),
         ],
-        if (state.knownAmps.isNotEmpty) divider(),
-        AdaptivePressable(
-          onTap: () => setState(() => _showManual = true),
-          borderRadius: BorderRadius.circular(12),
-          builder: (context, pressed) => Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
-            decoration: BoxDecoration(
-              color: pressed ? t.surface2 : null,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const SizedBox(
-                  width: _AmpRow.leadingBox,
-                  height: 32,
-                  child: Center(child: ManualEntryGlyph(size: 15)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: Text('Enter IP Manually', style: theme.type.body(size: 15, color: t.text))),
-                const ChevronMark(),
-              ],
-            ),
-          ),
-        ),
       ],
     );
-  }
-
-  /// The plain part of a row's second line (mockup `renderAmps()` `base`):
-  /// online and resolved → "name · ip"; online and unresolved → "ip · name
-  /// unresolved" (TODO 2.0.3, kept: a broken mDNS must look broken,
-  /// checklist 26); silent → the ip, or nothing when the ip is already the
-  /// title. Joined to [statusFor] with " · " by the row.
-  static String subtitleFor(AmpRef amp, {required bool selected}) {
-    if (amp.online) return amp.isResolved ? '${amp.name} · ${amp.ip}' : '${amp.ip} · name unresolved';
-    return amp.displayName == amp.ip ? '' : amp.ip;
-  }
-
-  /// The accent-coloured status of a silent row: the waiting word for the
-  /// selection, "Last seen …" for the rest. `null` for an online row.
-  static String? statusFor(AmpRef amp, {required bool selected}) {
-    if (amp.online) return null;
-    if (selected) return DeviceCard.waitingStatusFor(amp);
-    return 'Last seen ${lastSeenLabel(amp.silentFor ?? Duration.zero)}';
-  }
-
-  /// The quantized silence (`AmpRef.silentFor`) as the mockup prints it.
-  static String lastSeenLabel(Duration silentFor) {
-    if (silentFor < const Duration(minutes: 1)) return 'just now';
-    if (silentFor < const Duration(hours: 1)) return '${silentFor.inMinutes} min ago';
-    return '${silentFor.inHours} h ago';
   }
 
   Widget _buildManual(BuildContext context) {
@@ -378,10 +402,9 @@ class _AmpRow extends StatelessWidget {
                 ),
               ),
             ),
-            Opacity(
-              opacity: selected ? 1 : 0,
-              child: const CheckMark(),
-            ),
+            // v47: no reserved tick space on unselected rows — the
+            // subtitle gets the full width.
+            if (selected) const CheckMark(),
           ],
         ),
       ),
