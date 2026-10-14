@@ -1,15 +1,10 @@
 # Known Gotchas — Bug History
 
-Every commit in this repo's history (26 total) that fixed a real bug, safety
-issue, or UX-breaking race condition, found via `git log --oneline` +
-`git show` on each candidate. Based on `main` @ `743aa71`. No automated tests
-exist in this repo, so all of these were presumably caught by hand-testing
-against a physical amp.
-
-Items #8 and #9 were added on 2026-09-15 from the KDE Plasma widget
-(`devialet-expert-remote-kde`, `docs/known-gotchas.md`, measured on the real
-amp with raw UDP captures); they are amp-firmware behaviour, not Kotlin bugs,
-and the numbering is shared across both repos and referenced by
+Bugs that must not be reintroduced, shared across the three ports. #1–#7
+come from the Kotlin app's history (`main` @ `743aa71`, caught by hand
+against the amp); #8–#10 were found in the KDE widget
+(`devialet-expert-remote-kde`), #8/#9 measured on the real amp with raw UDP
+captures. The numbering is the same in both repos and is referenced by
 `docs/protocol.md` and the PR review checklist in `CLAUDE.md`.
 
 ## 1. Volume jump/jerk after releasing VOL +/- buttons — [Control]
@@ -164,10 +159,9 @@ and the numbering is shared across both repos and referenced by
   setting with default **−10.0 dB** (the KDE widget's value), alongside a
   floor (−50.0) and a startup volume (−40.0), enforced inside the command
   constructor as a *required* parameter. The safety rationale stands; only
-  the number and where it lives change. `VolumeCodec.defaultSafetyMaxDb`
-  is still −15.0 until Task 3.4.7 / 3.4.8 in `TODO.md` (the required
-  parameter is Task 1.1.3) — change it there, once, together with the UI
-  range and the test that pins it.
+  the number and where it lives change. Done in Tasks 3.4.7 / 3.4.8:
+  `VolumeCodec.defaultSafetyMaxDb` is gone and the settings ceiling is
+  passed as a required `maxDb` parameter (Task 1.1.3).
 
 ## 7. Lint: touch-handling didn't call `performClick()`, breaking accessibility semantics — [Control]
 
@@ -299,6 +293,32 @@ and the numbering is shared across both repos and referenced by
   tests. **Verified on this app 2026-09-21:** the send left at
   +555…+615 ms after the app's first On packet and the amp applied it by
   the +800 ms broadcast, 5/5 (`docs/protocol-verification-2026-09-21-boot.md`).
+
+## 10. Controls stayed live while the amp was Off or Booting, and a drag snapped back — [Control]
+
+- **Symptom:** during a boot the volume slider looked live, and a drag
+  jumped back to the pre-power-off value within half a second. With the
+  amp off, the mute button and the source row were live too.
+- **Root cause:** the amp drops commands while Off or Booting (#9 shows
+  drops even 2 ms after "On"). Nothing confirms the command, so the
+  400 ms pending mask expires and the display reverts to the amp's real
+  value. The mask was doing its job: every input was gated on "an amp is
+  selected" alone, so the client offered controls the amp could not act
+  on.
+- **Fix (KDE widget, Phase 8.0.1 follow-up, commit `6df836c` there):**
+  every input except power requires the amp to be On: the slider, −/+,
+  mute, the source row, the panel wheel, middle-click and the settings
+  clamp. They dim to 0.4 and keep their last-known labels; the power
+  button stays live while Off and is disabled while Booting. An open
+  source list closes when power leaves On.
+- **In this app:** Task 3.5.1 routes every entry point through
+  `ControlViewState.commandsAllowed` (`hasAmp && power == PowerPhase.on`),
+  gated at the widget and the owner; the source sheet closes on the
+  On → not-On edge (Task 3.8.2).
+- **Watch out for this:** when adding a precondition, enumerate every
+  entry point (buttons, drag, wheel, keys, screen-reader actions,
+  settings side effects) and gate them all; disable the control, don't let
+  the command fail (checklist item 6).
 
 ## Non-bugs worth knowing about (deliberate behavior, not defects)
 
