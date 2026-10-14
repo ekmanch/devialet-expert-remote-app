@@ -177,7 +177,7 @@ Every command below is **[Control]**. There are no Sound-tab wire commands
 command does not unmute**. The KDE widget relies on this to correct a muted
 amp's volume (e.g. after a ceiling change) without unmuting it. Any
 "auto-unmute on volume change" behaviour is a client decision layered on
-top (see TODO.md, volume interaction), not a wire effect. A source switch
+top (the app does it on a user volume change, Task 3.6.5), not a wire effect. A source switch
 does not touch mute either — the app sends none (2026-09-24, 17/17).
 
 **Testing note (2026-09-24):** the mute bit only follows a `mute on` while

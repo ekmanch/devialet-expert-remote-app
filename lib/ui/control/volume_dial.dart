@@ -61,7 +61,7 @@ class VolumeDial extends StatefulWidget {
   /// settings like the range — required so no call site can forget it.
   /// The grid is anchored at 0 dB, while VOL ± step from the current
   /// value; the two only diverge for an odd floor with a 2 dB step
-  /// (recorded in TODO 3.6.0 as accepted).
+  /// (an accepted divergence, Task 3.6.0).
   final double stepDb;
 
   @override

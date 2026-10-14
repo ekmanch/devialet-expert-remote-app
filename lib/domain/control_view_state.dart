@@ -8,7 +8,7 @@
 library;
 
 /// Three phases (owner's v44 mockups, 2026-09-24, revising the 2026-09-19
-/// "no third presentation" decision recorded at TODO 3.0.8):
+/// "no third presentation" decision of Task 3.0.8):
 ///
 /// - `notConnected`: nothing is selected — the user chose None, or never
 ///   chose and 0 or 2+ amps are known. "No Amplifier / Tap to connect".

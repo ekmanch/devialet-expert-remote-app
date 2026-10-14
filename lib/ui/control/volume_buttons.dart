@@ -13,7 +13,7 @@ import 'control_layout.dart';
 /// after [kVolumeHoldDelay], then one every [kVolumeRepeatInterval], flat.
 /// The numbers are the KDE widget's `Button.autoRepeat` values, which it
 /// in turn copied from the Kotlin app — **not measured** (checklist item
-/// 14; TODO 3.6.1 records the Galaxy S25 feel). Each tick re-arms the
+/// 14; the Galaxy S25 feel is still to be recorded). Each tick re-arms the
 /// owner's 400 ms pending mask, so a stale broadcast never lands in a gap
 /// between sends (gotcha #1 by construction).
 const Duration kVolumeHoldDelay = Duration(milliseconds: 300);

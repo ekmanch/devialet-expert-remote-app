@@ -1,7 +1,7 @@
 # Architecture — the state owner
 
-Written design for Tasks 3.0.x / 3.1.x (TODO.md: "a written design precedes
-any control wiring"). Describes what is implemented as of 2026-09-19 and
+Written design for Tasks 3.0.x / 3.1.x (TODO.md: the state owner is
+designed before any control is wired). Describes what is implemented as of 2026-09-19 and
 the seams left for the tasks that follow. The KDE widget's daemon is the
 reference design; where this doc and `docs/protocol.md` disagree, the
 protocol doc wins on wire facts.

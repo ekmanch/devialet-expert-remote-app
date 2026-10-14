@@ -1,8 +1,8 @@
 import 'dart:async';
 
 /// Settings-stepper hold-to-repeat timings, **from the v19 mockup's JS and
-/// unmeasured** (TODO 3.4.3, checklist item 14): the Galaxy S25 check
-/// records the feel and any change. One step fires at once on press; after
+/// unmeasured** (Task 3.4.3, checklist item 14): record the feel on the
+/// Galaxy S25 before changing them. One step fires at once on press; after
 /// [kStepperHoldDelay] the repeat interval is installed at
 /// [kStepperRepeatStart] (so the first repeat lands at 420 + 140 = 560 ms,
 /// as the mockup's `setInterval`) and shortens by [kStepperRepeatAccel] per

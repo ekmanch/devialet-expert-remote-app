@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 /// Material 3 window width classes. Layout is chosen by the *window*, never
-/// by device type (TODO.md, "Form factors"): a tablet can present a
+/// by device type (CLAUDE.md, "Platforms"): a tablet can present a
 /// phone-width window (Split View, Slide Over, Android split-screen) and
 /// change it at runtime.
 enum WindowWidthClass { compact, medium, expanded }
