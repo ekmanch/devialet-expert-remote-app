@@ -305,15 +305,15 @@ platform-specific.
   pure Dart, zero Flutter imports — verified via
   `grep -rn "package:flutter" lib/networking/`), `lib/domain/` (Riverpod
   providers wrapping the networking layer; `settings/` the persisted
-  settings object and its store), `lib/config/` (cross-cutting
+  settings object and its store; `debug/` the simulated amp for
+  TEST-NET IPs), `lib/config/` (cross-cutting
   app config: the UI variant switch, the window width/height class),
   `lib/platform/` (platform channels — the Android multicast lock, the
   iOS Bonjour source; the only Flutter imports outside `lib/ui/` and
   `main.dart`, not to be confused with `lib/ui/platform/`),
   `lib/ui/` (`theme/` tokens + typography, `platform/` the only widgets
   that branch on the variant, `widgets/` shared primitives, `control/` the
-  Control screen; the debug bar and the Task 1 manual network screen that
-  once lived in `debug/` are gone since 2026-09-23, TODO 2.0.20),
+  Control screen, `settings/` the Settings screen),
   `tool/protocol_probe/` (dev-machine protocol harness, not part of the
   app).
 - Repo/branching: `devialet-expert-remote-app`, feature work on branches like
