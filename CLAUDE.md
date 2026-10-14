@@ -45,8 +45,8 @@ via that URL.
   app, including a section on Android-specific behavior that needs an
   iOS-equivalent design decision in Flutter.
 - `TODO.md` — tracks deferred work (features, bugs, UI updates, pending
-  protocol verification), numbered as Tasks. Treat its "## Numbering"
-  section as the authoritative task order and ordering rationale — don't
+  protocol verification), numbered as Tasks. Treat its opening paragraphs
+  as the authoritative task order and ordering rationale — don't
   maintain a second copy of the plan elsewhere in this file. Check before
   starting new work in case it's already listed; update it (check off
   completed items, add newly discovered ones) as part of your work rather
@@ -254,7 +254,7 @@ platform-specific.
 
 - This is a task-scoped port: Task 1 scaffold+networking (done), Task 2
   Control-screen UI, Task 3 architecture + wiring, Task 4 iOS-specific,
-  Task 5 polish. This ordering lives in `TODO.md`'s "## Numbering" section —
+  Task 5 polish. This ordering lives in `TODO.md`'s opening paragraphs —
   that file is authoritative; don't re-derive or duplicate the plan here.
   Don't jump ahead to UI work before the networking layer is verified
   against the real amp (satisfied as of Task 1).
