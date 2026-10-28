@@ -1,4 +1,6 @@
-<img src="docs/media/gifs/demo.gif" alt="Turning the volume dial on the Control screen, with the amplifier following live. Also shows off source and amp picker." width="300">
+<p align="center">
+    <img src="docs/media/gifs/demo.gif" alt="Turning the volume dial on the Control screen, with the amplifier following live. Also shows off source and amp picker." width="300">
+</p>
 
 *Drag the dial or tap − / + — the dB readout follows the amplifier in real time, including changes made from the physical remote.*
 
