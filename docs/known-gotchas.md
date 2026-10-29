@@ -204,12 +204,18 @@ captures. The numbering is the same in both repos and is referenced by
   in the UDP → daemon → D-Bus path is dropping or lagging anything — the
   broadcast itself is wrong. It does not self-correct: only a volume
   command (any value) makes the broadcast track the real level again.
-- **Fix:** none possible client-side for an externally-triggered
-  power-on. The KDE widget's Phase 8.0.1 sends its configured startup
-  volume ~500 ms after a *widget-initiated* boot confirms, which
-  incidentally re-syncs the broadcast for that path only; a power-on
-  from the physical remote or front panel stays exposed. See #9 for the
-  timing constraint that send has to respect.
+- **Fix:** client-side, by sending a volume command after every
+  observed boot. The KDE widget's Phase 8.0.1 sent its configured
+  startup volume ~500 ms after a *widget-initiated* boot confirmed,
+  which re-synced the broadcast for that path only. Since its Phase 18
+  (2026-10-29) the daemon reports the off → on edge of an amp's status
+  stream as a `BootObserved` D-Bus signal, and the widget arms its
+  post-boot hold and 500 ms startup send on it, so a power-on from the
+  physical remote or front panel is covered too. Every standby boot is
+  now covered on both platforms. A mains cycle is covered on neither:
+  the amp goes silent while still reporting on, so there is no off → on
+  edge to observe. See #9 for the timing constraint that send has to
+  respect.
 - **Watch out for this in Flutter:** do not "fix" a post-boot volume
   mismatch by re-reading status harder — the status *is* the wrong
   value. If the app needs a trustworthy post-boot volume, it has to set
